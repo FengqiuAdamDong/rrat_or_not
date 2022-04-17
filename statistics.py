@@ -5,6 +5,7 @@ from simulate_pulse import simulate_pulses
 from scipy.stats import norm
 from math import comb
 from scipy.special import gammaln
+from multiprocessing import Pool
 def p_detect(snr,decay_rate,lower_cutoff=6):
     #this will just be an exponential rise at some center
     p = 1-np.exp(-1*decay_rate*(snr-lower_cutoff))
@@ -46,7 +47,11 @@ def second(n,mu,std,N):
         p_second_int=1
     return p_second_int*(N-n)
 
-def total_p(mu,std,N,snr_arr):
+def total_p(X):
+    mu = X['mu']
+    std = X['std']
+    N = X['N']
+    snr_arr = X['snr_arr']
     f = first(snr_arr,mu,std)
     s = second(len(snr_arr),mu,std,N)
     # NCn = comb(N,len(snr_arr))
@@ -56,48 +61,58 @@ def total_p(mu,std,N,snr_arr):
     log_NCn = gammaln(N+1)-gammaln(n+1)-gammaln(N-n+1)
     # print(log_NCn,f,s)
     return log_NCn+f+s
+pos_array = []
+for a in range(30):
+    obs_t =180000
+    mu = 0.8
+    std = 0.1
+    p = 2
+    frac = 0.005
+    pulse_snrs = simulate_pulses(obs_t,p,frac,mu,std)
+    det_snr = n_detect(pulse_snrs)
+    # np.save('simulated_pulses_0.65_0.1',[pulse_snrs,det_snr])
+    # pulses = np.load('simulated_pulses_0.65_0.1.npy',allow_pickle=1)
+    # pulse_snrs = pulses[0]
+    # det_snr = pulses[1]
+    print(len(pulse_snrs),len(det_snr))
+    if 1:
+        mesh_size = 100
+        # # create a mesh grid of N, mu and stds
+        mu_arr = np.linspace(mu-0.2,mu+0.2,mesh_size)
+        std_arr = np.linspace(std-0.06,std+0.1,mesh_size+1)
+        N_arr = np.linspace(len(det_snr),(obs_t/p)*0.04,mesh_size+2,dtype=int)
+        mat = np.zeros((mesh_size,mesh_size+1,mesh_size+2))
+        with Pool(50) as p:
+            for i,mu in enumerate(mu_arr):
+                for j,std in enumerate(std_arr):
+                    X = []
+                    for k,N in enumerate(N_arr):
+                        X.append({'mu':mu,'std':std,'N':N,'snr_arr':det_snr})
+                    mat[i,j,:] = p.map(total_p,X)
 
-obs_t =180000
-mu = 0.63
-std = 0.1
-p = 2
-frac = 0.5
-pulse_snrs = simulate_pulses(obs_t,p,frac,mu,std)
-det_snr = n_detect(pulse_snrs)
-# np.save('simulated_pulses_0.65_0.1',[pulse_snrs,det_snr])
-# pulses = np.load('simulated_pulses_0.65_0.1.npy',allow_pickle=1)
-# pulse_snrs = pulses[0]
-# det_snr = pulses[1]
-print(len(pulse_snrs),len(det_snr))
-mesh_size = 100
-# # create a mesh grid of N, mu and stds
-mu_arr = np.linspace(mu-0.2,mu+0.2,mesh_size)
-std_arr = np.linspace(std-0.05,std+0.05,mesh_size+1)
-N_arr = np.linspace(len(det_snr),(obs_t/p)*0.5,mesh_size+2,dtype=int)
-mat = np.zeros((mesh_size,mesh_size+1,mesh_size+2))
-for i,mu in enumerate(mu_arr):
-    print(i)
-    for j,std in enumerate(std_arr):
+        fn = f"d_{a}"
+        print('saving',fn)
+        np.savez(fn,data=mat,mu=mu_arr,std=std_arr,N=N_arr,snrs=pulse_snrs,det=det_snr)
+        mat = mat-np.max(mat)
+        mat = np.exp(mat)
+        # integrate over mu and std
+        posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),std_arr,axis=0)
+        pos_array.append(posterior)
+    else:
+        # create a mesh grid of N, mu and stds
+        mesh_size=10000
+        mu = 0.63
+        std = 0.1
+        N_arr = np.linspace(len(det_snr),(obs_t/p),mesh_size+2,dtype=int)
+        mat = np.zeros(mesh_size+2)
         for k,N in enumerate(N_arr):
-            mat[i,j,k] = total_p(mu,std,N,det_snr)
-np.savez('data',data=mat,mu=mu_arr,std=std_arr,N=N_arr,snrs=pulse_snrs,det=det_snr)
-mat = mat-np.max(mat)
-mat = np.exp(mat)
-# integrate over mu and std
-posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),std_arr,axis=0)
-# create a mesh grid of N, mu and stds
-# mesh_size=10000
-# mu = 0.8
-# std = 0.1
-# N_arr = np.linspace(len(det_snr),2500,mesh_size+2,dtype=int)
-# mat = np.zeros(mesh_size+2)
-# for k,N in enumerate(N_arr):
-#     mat[k] = total_p(mu,std,N,det_snr)
-#     # print(mat[k])
-# mat = mat-np.max(mat)
-# mat = np.exp(mat)
-# posterior = mat
+            mat[k] = total_p({'mu':mu,'std':std,'N':N,'snr_arr':det_snr})
+            # print(mat[k])
+        mat = mat-np.max(mat)
+        mat = np.exp(mat)
+        posterior = mat
 
+np.save('posteriors',pos_array)
 
 plt.plot(N_arr,posterior)
 plt.xlabel('N')
