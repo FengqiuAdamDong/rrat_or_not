@@ -1,0 +1,7 @@
+#+TITLE: Notes
+
+* when it works
+ so it works when you have enough pulses
+ resolution of your grid search is important too
+ works really well if the pulsar is intrinsically Bright
+ even when pulse fraction is small

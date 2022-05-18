@@ -10,20 +10,14 @@ import matplotlib.pyplot as plt
 from presto.filterbank import FilterbankFile, create_filterbank_file
 from presto import spectra as spec
 import copy
+from multiprocessing import Pool
 # define the random number generator
 #np.random.seed(12345)
 
-# TRIAL_SNR = [
-#     1,
-#     2,
-#     3,
-#     4,
-#     5,
-#     6,
-#     7,
-#     8,
+# TRIAL_SNR = [2]
+    # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0,10,200)
+TRIAL_SNR = np.linspace(0,5,100)
 TRIAL_DMS = [
     100,
 ]  # DM of bursts
@@ -100,7 +94,7 @@ def inject_pulses(data, masked_data,header, freqs, pulse_attrs,plot=False):
         per_chan_toa_bins = toa_bin_top + time_to_bin(dm_delays, tsamp)
         stats_start,stats_end = (time_to_bin(p_toa-max_dm_delay,tsamp),time_to_bin(p_toa+max_dm_delay,tsamp))
         print(f"injection TOA:{p_toa}")
-        stats_data = masked_data.data[:,stats_start:stats_end]
+        stats_data = data.data[:,stats_start:stats_end]
         #calculate off pulse std
         masked_mean = np.mean(stats_data,0)
         masked_std = np.std(masked_mean)
@@ -125,49 +119,70 @@ def inject_pulses(data, masked_data,header, freqs, pulse_attrs,plot=False):
         print("rescaling pulses to correct amplitude")
         pulse_wf /= pulse_wf.max(axis=1)[:, np.newaxis]
         pulse_wf *= per_chan_inject_pow
-        pulse_wf += (np.random.rand(pulse_wf.shape[0],pulse_wf.shape[1])-0.5)
+        pulse_wf += (np.random.rand(pulse_wf.shape[0],pulse_wf.shape[1])-0.51)
+        pulse_wf[pulse_wf<0]=0
         pulse_wf = np.around(pulse_wf)
+        #create a spectra object and test
+        pulse_spec = spec.Spectra(data.freqs,data.dt,pulse_wf)
+        pulse_spec.dedisperse(100)
+        pulse_mean = np.mean(pulse_spec.data,axis=0)
         print("combining simulated pulse with data")
         true_start_bin = time_to_bin(p_toa, tsamp) - toa_bin_top
         true_end_bin = true_start_bin + pulse_wf.shape[1]
         print(f"start bin = {true_start_bin}  end bin = {true_end_bin}")
         #we're going to inject to 0
+        #set the bins around the pulse to be the mean
+        per_chan_mean = np.median(stats_data,axis=1)
+        for i,b in enumerate(per_chan_toa_bins):
+            bins_to_reset = width_bins
+            data.data[i,true_start_bin+b-bins_to_reset:true_start_bin+b+bins_to_reset] = per_chan_mean[i]
         data.data[:, true_start_bin:true_end_bin] += pulse_wf
-        statistics.append([masked_std,total_inj_pow])
-        #plotting
-        if False:
-            new_d = copy.copy(data)
-            new_d.dedisperse(dm=100)
-            pulse_bin = int(p_toa/tsamp)
-            d = new_d.data[:,pulse_bin-max_dm_delay_bins:pulse_bin+max_dm_delay_bins]
-            ts = d.mean(axis=0)
-            print(calculate_SNR(ts,tsamp,masked_std,10e-3))
-            plt.plot(ts-ts.mean())
-            plt.show()
 
+    #replot after scaling
     data.data = data.data.astype("uint8")
+    # for i, p in enumerate(pulse_attrs):
+    #     p_toa, p_snr, p_dm = p
+    #     plot_bin = time_to_bin(0.5,tsamp)
+    #     pulse_bin = time_to_bin(p_toa,tsamp)
+    #     #plotting
+    #     new_d = copy.deepcopy(data)
+    #     new_d.dedisperse(dm=p_dm)
+    #     d = new_d.data[:,pulse_bin-plot_bin:pulse_bin+plot_bin]
+    #     ts = d.mean(axis=0)
+
+    #     d_snr,a,s = calculate_SNR(ts,tsamp,masked_std,1e-2,plot_bin)
+    #     print(f"Inj snr:{p_snr} Det snr: {d_snr} Amplitude:{a} std:{s} nsamp:{max_dm_delay_bins}")
+    #     statistics.append([masked_std,total_inj_pow,d_snr])
+        # plt.plot(ts-ts.mean())
+        # plt.figure()
+        # plt.imshow(d,aspect="auto")
+        # plt.show()
 
     return data,statistics
 
-def calculate_SNR(ts,tsamp,std,width):
+def calculate_SNR(ts,tsamp,std,width,nsamp):
     #calculates the SNR given a timeseries
 
-    ind_max = np.argwhere(np.max(ts)==ts)
+    ind_max = nsamp
     w_bin = width/tsamp
-    ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
+    try:
+        ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
+    except:
+        print("ENCOUNTERED ERROR ***")
+        import pdb; pdb.set_trace()
     # ts_std = ts
     mean = np.median(ts_std)
-    # std = np.std(ts_std)
+    std = np.std(ts_std)
     #subtract the mean
     ts_sub = ts-mean
     #remove rms
-    Amplitude = np.max(ts_sub) - np.sqrt(np.mean(ts_sub**2))
+    Amplitude = ts_sub[nsamp]
     snr = Amplitude/std
     # print(np.mean(ts_sub))
     # plt.plot(ts_std)
     # plt.show()
     #area of pulse, the noise, if gaussian should sum, to 0
-    return snr,ts_sub,std
+    return snr,Amplitude,std
 
 def maskfile(maskfn, data, start_bin, nbinsextra,extra_mask):
     from presto import rfifind
@@ -212,7 +227,7 @@ def get_mask(rfimask, startsamp, N):
 
 
 
-def get_filterbank_data_window(fn,maskfn, duration=20,masked_data = None):
+def get_filterbank_data_window(fn,maskfn, duration=20,masked_data = 1):
     """
     Open the filterbank file, extract the spectra around
     the middle (+/- duration / 2) and return that data as a
@@ -230,14 +245,13 @@ def get_filterbank_data_window(fn,maskfn, duration=20,masked_data = None):
     nsamp = stop_bin-start_bin
     # get the data
     _ = filf.get_spectra(start_bin, stop_bin - start_bin)
-    if masked_data ==None:
+    if masked_data == None:
         _copy = copy.copy(_)
         masked_data, masked_chans = maskfile(maskfn, _copy, start_bin, nsamp, False)
         # masked_data = masked_data.data.astype(np.float32)
         # data = _.data.astype(np.float32)
         masked_data.data = masked_data.data[~masked_chans,:]
-
-    data = _
+    data, mc = maskfile(maskfn, _, start_bin, nsamp, False)
     freqs = _.freqs
     # update the header so that it represents the windowed data
     hdr["tstart"] += start / 86400.0  # add in MJD
@@ -246,7 +260,43 @@ def get_filterbank_data_window(fn,maskfn, duration=20,masked_data = None):
 
     return hdr, freqs, data, masked_data
 
+def process(pool_arr):
+    dm,snr,ifn,duration,maskfn,injection_sample,header_,freq_,rawdata_,masked_data_ = pool_arr
+    header = copy.deepcopy(header_)
+    freq = copy.deepcopy(freq_)
+    rawdata = copy.deepcopy(rawdata_)
+    masked_data = copy.deepcopy(masked_data_)
+    print(f"dm={dm} snr={snr}")
+    #figure out what pulses to add
+    add_mask = np.logical_and(
+        injection_sample[:, -1] == dm, injection_sample[:, 1] == snr
+    )
 
+    pulses_to_add = injection_sample[add_mask]
+
+
+    injdata,statistics = inject_pulses(
+        rawdata,
+        masked_data,
+        header,
+        freqs,
+        pulses_to_add,
+    )
+    s = np.array(statistics)
+    # np.save(f"injection_stats_{snr}_{dm}",statistics)
+    # we've done everything with type float32, rescale to uint8
+    header["nbits"] = 8
+
+    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_snr{snr}.fil")
+    print(f"creating output file: {ofn}")
+    # plt.plot(np.mean(injdata,axis=0))
+    # plt.show()
+    # NOTE: the filterbank spectra need to be provided with shape (nspec x nchan),
+    # so we have to transpose the injected array at write time.
+    fbout = create_filterbank_file(
+        ofn, header, injdata.data.T, nbits=header["nbits"]
+    )
+    fbout.close()
 
 if __name__ == "__main__":
 
@@ -288,41 +338,15 @@ if __name__ == "__main__":
     print(f"number of injection DMs: {ndm}")
     print(f"number of injection SNRs: {nsnr}")
 
+    # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
+    print(f"getting data cutout from: {ifn}")
+    #add the pulses
     header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
-
     for dm in TRIAL_DMS:
-        for snr in TRIAL_SNR:
-            print(f"dm={dm} snr={snr}")
-            #figure out what pulses to add
-            add_mask = np.logical_and(
-                injection_sample[:, -1] == dm, injection_sample[:, 1] == snr
-            )
-
-            pulses_to_add = injection_sample[add_mask]
-
-            print(f"getting data cutout from: {ifn}")
-            #add the pulses
-            header, freqs, rawdata,__ = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn,masked_data=masked_data)
-
-            injdata,statistics = inject_pulses(
-                rawdata,
-                masked_data,
-                header,
-                freqs,
-                pulses_to_add,
-            )
-            np.save('injection_stats',statistics)
-            # we've done everything with type float32, rescale to uint8
-            # injdata = scale_to_uint8(injdata)
-            header["nbits"] = 8
-
-            ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_snr{snr}.fil")
-            print(f"creating output file: {ofn}")
-            # plt.plot(np.mean(injdata,axis=0))
-            # plt.show()
-            # NOTE: the filterbank spectra need to be provided with shape (nspec x nchan),
-            # so we have to transpose the injected array at write time.
-            fbout = create_filterbank_file(
-                ofn, header, injdata.data.T, nbits=header["nbits"]
-            )
-            fbout.close()
+        pool_arr = []
+        for s in TRIAL_SNR:
+            pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,header, freqs, rawdata,masked_data))
+        # for p in pool_arr:
+            # process(p)
+        with Pool(5) as p:
+            p.map(process,pool_arr)

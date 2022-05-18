@@ -6,15 +6,7 @@ from presto import filterbank as fb
 from presto import rfifind
 import argparse
 from matplotlib import pyplot as plt
-parser = argparse.ArgumentParser(description='Process filterbank positions')
-parser.add_argument('--base_fil',type=str,help="the filterbank file for the detection")
-parser.add_argument('--t',type=float,help="start time for the observation in the base filterbank file")
-parser.add_argument('--dm',type=float,help="dm in pc/cm^3")
-args = parser.parse_args()
 
-bfb = args.base_fil
-t = args.t
-dm = args.dm
 #we assume that the filterbank files are processed with the automated filterbank pipeline, therefore we need to find the rfi mask file
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
@@ -93,8 +85,8 @@ def grab_spectra(gfb,ts_arr,te_arr,mask_fn_arr,dm):
         data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
         #data.subband(256,subdm=dm,padval='median')
         subband = 256
-        downsamp = 1
-        # data.downsample(int(downsamp))
+        downsamp = 3
+        data.downsample(int(downsamp))
         # data.subband(int(subband))
         # data = data.scaled(False)
         dat_arr = data.data
@@ -102,18 +94,17 @@ def grab_spectra(gfb,ts_arr,te_arr,mask_fn_arr,dm):
         dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
         dat_ts = np.mean(dat_arr,axis=0)
 
-        SNR,ts_sub,std = calculate_SNR(dat_ts,tsamp,10e-3)
-        print(SNR,std)
+        SNR,ts_sub,std = calculate_SNR(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
         plt.plot(ts_sub)
         plt.title(f"{gf} - SNR:{SNR}")
         # plt.figure()
         # plt.imshow(dat_arr,aspect='auto')
         plt.show()
 
-def calculate_SNR(ts,tsamp,width):
+def calculate_SNR(ts,tsamp,width,nsamps):
     #calculates the SNR given a timeseries
 
-    ind_max = np.argwhere(np.max(ts)==ts)
+    ind_max = nsamps
     w_bin = width/tsamp
     ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
     # ts_std = ts
@@ -122,16 +113,27 @@ def calculate_SNR(ts,tsamp,width):
     #subtract the mean
     ts_sub = ts-mean
     #remove rms
-    Amplitude = np.max(ts_sub) - np.sqrt(np.mean(ts_sub**2))
+    Amplitude = ts_sub[nsamps]
     snr = Amplitude/std
+    print(Amplitude,std,snr)
     # print(np.mean(ts_sub))
     # plt.plot(ts_std)
     # plt.show()
     #area of pulse, the noise, if gaussian should sum, to 0
     return snr,ts_sub,std
 
-mask_arr = get_mask_arr([bfb])
-ts_arr = [t-3]
-te_arr = [t+3]
-print(mask_arr,ts_arr,te_arr)
-grab_spectra([bfb],ts_arr,te_arr,mask_arr,dm)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process filterbank positions')
+    parser.add_argument('--base_fil',type=str,help="the filterbank file for the detection")
+    parser.add_argument('--t',type=float,help="start time for the observation in the base filterbank file")
+    parser.add_argument('--dm',type=float,help="dm in pc/cm^3")
+    args = parser.parse_args()
+
+    bfb = args.base_fil
+    t = args.t
+    dm = args.dm
+    mask_arr = get_mask_arr([bfb])
+    ts_arr = [t-3]
+    te_arr = [t+3]
+    print(mask_arr,ts_arr,te_arr)
+    grab_spectra([bfb],ts_arr,te_arr,mask_arr,dm)
