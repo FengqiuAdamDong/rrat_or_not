@@ -124,7 +124,7 @@ class inject_obj():
 
     def calculate_snr_single(self):
             ts = self.toas-3
-            te = self.toast+3
+            te = self.toas+3
             snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm)
             # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
             self.det_snr = snr
