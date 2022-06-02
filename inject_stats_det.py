@@ -21,7 +21,13 @@ class inject_stats():
         self.dms
         if not hasattr(self,'mask_fn'):
             self.get_mask_fn()
-
+    def create_burst(self):
+        temp = []
+        for f,m,d,t in zip(self.filfiles,self.mask_fn,self.toas,self.dms):
+            t = inject_obj(1,t,d,f,m)
+            temp.append(t)
+        self.sorted_pulses = temp
+        print(self.sorted_pulses)
     def get_mask_fn(self):
         #get the filenames of all the masks
         self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
