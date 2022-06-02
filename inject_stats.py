@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import numpy as np
-#from presto.filterbank import FilterbankFile
-#from presto import filterbank as fb
-#from presto import rfifind
+from presto.filterbank import FilterbankFile
+from presto import filterbank as fb
+from presto import rfifind
 from matplotlib import pyplot as plt
 import sys
 from pathos.pools import ProcessPool
