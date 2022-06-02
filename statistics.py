@@ -6,11 +6,17 @@ from scipy.stats import norm
 from math import comb
 from scipy.special import gammaln
 from multiprocessing import Pool
-def p_detect(snr,decay_rate,lower_cutoff=6):
+import os
+def p_detect_0(snr,decay_rate,lower_cutoff=6):
     #this will just be an exponential rise at some center
     p = 1-np.exp(-1*decay_rate*(snr-lower_cutoff))
     p[snr<lower_cutoff] = 0
     return p
+
+def p_detect(snr,decay_rate=2,k=5.5762911,x0=2.12284101,L=1):
+    #this will just be an exponential rise at some center
+    #added a decay rate variable just so things are compatible
+    return L/(1+np.exp(-k*(snr-x0)))
 
 def n_detect(snr_emit):
     #snr emit is the snr that the emitted pulse has
@@ -61,67 +67,80 @@ def total_p(X):
     log_NCn = gammaln(N+1)-gammaln(n+1)-gammaln(N-n+1)
     # print(log_NCn,f,s)
     return log_NCn+f+s
-pos_array = []
-for a in range(30):
-    obs_t =180000
-    mu = 0.8
-    std = 0.1
-    p = 2
-    frac = 0.005
-    pulse_snrs = simulate_pulses(obs_t,p,frac,mu,std)
-    det_snr = n_detect(pulse_snrs)
-    # np.save('simulated_pulses_0.65_0.1',[pulse_snrs,det_snr])
-    # pulses = np.load('simulated_pulses_0.65_0.1.npy',allow_pickle=1)
-    # pulse_snrs = pulses[0]
-    # det_snr = pulses[1]
-    print(len(pulse_snrs),len(det_snr))
-    if 1:
-        mesh_size = 100
-        # # create a mesh grid of N, mu and stds
-        mu_arr = np.linspace(mu-0.2,mu+0.2,mesh_size)
-        std_arr = np.linspace(std-0.06,std+0.1,mesh_size+1)
-        N_arr = np.linspace(len(det_snr),(obs_t/p)*0.04,mesh_size+2,dtype=int)
-        mat = np.zeros((mesh_size,mesh_size+1,mesh_size+2))
-        with Pool(50) as p:
-            for i,mu in enumerate(mu_arr):
-                for j,std in enumerate(std_arr):
-                    X = []
-                    for k,N in enumerate(N_arr):
-                        X.append({'mu':mu,'std':std,'N':N,'snr_arr':det_snr})
-                    mat[i,j,:] = p.map(total_p,X)
 
-        fn = f"d_{a}"
-        print('saving',fn)
-        np.savez(fn,data=mat,mu=mu_arr,std=std_arr,N=N_arr,snrs=pulse_snrs,det=det_snr)
-        mat = mat-np.max(mat)
-        mat = np.exp(mat)
-        # integrate over mu and std
-        posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),std_arr,axis=0)
-        pos_array.append(posterior)
-    else:
-        # create a mesh grid of N, mu and stds
-        mesh_size=10000
-        mu = 0.63
-        std = 0.1
-        N_arr = np.linspace(len(det_snr),(obs_t/p),mesh_size+2,dtype=int)
-        mat = np.zeros(mesh_size+2)
-        for k,N in enumerate(N_arr):
-            mat[k] = total_p({'mu':mu,'std':std,'N':N,'snr_arr':det_snr})
-            # print(mat[k])
-        mat = mat-np.max(mat)
-        mat = np.exp(mat)
-        posterior = mat
 
-np.save('posteriors',pos_array)
+if __name__=='__main__':
+    # x = np.linspace(0,5,100)
+    # y = p_detect(x)
+    # plt.plot(x,y)
+    # plt.show()
+    pos_array = []
+    for a in range(30):
+        obs_t =500000
+        mu = 0.01
+        std = 0.05
+        p = 2
+        frac = 0.04
+        pulse_snrs = simulate_pulses(obs_t,p,frac,mu,std)
+        det_snr = n_detect(pulse_snrs)
+        # np.save('simulated_pulses_0.65_0.1',[pulse_snrs,det_snr])
+        # pulses = np.load('simulated_pulses_0.65_0.1.npy',allow_pickle=1)
+        # pulse_snrs = pulses[0]
+        # det_snr = pulses[1]
+        print("number of generated pulses",len(pulse_snrs),"number of detections",len(det_snr))
+        if 1:
+            mesh_size = 20
+            # # create a mesh grid of N, mu and stds
+            mu_arr = np.linspace(mu-0.1,mu+0.1,mesh_size)
+            std_arr = np.linspace(std-0.04,std+0.05,mesh_size+1)
+            N_arr = np.linspace(len(det_snr),(obs_t/p)*frac*2,mesh_size+2,dtype=int)
+            mat = np.zeros((mesh_size,mesh_size+1,mesh_size+2))
+            with Pool(8) as po:
+                for i,mu_i in enumerate(mu_arr):
+                    for j,std_i in enumerate(std_arr):
+                        X = []
+                        for k,N_i in enumerate(N_arr):
+                            X.append({'mu':mu_i,'std':std_i,'N':N_i,'snr_arr':det_snr})
+                        mat[i,j,:] = po.map(total_p,X)
 
-plt.plot(N_arr,posterior)
-plt.xlabel('N')
-plt.title(f"# of simulated pulses:{len(pulse_snrs)} # of det pulses:{len(det_snr)}")
-plt.show()
-import pdb; pdb.set_trace()
+            fn = f"d_{a}"
+            print('saving',fn)
+            save_dir = f"obs_{obs_t}_mu_{mu}_std_{std}_p_{p}_frac_{frac}"
+            if not os.path.isdir(save_dir):
+                os.mkdir(save_dir)
+            fn = f"{save_dir}/{fn}"
+            np.savez(fn,data=mat,mu=mu_arr,std=std_arr,N=N_arr,snrs=pulse_snrs,
+                     det=det_snr,true_mu=mu,true_std=std,p=p,true_frac=frac,obs_t=obs_t)
+            mat = mat-np.max(mat)
+            mat = np.exp(mat)
+            # integrate over mu and std
+            posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),std_arr,axis=0)
+            pos_array.append(posterior)
+        else:
+            # create a mesh grid of N, mu and stds
+            mesh_size=10000
+            mu = 0.63
+            std = 0.1
+            N_arr = np.linspace(len(det_snr),(obs_t/p),mesh_size+2,dtype=int)
+            mat = np.zeros(mesh_size+2)
+            for k,N in enumerate(N_arr):
+                mat[k] = total_p({'mu':mu,'std':std,'N':N,'snr_arr':det_snr})
+                # print(mat[k])
+            mat = mat-np.max(mat)
+            mat = np.exp(mat)
+            posterior = mat
 
-plt.figure()
-plt.hist(det_snr,bins=100)
-plt.figure()
-plt.hist(np.log10(pulse_snrs),bins=100)
-plt.show()
+    np.save('posteriors',pos_array)
+
+    plt.plot(N_arr,posterior)
+    plt.xlabel('N')
+    plt.title(f"# of simulated pulses:{len(pulse_snrs)} # of det pulses:{len(det_snr)}")
+    plt.show()
+
+    plt.figure()
+    plt.hist(det_snr,bins=100)
+    plt.xlabel('detected snr')
+    plt.figure()
+    plt.hist(pulse_snrs,bins=100)
+    plt.xlabel("emmitted snr")
+    plt.show()

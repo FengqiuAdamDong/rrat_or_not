@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import numpy as np
-from presto.filterbank import FilterbankFile
-from presto import filterbank as fb
-from presto import rfifind
+#from presto.filterbank import FilterbankFile
+#from presto import filterbank as fb
+#from presto import rfifind
 from matplotlib import pyplot as plt
 import sys
 from pathos.pools import ProcessPool
 import dill
+import scipy.optimize as opt
+
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
     mask = f"{folder}_rfifind.mask"
@@ -103,6 +105,9 @@ def calculate_SNR(ts,tsamp,width,nsamps):
     #area of pulse, the noise, if gaussian should sum, to 0
     return snr,Amplitude,std
 
+def logistic(x,k,x0):
+    L=1
+    return L/(1+np.exp(-k*(x-x0)))
 
 class inject_obj():
     def __init__(self,snr=1,toas=1,dm=1,filfile="",mask=""):
@@ -242,7 +247,6 @@ class inject_stats():
                     s_truth = (snr_arr<s_hi)&(snr_arr>s_low)
                     total_truth = truth_dm&truth_t&s_truth
                     self.detected_truth(si,total_truth)
-
         #get lists to plot
         #note here det refers to detected by the pipeline
         det_snr_arr = []
@@ -260,6 +264,7 @@ class inject_stats():
         p = hist_det/hist_t
         bin_centres = bin_edges_t+np.diff(bin_edges_t)[0]
         bin_centres = bin_centres[:-1]
+        self.fit_det(p,bin_centres)
         plt.plot(bin_centres,p)
         plt.show()
         #now get the bins
@@ -268,6 +273,14 @@ class inject_stats():
         # plt.xlabel('snr')
         # plt.ylabel('det fraction')
         # plt.show()
+
+
+    def fit_det(self,p,snr,plot=True):
+        popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,1.07])
+        print(popt)
+        plt.plot(snr,logistic(snr,popt[0],popt[1]))
+        plt.xlabel('SNR')
+        plt.ylabel('Detection percentage')
 
 if __name__=="__main__":
     do_snr_calc = False

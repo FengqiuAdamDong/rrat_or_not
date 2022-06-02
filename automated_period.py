@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import numpy as np
-from presto.psr_utils import rrat_period_multiday, rrat_period
 def get_burst_dict(csvname):
     """From a csv of burst information named csv_name, extract burst info and
 compile a dictionary of burst data. The first column of the csv should look

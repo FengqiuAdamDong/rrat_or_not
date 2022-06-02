@@ -10,6 +10,8 @@ mu_arr = data['mu']
 std_arr = data['std']
 snrs = data['snrs']
 dets = data['det']
+true_mu = data['true_mu']
+true_std = data['true_std']
 mat = mat-np.max(mat)
 mat = np.exp(mat)
 
@@ -21,7 +23,7 @@ plt.show()
 posterior = np.trapz(np.trapz(mat,std_arr,axis=1),N_arr,axis=1)
 plt.plot(mu_arr,posterior)
 plt.xlabel('mu')
-plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)}")
+plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true mu:{true_mu}")
 
 plt.show()
 #marginalise over std
@@ -30,15 +32,15 @@ print(d_pos.shape)
 plt.pcolormesh(mu_arr,N_arr,d_pos.T)
 plt.xlabel('mu')
 plt.ylabel('N')
-plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)}")
+plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true mu:{true_mu}")
 plt.show()
 
 d_pos = np.trapz(mat,mu_arr,axis=0)
 print(d_pos.shape)
 plt.pcolormesh(std_arr,N_arr,d_pos.T)
-plt.xlabel('sig')
+plt.xlabel('std')
 plt.ylabel('N')
-plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)}")
+plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true std:{true_std}")
 plt.show()
 
 print(data.__dict__)
