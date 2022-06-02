@@ -39,7 +39,7 @@ class inject_stats():
         import copy
         if multiprocessing:
             def run_calc(s):
-                s.calculate_snr()
+                s.calculate_snr_single()
                 print(s.det_snr)
                 return copy.deepcopy(s)
             #for faster debugging
@@ -49,7 +49,7 @@ class inject_stats():
 
         else:
             for s in self.sorted_pulses:
-                s.calculate_snr()
+                s.calculate_snr_single()
 
 def read_positive_file(positive_file):
     filfiles = []

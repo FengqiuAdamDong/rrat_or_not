@@ -122,6 +122,15 @@ class inject_obj():
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
 
+    def calculate_snr_single(self):
+            ts = self.toas-3
+            te = self.toast+3
+            snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm)
+            # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
+            self.det_snr = snr
+            self.det_amp = amp
+            self.det_std = std
+
     def calculate_snr(self):
         for t,dm in zip(self.toas,self.dm):
             ts = t-3
