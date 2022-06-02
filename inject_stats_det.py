@@ -21,6 +21,7 @@ class inject_stats():
         self.dms
         if not hasattr(self,'mask_fn'):
             self.get_mask_fn()
+            self.create_burst()
     def create_burst(self):
         temp = []
         for f,m,d,t in zip(self.filfiles,self.mask_fn,self.toas,self.dms):
