@@ -130,6 +130,7 @@ class inject_obj():
             self.det_snr = snr
             self.det_amp = amp
             self.det_std = std
+            print(snr,amp,std)
 
     def calculate_snr(self):
         for t,dm in zip(self.toas,self.dm):
