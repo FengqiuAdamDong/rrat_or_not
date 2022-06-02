@@ -28,6 +28,7 @@ class inject_stats():
             temp.append(t)
         self.sorted_pulses = temp
         print(self.sorted_pulses)
+
     def get_mask_fn(self):
         #get the filenames of all the masks
         self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
@@ -58,8 +59,8 @@ def read_positive_file(positive_file):
         p_reader = csv.reader(csvf,delimiter=',')
         for row in p_reader:
             filfiles.append(row[0])
-            dms.append(row[1])
-            timestamps.append(row[2])
+            dms.append(float(row[1]))
+            timestamps.append(float(row[2]))
     return filfiles,dms,timestamps
 
 def combine_positives(fil1_,fil2_,dm1_,dm2_,toa1_,toa2_):
