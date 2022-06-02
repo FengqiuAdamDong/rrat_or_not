@@ -17,7 +17,7 @@ class inject_stats():
         self.__dict__.update(kwargs)
         #try to access the attribute, throw an exception if not available
         self.filfiles
-        self.timestamps
+        self.toas
         self.dms
         if not hasattr(self,'mask_fn'):
             self.get_mask_fn()
@@ -25,6 +25,7 @@ class inject_stats():
     def get_mask_fn(self):
         #get the filenames of all the masks
         self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
+        print(self.mask_fn)
 
     def calculate_snr(self,multiprocessing=False):
         import copy
@@ -74,7 +75,6 @@ def combine_positives(fil1_,fil2_,dm1_,dm2_,toa1_,toa2_):
             toa_add.append(toa2)
     return np.append(fil1_,fil_add),np.append(dm1_,dm_add),np.append(toa1_,toa_add)
 
-
 fn = 'real_pulses/positive_bursts_edit_snr.csv'
 fn1 = 'real_pulses/positive_bursts_1_edit_snr.csv'
 fn2 = 'real_pulses/positive_bursts_short_edit_snr.csv'
@@ -87,3 +87,5 @@ fil1,dm1,toa1 = combine_positives(fil1,fil2,dm1,dm2,toa1,toa2)
 print(len(fil1),len(dm1),len(toa1))
 fil1,dm1,toa1 = combine_positives(fil1,fil3,dm1,dm3,toa1,toa3)
 print(len(fil1),len(dm1),len(toa1))
+init_obj = {'filfiles':fil1,'dms':dm1,'toas':toa1}
+inject_stats = inject_stats(init_obj)
