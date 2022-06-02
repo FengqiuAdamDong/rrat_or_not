@@ -93,15 +93,16 @@ def calculate_SNR(ts,tsamp,width,nsamps):
     ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
     # ts_std = ts
     mean = np.median(ts_std)
-    std = np.std(ts_std)
+    std = np.std(ts_std-mean)
     #subtract the mean
     ts_sub = ts-mean
     #remove rms
     Amplitude = ts_sub[nsamps]
     snr = Amplitude/std
     # print(np.mean(ts_sub))
-    # plt.plot(ts_std)
-    # plt.show()
+    plt.plot(ts_sub)
+    plt.scatter(nsamps,Amplitude,s=13)
+    plt.show()
     #area of pulse, the noise, if gaussian should sum, to 0
     return snr,Amplitude,std
 
