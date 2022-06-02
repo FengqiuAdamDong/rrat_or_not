@@ -97,4 +97,4 @@ fil1,dm1,toa1 = combine_positives(fil1,fil3,dm1,dm3,toa1,toa3)
 print(len(fil1),len(dm1),len(toa1))
 init_obj = {'filfiles':fil1,'dms':dm1,'toas':toa1}
 inject_stats = inject_stats(**init_obj)
-inject_stats.calculate_SNR()
+inject_stats.calculate_snr()
