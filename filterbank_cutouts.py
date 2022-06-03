@@ -25,7 +25,7 @@ def filterbank_cutout(gf,ts,te,mask_fn,dm):
     # write_header
     g.header['tstart'] = g.header['tstart']+ts/60/60/24
     cbf(fil_name+'.fil',header=g.header,spectra=data.data.T)
-    np.save(fil_name+'_masked_chan.fil',masked_chans)
+    np.save(fil_name+'_masked_chan',masked_chans)
 
 def get_mask_fn_s(filterbank):
     folder = filterbank.strip('.fil')

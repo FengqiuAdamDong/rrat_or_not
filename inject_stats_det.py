@@ -19,9 +19,9 @@ class inject_stats():
         self.filfiles
         self.toas
         self.dms
-        if not hasattr(self,'mask_fn'):
-            self.get_mask_fn()
-            self.create_burst()
+        self.mask_fn
+        self.create_burst()
+
     def create_burst(self):
         temp = []
         for f,m,t,d in zip(self.filfiles,self.mask_fn,self.toas,self.dms):
@@ -29,11 +29,6 @@ class inject_stats():
             temp.append(t)
         self.sorted_pulses = temp
         print(self.sorted_pulses)
-
-    def get_mask_fn(self):
-        #get the filenames of all the masks
-        self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
-        print(self.mask_fn)
 
     def calculate_snr(self,multiprocessing=False):
         import copy
@@ -82,22 +77,33 @@ def combine_positives(fil1_,fil2_,dm1_,dm2_,toa1_,toa2_):
             dm_add.append(dm2)
             toa_add.append(toa2)
     return np.append(fil1_,fil_add),np.append(dm1_,dm_add),np.append(toa1_,toa_add)
+
 if __name__=='__main__':
     # fn = 'real_pulses/positive_bursts_edit_snr.csv'
     # fn1 = 'real_pulses/positive_bursts_1_edit_snr.csv'
     # fn2 = 'real_pulses/positive_bursts_short_edit_snr.csv'
-    fn = 'real_pulses/positive_burst_test.csv'
-    fn1 = fn
-    fn2 = fn
+    # fn = 'real_pulses/positive_burst_test.csv'
+    # fn1 = fn
+    # fn2 = fn
+    fn = 'J0012+54_cutout'
+    #dedisperse to some nominal DM to make it easier
+    dm = 129.5
+    import os
+    fl = os.listdir(fn)
+    filfiles = []
+    maskfiles = []
+    for f in fl:
+        if ".fil" in f:
+            filfiles.append(fn+'/'+f)
+        else:
+            maskfiles.append(fn+'/'+f)
+    fil1 = filfiles
+    #fix the DM
+    print(fil1)
+    dm1 = np.zeros_like(fil1)+dm
+    #in the cut out the pulse is always at 3s
+    toa1 = np.zeros_like(fil1)+3
 
-    fil1,dm1,toa1 = read_positive_file(fn)
-    fil2,dm2,toa2 = read_positive_file(fn1)
-    fil3,dm3,toa3 = read_positive_file(fn2)
-    print(len(fil1),len(dm1),len(toa1))
-    fil1,dm1,toa1 = combine_positives(fil1,fil2,dm1,dm2,toa1,toa2)
-    print(len(fil1),len(dm1),len(toa1))
-    fil1,dm1,toa1 = combine_positives(fil1,fil3,dm1,dm3,toa1,toa3)
-    print(len(fil1),len(dm1),len(toa1))
-    init_obj = {'filfiles':fil1,'dms':dm1,'toas':toa1}
+    init_obj = {'filfiles':fil1,'dms':dm1,'toas':toa1,'mask_fn':maskfiles}
     inject_stats = inject_stats(**init_obj)
     inject_stats.calculate_snr()

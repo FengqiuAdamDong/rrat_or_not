@@ -52,7 +52,7 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     data = data.masked(mask, maskval='median-mid80')
     return data, masked_chans
 
-def grab_spectra(gf,ts,te,mask_fn,dm):
+def grab_spectra(gf,ts,te,mask_fn,dm,mask=True):
     #load the filterbank file
     g = FilterbankFile(gf,mode='read')
     tsamp = float(g.header['tsamp'])
@@ -64,7 +64,11 @@ def grab_spectra(gf,ts,te,mask_fn,dm):
     spec = g.get_spectra(ssamps,nsamps)
     #load mask
     spec.dedisperse(dm, padval='median')
-    data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
+    if mask:
+        data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
+    else:
+        data = spec
+        masked_chans = np.zeros(1024)
     #data.subband(256,subdm=dm,padval='median')
     subband = 256
     downsamp = 3
@@ -127,7 +131,7 @@ class inject_obj():
     def calculate_snr_single(self):
         ts = self.toas-3
         te = self.toas+3
-        snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm)
+        snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm,mask=False)
         # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
         self.det_snr = snr
         self.det_amp = amp
