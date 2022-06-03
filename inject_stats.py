@@ -8,7 +8,6 @@ import sys
 from pathos.pools import ProcessPool
 import dill
 import scipy.optimize as opt
-
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
     mask = f"{folder}_rfifind.mask"
@@ -100,9 +99,11 @@ def calculate_SNR(ts,tsamp,width,nsamps):
     Amplitude = ts_sub[nsamps]
     snr = Amplitude/std
     # print(np.mean(ts_sub))
+    plt.figure()    
     plt.plot(ts_sub)
     plt.scatter(nsamps,Amplitude,s=13)
-    plt.show()
+    plt.savefig(f"{snr}_{nsamps}_{Amplitude}.png")
+    plt.close()
     #area of pulse, the noise, if gaussian should sum, to 0
     return snr,Amplitude,std
 
@@ -124,14 +125,14 @@ class inject_obj():
         self.__dict__.update(kwargs)
 
     def calculate_snr_single(self):
-            ts = self.toas-3
-            te = self.toas+3
-            snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm)
-            # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
-            self.det_snr = snr
-            self.det_amp = amp
-            self.det_std = std
-            print(snr,amp,std)
+        ts = self.toas-3
+        te = self.toas+3
+        snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm)
+        # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
+        self.det_snr = snr
+        self.det_amp = amp
+        self.det_std = std
+        print(snr,amp,std,self.filfile)
 
     def calculate_snr(self):
         for t,dm in zip(self.toas,self.dm):
