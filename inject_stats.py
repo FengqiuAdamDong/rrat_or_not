@@ -101,9 +101,9 @@ def calculate_SNR(ts,tsamp,width,nsamps):
     # print(np.mean(ts_sub))
     plt.figure()    
     plt.plot(ts_sub)
-    plt.scatter(nsamps,Amplitude,s=13)
-    plt.savefig(f"{snr}_{nsamps}_{Amplitude}.png")
-    plt.close()
+    plt.scatter(nsamps,Amplitude,marker='x',s=30)
+    print(nsamps,Amplitude)
+    plt.show()
     #area of pulse, the noise, if gaussian should sum, to 0
     return snr,Amplitude,std
 
