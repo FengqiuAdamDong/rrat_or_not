@@ -85,9 +85,9 @@ if __name__=='__main__':
     # fn = 'real_pulses/positive_burst_test.csv'
     # fn1 = fn
     # fn2 = fn
-    fn = 'J0012+54_cutout'
+    fn = 'J1048+53_cutout'
     #dedisperse to some nominal DM to make it easier
-    dm = 129.5
+    dm = 27.268
     import os
     fl = os.listdir(fn)
     filfiles = []
@@ -95,15 +95,17 @@ if __name__=='__main__':
     for f in fl:
         if ".fil" in f:
             filfiles.append(fn+'/'+f)
-        else:
-            maskfiles.append(fn+'/'+f)
-    fil1 = filfiles
+            maskedfn = f.strip('.fil')+'_masked_chan.npy'
+            maskfiles.append(fn+'/'+maskedfn)
+    fil1 = np.array(filfiles)
     #fix the DM
     print(fil1)
-    dm1 = np.zeros_like(fil1)+dm
+    dm1 = np.zeros(len(fil1))+dm
     #in the cut out the pulse is always at 3s
-    toa1 = np.zeros_like(fil1)+3
+    toa1 = np.zeros(len(fil1))+3
 
     init_obj = {'filfiles':fil1,'dms':dm1,'toas':toa1,'mask_fn':maskfiles}
     inject_stats = inject_stats(**init_obj)
     inject_stats.calculate_snr()
+    with open(f"{fn}.dill",'wb') as of:
+        dill.dump(inject_stats,of)

@@ -1,14 +1,29 @@
-#+TITLE: Present Ingrid
+#+TITLE: RRAT or Not?
+* As a recap:
+<<sec:recap>>
+Last time I left off with this equation for the likelihood and proposing that we can use it to figure out how many pulses the RRAT produces in total. I have attached my previous set of slides. _Because SNR \propto flux, as an estimate, we should be able to just substitute SNR for flux_
+- The likelihood is then
+  \[\scriptscriptstyle {N \choose n} \prod\limits_i^n \left(P(detected|flux_i)*P(flux_i|\alpha)\right) \cdot \left(\int\limits_{flux}P(not\_det|flux)*P(flux|\alpha)dflux\right)^{N-n}  \]\\
+   where N is the total number of pulses that the pulsar ought to have emitted, n is the total number of pulses detected.
 * Injections
-- Fully capture the RFI situation/background noise, no one has done.
-- Depending on RFI/sensitivities etc most published burst rates are probably incorrect
-- Able to finally assign error bars to burst rates
-- If we flux calibrate, we can give the real peak flux/fluence distribution (although the fluence distribution requires slightly different formalism that what I've done). Again, this accounts for the RFI/noise changes in the system
+- Fully capture the RFI situation/background noise, no one has done this with RRATs it seems
+- The first job is to classify how good CHIPSPIPE performs. (next section)
+- A benefit is of this analysis is that we can assign robust error bars to burst rates
+- If we flux calibrate, we can give the real peak flux/fluence distribution (although the fluence distribution requires slightly different formalism than what I've done). Again, this accounts for the RFI/noise changes in the system
+
+
+* Telescope response / Detection pipeline response
+<<sec:telescope_response>>
+- I measured the response function of CHIPSPIPE for pulses of DM=100 at different SNRs with the SNR definition as Amplitude_{max}/\sigma. With a downsampling of 3.
+#+DOWNLOADED: screenshot @ 2022-06-02 16:45:53
+[[file:../../org/pictures/Telescope_response_/_Detection_pipeline_response/2022-06-02_16-45-53_screenshot.png]]
+fitting with Logistic function
+$\frac{1}{1+e^{k(x-x0)}}$
 * Papers with a similar analysis
 - Cui et al touched on this, however their analysis was quite crude (i.e. they just did something like detected pulse/missed fraction)
   #+DOWNLOADED: screenshot @ 2022-05-28 07:41:18
   [[file:../../org/pictures/Papers_with_a_similar_analysis/2022-05-28_07-41-18_screenshot.png]]
-- Karkaro-Argman does a poisson analysis
+- Karkaro-Argman does gives bursts rates assuming a poisson rate and not taking into account their detection characteristics
   #+DOWNLOADED: screenshot @ 2022-05-28 07:50:27
   [[file:../../org/pictures/Papers_with_a_similar_analysis/2022-05-28_07-50-27_screenshot.png]]
 - Keane 2021 have discussed this concept as well, they calculate at what distance pulsars need to be to be detected as RRATs
@@ -17,33 +32,44 @@
 - A lot of discussion about whether B0656+14 as a RRAT
   #+DOWNLOADED: screenshot @ 2022-05-28 15:55:35
   [[file:../../org/pictures/Papers_with_a_similar_analysis/2022-05-28_15-55-35_screenshot.png]]
+- Crucially, nobody has tried to actually understand the combination of their detection statistics and the pulsar's SNR/flux distributions
 * Simulations
 ** Using SNR in place of flux
 - In the radiometer equation $SNR \propto flux$
-- Can replace flux with SNR and it _should_ be okay
-- Fluxes are hard to get for CHIME, and they have large error bars.
-- SNR does not have/has negligible error bars as it is a direct consequence from our data
-- Calibrate the automated pipeline
-* Telescope response / Detection pipeline response
-#+DOWNLOADED: screenshot @ 2022-06-02 16:45:53
-[[file:../../org/pictures/Telescope_response_/_Detection_pipeline_response/2022-06-02_16-45-53_screenshot.png]]
-fitting with Logistic function
-$\frac{1}{1+e^{k(x-x0)}}$
-* mu=0.3 std=0.1 p=2 frac=0.001
+- Fluxes are hard to get for CHIME, and they have large error bars. It's much easier to get SNR as it is a direct consequence from our data.
+** Step 1 - simulations
+- I simulate pulses with a
+  + log normal distribution of SNRs with $\mu$ $\sigma$ and N
+  + N is based on $(t/p)*f$ where t is the observation time, p is the pulse period and f is the emission fraction. I add a little bit of randomess in this so N is slightly different every time given the same parameters.
+- Run the simulated SNRs through the detection function in Section:[[sec:telescope_response]]
+- We end up with a list of "detected SNRs"
+** Step 2 - Find the likelihood distribution
+- Feed the detected SNRS in the equation in Section [[sec:recap]] and get a 3 dimensional function of probability densities
+  + In this part I had help from Antonio from the stats team!
+  + There were a lot of computational techniques and tricks that I learnt from him
+- Marginalise over $\mu$ and $\sigma$ to get the distribution for N
+- Note: we can do MCMC here if we have a lot of parameters, but I have just used brute force integration as there's only 3 parameters
+* Results
+** $\mu=0.3$ $\std=0.1$ $period=2$ $frac=0.001$
+Here I simulate a total of 264 pulses, from our detection function we should have detected 121 of them and I have marginalised over N.
+
 This is right around our detection threshold
 #+DOWNLOADED: screenshot @ 2022-05-18 21:34:20
 [[file:../../org/pictures/mu=0.3_std=0.1_p=2/2022-05-18_21-34-20_screenshot.png]]
-Results are okay, we certainly can say something, but not with super confidence
-* predicted pulse fraction/mu - 30 iterations
+- Results are okay, we certainly can say something, but not with super confidence
+- The important thing to note is that we can say with a good amount of confidence that the RRAT is actually intermittent, assuming our simple model
+** Predicted Pulse Fraction/$\mu$ - 30 iterations
+In the following I do the above analysis 30 times and see what results we get.
+The parameters are the same as the previous section: $\mu=0.3$ $\std=0.1$ $period=2$ $frac=0.001$
 #+DOWNLOADED: screenshot @ 2022-05-19 12:01:48
 [[file:../../org/pictures/predicted_pulse_fraction/2022-05-19_12-01-48_screenshot.png]]
-#+DOWNLOADED: screenshot @ 2022-05-19 12:02:11
-[[file:../../org/pictures/predicted_pulse_fraction/2022-05-19_12-02-11_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-05-19 12:03:38
 [[file:../../org/pictures/predicted_pulse_fraction/2022-05-19_12-03-38_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-05-19 12:03:26
 [[file:../../org/pictures/predicted_pulse_fraction/2022-05-19_12-03-26_screenshot.png]]
-* Lets take a look at the likelihood of a particular simulation
+- So it seems the results are pretty good. We're able to get back our original simulated population pretty well by taking into account the detection function
+** Lets take a look at the likelihood of a particular simulation
+Here I just look at 1 of the 30 simulations.
 #+DOWNLOADED: screenshot @ 2022-05-19 12:07:04
 [[file:../../org/pictures/Lets_take_a_look_at_the_likelihood_of_a_particular_simulation/2022-05-19_12-07-04_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-05-19 12:09:17
@@ -52,19 +78,25 @@ Results are okay, we certainly can say something, but not with super confidence
 [[file:../../org/pictures/Lets_take_a_look_at_the_likelihood_of_a_particular_simulation/2022-05-19_12-10-01_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-05-19 12:11:05
 [[file:../../org/pictures/Lets_take_a_look_at_the_likelihood_of_a_particular_simulation/2022-05-19_12-11-05_screenshot.png]]
-* now lets simulate with mu=0.1 , below our detection threshold
+** now lets simulate with mu=0.1 , below our detection threshold
+This is the total simulated emitted pulses
 #+DOWNLOADED: screenshot @ 2022-05-19 13:11:10
 [[file:../../org/pictures/now_lets_simulate_with_mu=0.1_,_below_our_detection_threshold/2022-05-19_13-11-10_screenshot.png]]
+This is the total detected.
 #+DOWNLOADED: screenshot @ 2022-05-19 13:11:19
 [[file:../../org/pictures/now_lets_simulate_with_mu=0.1_,_below_our_detection_threshold/2022-05-19_13-11-19_screenshot.png]]
-* again simulate 30 iterations
+** again simulate 30 iterations
+Again we do 30 simulations and it's a lot worse than before, but it's still pretty good!
 #+DOWNLOADED: screenshot @ 2022-05-19 13:12:53
 [[file:../../org/pictures/again_simulate_30_iterations/2022-05-19_13-12-53_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-05-19 13:13:11
 [[file:../../org/pictures/again_simulate_30_iterations/2022-05-19_13-13-11_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-05-19 13:13:49
 [[file:../../org/pictures/again_simulate_30_iterations/2022-05-19_13-13-49_screenshot.png]]
-* lets try to break it
+** lets try to break it
+Here I try to give it smaller parameters to try break it, it turns out to be quite robust!
+
+Even with 32 detected bursts, we can do quite well.
 #+DOWNLOADED: screenshot @ 2022-06-02 16:02:03
 [[file:../../org/pictures/lets_try_to_break_it/2022-06-02_16-02-03_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-06-02 16:02:29
@@ -77,3 +109,11 @@ Results are okay, we certainly can say something, but not with super confidence
 [[file:../../org/pictures/lets_try_to_break_it/2022-06-02_16-36-23_screenshot.png]]
 #+DOWNLOADED: screenshot @ 2022-06-02 16:36:38
 [[file:../../org/pictures/lets_try_to_break_it/2022-06-02_16-36-38_screenshot.png]]
+* Conclusions so far
+- If we know the SNR distribution and the injection characteristics, we can do pretty well at predicting the total number of pulses emitted from a RRAT
+- The SNR distribution has been shown to follow either a log-normal distribution or a power law distribution
+  + If we pick the wrong distribution we can run into problems.
+  + Antonio and I talked about this - we can use a Bayes Ratio / Odds Ratio to pick the model.
+- side note: At no point have I assumed a period in my analysis (only when simulating the pulses) - can I use the same technique for FRBs?
+- This is a new technique to get at the true N-distribution and $\mu$ distribution of RRATs
+- _If I can get enough pulsars and RRATs, then crucially this may help me get at a pulse fraction distribution to do my simulations for RRAT/Pulsar populations_
