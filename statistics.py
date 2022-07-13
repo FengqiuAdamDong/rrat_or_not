@@ -82,7 +82,7 @@ def second(n,mu,std,N):
     # exponentiate and integrate, re log using the log sum exp trick to prevent overflows (and low numbers)
     p_second_int = np.log(np.trapz(np.exp(p_second-np.max(p_second)),snr_arr))+np.max(p_second)
     if p_second_int>1:
-        # print(p_second_int)
+        print(p_second_int)
         p_second_int=1
     return p_second_int*(N-n)
 
@@ -106,10 +106,14 @@ def total_p(X):
     # print(log_NCn,f,s)
     return log_NCn+f+s
 
+def negative_loglike(X,det_snr):
+    x={"mu":X[0],"std":X[1],"N":X[2],"snr_arr":det_snr}
+    return -1*total_p(x)
+
 def likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=20):
     # # create a mesh grid of N, mu and stds
     mat = np.zeros((mesh_size,mesh_size+1,mesh_size+2))
-    with Pool(8) as po:
+    with Pool(50) as po:
         for i,mu_i in enumerate(mu_arr):
             for j,std_i in enumerate(std_arr):
                 X = []
@@ -131,15 +135,15 @@ if __name__=='__main__':
     pos_array = []
     for a in range(1):
         obs_t =500000
-        mu = 0.1
+        mu = 0.3
         std = 0.1
         p = 2
-        frac = 0.1
+        frac = 0.001
         pulse_snrs = simulate_pulses(obs_t,p,frac,mu,std)
-        mesh_size = 100
+        mesh_size = 50
 
         det_snr = n_detect(pulse_snrs)
-        mu_arr = np.linspace(mu-0.05,mu+0.05,mesh_size)
+        mu_arr = np.linspace(mu-0.1,mu+0.05,mesh_size)
         std_arr = np.linspace(std-0.04,std+0.05,mesh_size+1)
         N_arr = np.linspace((obs_t*frac/p)*0.5,(obs_t*frac/p)*2,mesh_size+2,dtype=int)
         print("number of generated pulses",len(pulse_snrs),"number of detections",len(det_snr))
@@ -168,7 +172,7 @@ if __name__=='__main__':
         # det_snr = pulses[1]
 
     np.save('posteriors',pos_array)
-
+    plt.figure()
     plt.plot(N_arr,posterior)
     plt.xlabel('N')
     plt.title(f"# of simulated pulses:{len(pulse_snrs)} # of det pulses:{len(det_snr)}")
@@ -176,8 +180,10 @@ if __name__=='__main__':
 
     plt.figure()
     plt.hist(det_snr,bins=100)
-    plt.xlabel('detected snr')
+    plt.title(f"total number of pulses:{len(det_snr)}")
+    plt.xlabel(f"detected snr")
     plt.figure()
     plt.hist(pulse_snrs,bins=100)
     plt.xlabel("emmitted snr")
+    plt.title(f"total number of pulses:{len(pulse_snrs)}")
     plt.show()

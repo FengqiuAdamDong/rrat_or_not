@@ -17,10 +17,13 @@ def total_p_exp(X):
     log_NCn = gammaln(N+1)-gammaln(n+1)-gammaln(N-n+1)
     # print(log_NCn,f,s)
     return log_NCn+f+s
+def negative_loglike(X,det_snr):
+    x={"k":X[0],"N":X[1],"snr_arr":det_snr}
+    return -1*total_p_exp(x)
 
-def likelihood_exp(k_arr,N_arr,det_snr,mesh_size=20):
-    mat = np.zeros((mesh_size,mesh_size+1))
-    with Pool(8) as po:
+def likelihood_exp(k_arr,N_arr,det_snr):
+    mat = np.zeros((len(k_arr),len(N_arr)))
+    with Pool(50) as po:
         for i,k_i in enumerate(k_arr):
                 X = []
                 for j,N_i in enumerate(N_arr):
@@ -37,7 +40,7 @@ if __name__=='__main__':
     pos_array = []
     for a in range(1):
         obs_t = 500000
-        k = 3
+        k = 1
         p = 2
         frac = 0.5
         pulse_snrs = simulate_pulses_exp(obs_t,p,frac,k)
@@ -57,7 +60,7 @@ if __name__=='__main__':
         k_arr = np.linspace(k-0.4,k+0.5,mesh_size)
         N_arr = np.linspace((obs_t*frac/p)*0.5,(obs_t*frac/p)*2,mesh_size+1,dtype=int)
         # N_arr = np.linspace(len(det_snr),obs_t/p,mesh_size+1,dtype=int)
-        mat = likelihood_exp(k_arr,N_arr,det_snr,mesh_size)
+        mat = likelihood_exp(k_arr,N_arr,det_snr)
         fn = f"d_{a}"
         print('saving',fn)
         save_dir = f"obs_{obs_t}_k_{k}_p_{p}_frac_{frac}"
@@ -69,7 +72,7 @@ if __name__=='__main__':
 
 
         # import pdb; pdb.set_trace()
-        # mat = mat-np.max(mat)
+        mat = mat-np.max(mat)
         mat = np.exp(mat)
         # integrate over mu and std
         posterior = np.trapz(mat,k_arr,axis=0)
@@ -77,4 +80,5 @@ if __name__=='__main__':
         plt.plot(N_arr,posterior)
         plt.figure()
         plt.pcolormesh(k_arr,N_arr,mat.T)
+        # plt.colorbar()
         plt.show()
