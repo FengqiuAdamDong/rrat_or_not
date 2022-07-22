@@ -85,7 +85,7 @@ def grab_spectra(gfb,ts_arr,te_arr,mask_fn_arr,dm):
         data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
         #data.subband(256,subdm=dm,padval='median')
         subband = 256
-        downsamp = 3
+        downsamp = 8
         data.downsample(int(downsamp))
         # data.subband(int(subband))
         # data = data.scaled(False)

@@ -34,6 +34,7 @@ compile a dictionary of burst data. The first column of the csv should look
         burst_numbers = [float(num) for num in burst_str.split('_')\
                          if num.replace('.', '1').isdigit()]
         total_split = burst_str.split('_')
+        #rips injected snr from filename
         my_snr = total_split[7]
         my_snr = my_snr.split('/')[0]
         my_snr = my_snr[3:]

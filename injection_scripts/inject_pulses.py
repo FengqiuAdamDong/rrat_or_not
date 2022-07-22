@@ -17,7 +17,8 @@ from multiprocessing import Pool
 # TRIAL_SNR = [2]
     # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0,5,100)
+TRIAL_SNR = np.linspace(1,4,50)
+# TRIAL_SNR=[2]
 TRIAL_DMS = [
     100,
 ]  # DM of bursts
@@ -111,7 +112,7 @@ def inject_pulses(data, masked_data,header, freqs, pulse_attrs,plot=False):
         # simulate the pulse as a Gaussian, normalise such that the
         # peak corresponds to the per-channel power level corresponding
         # to the total S/N
-        width = 5e-3  # 2-ms FWHM pulses
+        width = 5e-3  # 5-ms FWHM pulses
         width_bins = time_to_bin(width, tsamp)
         pulse_wf = np.exp(
             -((x - per_chan_toa_bins[:, np.newaxis]) ** 2) / (2 * width_bins ** 2)
@@ -198,7 +199,7 @@ def maskfile(maskfn, data, start_bin, nbinsextra,extra_mask):
     print('masking')
     data = data.masked(mask, maskval='median-mid80')
     print('finished masking')
-    print(np.sum(masked_chans))
+    # print(np.sum(masked_chans))
     return data, masked_chans
 
 def get_mask(rfimask, startsamp, N):
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("fil", help="Filterbank file to use as raw data background")
     parser.add_argument("--m", help="this is the mask fn")
-    parser.add_argument("--d", help="Duration of required output file", type=float, default=20)
+    parser.add_argument("--d", help="Duration of required output file", type=float, default=30)
     parser.add_argument("--n", help="Number of pulses to inject", type=int, default=2)
     parser.add_argument(
             "-F",

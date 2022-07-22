@@ -342,6 +342,7 @@ class inject_stats():
         for s in self.sorted_inject:
             det_snr_arr.append(s.return_detected())
             total_snr_arr.append(s.det_snr)
+        #flattening array
         det_snr_arr = np.array(list([item for sublist in det_snr_arr for item in sublist]))
         total_snr_arr = np.array(list([item for sublist in total_snr_arr for item in sublist]))
         print(len(det_snr_arr))
