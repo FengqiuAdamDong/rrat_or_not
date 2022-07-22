@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-CURDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 for f in *.fil
 do
+    #strip the extension
     MASKFOL="${filename%.*}"
-    MASK=$MASKFOL/*.mask
-    sbatch $CURDIR/Inject_one_fil.sh $MASK $f
+    #get the maskfile
+    MASK=$MASKFOL/$MASKFOL_rfifind.mask
+    sbatch $SOURCEDIR/Inject_one_fil.sh $MASK $f
 done
