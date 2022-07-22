@@ -4,5 +4,5 @@ set -euo pipefail
 
 for f in *.fil
 do
-    echo f
+    echo $f
 done
