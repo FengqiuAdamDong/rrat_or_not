@@ -304,8 +304,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("fil", help="Filterbank file to use as raw data background")
     parser.add_argument("--m", help="this is the mask fn")
-    parser.add_argument("--d", help="Duration of required output file", type=float, default=30)
-    parser.add_argument("--n", help="Number of pulses to inject", type=int, default=2)
+    parser.add_argument("--d", help="Duration of required output file", type=float, default=120)
+    parser.add_argument("--n", help="Number of pulses to inject", type=int, default=50)
     parser.add_argument(
             "-F",
             "--fake",
