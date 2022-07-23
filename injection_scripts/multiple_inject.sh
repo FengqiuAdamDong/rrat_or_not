@@ -7,5 +7,5 @@ do
     MASKFOL="${f%.*}"
     #get the maskfile
     MASK="$MASKFOL/$MASKFOL"_rfifind.mask
-    sbatch $SOURCEDIR/Inject_one_fil.sh $MASK $f
+    sbatch $SOURCEDIR/Inject_one_fil.sh $f $MASK
 done
