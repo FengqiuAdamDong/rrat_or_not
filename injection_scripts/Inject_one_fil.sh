@@ -7,6 +7,9 @@
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
+module use /project/6004902/modulefiles
+module load presto
+module load chime-psr
 cp -d $1 $SLURM_TMPDIR
 MASKFOL="${1%.*}"
 cp -r $MASKFOL $SLURM_TMPDIR
