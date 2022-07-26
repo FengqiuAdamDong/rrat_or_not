@@ -12,8 +12,6 @@ from pathos.pools import ProcessPool
 import dill
 import scipy.optimize as opt
 from scipy.optimize import minimize
-from gaussian_fitter import log_likelihood
-from gaussian_fitter import gaussian
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
     mask = f"{folder}_rfifind.mask"
@@ -88,76 +86,13 @@ def grab_spectra(gf,ts,te,mask_fn,dm,mask=True):
     dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
     dat_ts = np.mean(dat_arr,axis=0)
 
-    SNR,amp,std = calculate_SNR_manual(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
+    SNR,amp,std = calculate_SNR(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
     return SNR,amp,std
     # plt.plot(ts_sub)
     # plt.title(f"{gf} - SNR:{SNR}")
     # plt.figure()
     # plt.imshow(dat_arr,aspect='auto')
     # plt.show()
-
-def calculate_SNR_manual(ts,tsamp,width,nsamps):
-    #calculates the SNR given a timeseries
-
-    ind_max = nsamps
-    w_bin = width/tsamp
-    ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
-    # ts_std = ts
-    mean = np.median(ts_std)
-    std = np.std(ts_std-mean)
-    #subtract the mean
-    ts_sub = ts-mean
-    #remove rms
-    # Amplitude = ts_sub[nsamps]
-        # print(np.mean(ts_sub))
-    fig = plt.figure(1)
-    plt.plot(ts_sub)
-    # plt.scatter(nsamps,Amplitude,marker='x',s=30)
-    # print(nsamps,Amplitude)
-    plt.draw()
-    res = False
-    while not res:
-        res = plt.waitforbuttonpress(0)
-
-    ax_list = fig.axes[0].viewLim._points
-    x0 = int(ax_list[0][0])
-    x1 = int(ax_list[1][0])
-    if x0<0:
-        x0=0
-    if x1>len(ts_sub)-1:
-        x1=-1
-    ts_sub_new = ts_sub[x0:x1]
-    #fit this to a gaussian using ML
-    mamplitude = np.max(ts_sub[x0:x1])
-    max_ind = np.argwhere(mamplitude==ts_sub_new)[0][0]
-    x = np.array(list(range(len(ts_sub_new))))
-
-    max_l = minimize(log_likelihood,[mamplitude,max_ind+1,2,0],args=(x,ts_sub_new,std),method='Nelder-Mead')
-    fitx = max_l.x
-    print(fitx)
-    y_fit = gaussian(x,fitx[0],fitx[1],fitx[2],fitx[3])
-    plt.clf()
-    plt.figure(2)
-    plt.scatter(x,ts_sub_new,marker='.')
-    plt.plot(x,y_fit,color='red')
-    plt.title(fitx[0])
-    plt.draw()
-    Amplitude = abs(fitx[0])
-    # Amplitude = np.mean(ts_sub_new[max_ind-1:max_ind+1])
-    snr = Amplitude/std
-    print(snr,Amplitude,std)
-    plt.pause(1) # <-------
-    # plt.waitforbuttonpress(0)
-
-    delete = input("Enter to proceed , n then enter to delete")
-    plt.clf()
-    if delete=='n':
-        snr=-1
-        Amplitude=-1
-        std=-1
-        print('deleting SNR')
-    #area of pulse, the noise, if gaussian should sum, to 0
-    return snr,Amplitude,std
 
 
 def calculate_SNR(ts,tsamp,width,nsamps):
@@ -175,11 +110,11 @@ def calculate_SNR(ts,tsamp,width,nsamps):
     Amplitude = ts_sub[nsamps]
     snr = Amplitude/std
     # print(np.mean(ts_sub))
-    plt.figure()    
-    plt.plot(ts_sub)
-    plt.scatter(nsamps,Amplitude,marker='x',s=30)
-    print(nsamps,Amplitude)
-    plt.draw()
+    # plt.figure()
+    # plt.plot(ts_sub)
+    # plt.scatter(nsamps,Amplitude,marker='x',s=30)
+    print(std,Amplitude,snr)
+    # plt.show()
     #area of pulse, the noise, if gaussian should sum, to 0
     return snr,Amplitude,std
 
@@ -372,7 +307,7 @@ class inject_stats():
         plt.ylabel('Detection percentage')
 
 if __name__=="__main__":
-    do_snr_calc = False
+    do_snr_calc = True
     if do_snr_calc:
         inj_samples = 'sample_injections.npy'
         filfiles = sys.argv[1:]
@@ -381,7 +316,7 @@ if __name__=="__main__":
         inj_stats.load_inj_samp()
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
-        inj_stats.calculate_snr(True)
+        inj_stats.calculate_snr(False)
         with open('inj_stats.dill','wb') as of:
             dill.dump(inj_stats,of)
     else:

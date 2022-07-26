@@ -20,3 +20,4 @@ python /home/adamdong/rrat_or_not/injection_scripts/inject_pulses.py --m $2 $1
 cd -
 cp $SLURM_TMPDIR/*snr*.fil .
 cp $SLURM_TMPDIR/*.npy .
+rm $1
