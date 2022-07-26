@@ -12,4 +12,5 @@ do
     cp -d $f $MASKFOL
     cd $MASKFOL
     sbatch $SOURCEDIR/Inject_one_fil.sh $f $MASK
+    cd ..
 done
