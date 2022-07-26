@@ -4,7 +4,7 @@
 #SBATCH --time=1:00:00
 #SBATCH --mem=8GB
 #SBATCH --cpus-per-task=1
-#SBATCH --job-name=injections
+#SBATCH --job-name=injections_det
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 module use /project/6004902/modulefiles
