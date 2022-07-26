@@ -10,7 +10,7 @@
 module use /project/6004902/modulefiles
 module load presto
 module load chime-psr
-cp -d $1 $SLURM_TMPDIR
+cp $1 $SLURM_TMPDIR
 MASKFOL="${1%.*}"
 cp -r $MASKFOL $SLURM_TMPDIR
 echo $1
@@ -19,4 +19,4 @@ cd $SLURM_TMPDIR
 python /home/adamdong/rrat_or_not/injection_scripts/inject_pulses.py --m $2 $1
 #come back
 cd -
-cp -d {$SLURM_TMPDIR}/*.fil .
+cp $SLURM_TMPDIR/*snr*.fil .
