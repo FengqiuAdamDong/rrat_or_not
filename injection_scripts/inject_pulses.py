@@ -304,8 +304,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("fil", help="Filterbank file to use as raw data background")
     parser.add_argument("--m", help="this is the mask fn")
-    parser.add_argument("--d", help="Duration of required output file", type=float, default=120)
-    parser.add_argument("--n", help="Number of pulses to inject", type=int, default=50)
+    parser.add_argument("--d", help="Duration of required output file", type=float, default=150)
+    parser.add_argument("--n", help="Number of pulses to inject", type=int, default=30)
     parser.add_argument(
             "-F",
             "--fake",
@@ -347,7 +347,7 @@ if __name__ == "__main__":
         pool_arr = []
         for s in TRIAL_SNR:
             pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,header, freqs, rawdata,masked_data))
-        # for p in pool_arr:
-            # process(p)
-        with Pool(5) as p:
-            p.map(process,pool_arr)
+        for p in pool_arr:
+            process(p)
+        #with Pool(5) as p:
+        #    p.map(process,pool_arr)
