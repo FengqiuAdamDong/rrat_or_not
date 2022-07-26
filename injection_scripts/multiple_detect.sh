@@ -11,4 +11,5 @@ do
     cd $FOL
     #copy the filterbank file back in
     sbatch $SOURCEDIR/detect_one_fil.sh *snr*.fil
+    cd ..
 done
