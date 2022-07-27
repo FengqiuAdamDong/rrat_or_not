@@ -12,5 +12,7 @@ do
     cd $FOL
     #copy the filterbank file back in
     /home/adamdong/CHIME-Pulsar_automated_filterbank/check_single_pulse.sh -b -d $1
+    /home/adamdong/CHIME-Pulsar_automated_filterbank/check_single_pulse.sh -f
+    /home/adamdong/CHIME-Pulsar_automated_filterbank/get_bright_bursts.sh -i .
     cd ..
 done
