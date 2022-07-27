@@ -10,6 +10,6 @@ do
     echo $FOL
     cd $FOL
     #copy the filterbank file back in
-    sbatch $SOURCEDIR/detect_one_fil.sh *snr*.fil
+    sbatch $SOURCEDIR/detect_one_fil.sh -l *snr*.fil
     cd ..
 done

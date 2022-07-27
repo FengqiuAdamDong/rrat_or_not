@@ -12,6 +12,8 @@ from pathos.pools import ProcessPool
 import dill
 import scipy.optimize as opt
 from scipy.optimize import minimize
+import argparse
+
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
     mask = f"{folder}_rfifind.mask"
@@ -238,6 +240,7 @@ class inject_stats():
         plt.show()
 
     def detected_truth(self,si,truth_arr):
+        # if we have detected truth array then or the thing, if not then create
         if hasattr(si,"detected"):
             si.detected = (si.detected|truth_arr)
         else:
@@ -285,9 +288,14 @@ class inject_stats():
         bin_widths = np.linspace(-0,5,25)
         hist_det,bin_edges_det = np.histogram(det_snr_arr,bin_widths)
         hist_t, bin_edges_t = np.histogram(total_snr_arr,bin_widths)
+
         p = hist_det/hist_t
         bin_centres = bin_edges_t+np.diff(bin_edges_t)[0]
         bin_centres = bin_centres[:-1]
+        #remove nans
+        nan_inds = np.isnan(p)
+        p=p[~nan_inds]
+        bin_centres = bin_centres[~nan_inds]
         self.fit_det(p,bin_centres)
         plt.plot(bin_centres,p)
         plt.show()
@@ -301,16 +309,20 @@ class inject_stats():
 
     def fit_det(self,p,snr,plot=True):
         popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,1.07])
-        print(popt)
+        self.logisitic_params = popt
         plt.plot(snr,logistic(snr,popt[0],popt[1]))
         plt.xlabel('SNR')
         plt.ylabel('Detection percentage')
 
 if __name__=="__main__":
-    do_snr_calc = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", action='store_false', default = True, help="Set to do inj_stats analysis")
+    parser.add_argument('-l', nargs='+', help='list of filterbank files or positive burst csv files', required=True)
+    args = parser.parse_args()
+    do_snr_calc = args.d
     if do_snr_calc:
         inj_samples = 'sample_injections.npy'
-        filfiles = sys.argv[1:]
+        filfiles = args.l
         init = {'filfiles':filfiles,'inj_samp':inj_samples}
         inj_stats = inject_stats(**init)
         inj_stats.load_inj_samp()
@@ -322,8 +334,10 @@ if __name__=="__main__":
     else:
         with open('inj_stats.dill','rb') as inf:
             inj_stats = dill.load(inf)
-        fns = sys.argv[1:]
+        fns = args.l
         inj_stats = inject_stats(**inj_stats.__dict__)
         inj_stats.repopulate_io()
         inj_stats.calculate_snr_statistics()
         inj_stats.compare(fns)
+        with open('inj_stats_fitted.dill','wb') as of:
+            dill.dump(inj_stats,of)

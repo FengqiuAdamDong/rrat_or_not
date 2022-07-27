@@ -35,7 +35,15 @@ compile a dictionary of burst data. The first column of the csv should look
                          if num.replace('.', '1').isdigit()]
         total_split = burst_str.split('_')
         #rips injected snr from filename
-        my_snr = total_split[7]
+        is_inj = False
+        for s in total_split:
+            if s[:3]=="snr":
+                if len(s)>3:
+                    my_snr = s
+                    is_inj = True
+                    break
+        if not is_inj:
+            continue
         my_snr = my_snr.split('/')[0]
         my_snr = my_snr[3:]
         burst_info = burst_numbers[-5:]
