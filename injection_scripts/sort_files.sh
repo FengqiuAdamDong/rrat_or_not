@@ -9,7 +9,7 @@ do
     FOL="${f%.*}"
     #get the maskfile
     mkdir -p local_analysis/$FOL
-    rm local_analysis/$FOL
+    rm local_analysis/$FOL/*
     cp $FOL/inj_stats.dill local_analysis/$FOL
     cp $FOL/positive*.csv local_analysis/$FOL
 done
