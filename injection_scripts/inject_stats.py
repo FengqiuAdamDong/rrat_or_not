@@ -13,6 +13,10 @@ import dill
 import scipy.optimize as opt
 from scipy.optimize import minimize
 import argparse
+import scipy.optimize as opt
+from scipy.optimize import minimize
+from gaussian_fitter import log_likelihood
+from gaussian_fitter import gaussian
 
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
@@ -57,6 +61,88 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     masked_chans = mask.all(axis=1)
     data = data.masked(mask, maskval='median-mid80')
     return data, masked_chans
+
+def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True):
+    #load the filterbank file
+    g = FilterbankFile(gf,mode='read')
+    if ts<0:
+        ts=0
+    tsamp = float(g.header['tsamp'])
+    nsamps = int((te-ts)/tsamp)
+    ssamps = int(ts/tsamp)
+    #sampels to burst
+    nsamps_start_zoom = int(2.5/tsamp)
+    nsamps_end_zoom = int(3.5/tsamp)
+    spec = g.get_spectra(ssamps,nsamps)
+    #load mask
+    spec.dedisperse(dm, padval='median')
+    if mask:
+        data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
+    else:
+        data = spec
+        masked_chans = np.load(mask_fn,allow_pickle=1)
+        # print(gf,mask_fn)
+        # masked_chans = np.zeros(1024)==1
+    #data.subband(256,subdm=dm,padval='median')
+    subband = 256
+    downsamp = 3
+    data.downsample(int(downsamp))
+    # data.subband(int(subband))
+    # data = data.scaled(False)
+    dat_arr = data.data
+    dat_arr = dat_arr[~masked_chans,:]
+    dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
+    dat_ts = np.mean(dat_arr,axis=0)
+
+    SNR,amp,std = calculate_SNR_manual(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
+    return SNR,amp,std
+    # plt.plot(ts_sub)
+    # plt.title(f"{gf} - SNR:{SNR}")
+    # plt.figure()
+    # plt.imshow(dat_arr,aspect='auto')
+    # plt.show()
+
+def calculate_SNR_manual(ts,tsamp,width,nsamps):
+    #calculates the SNR given a timeseries
+
+    ind_max = nsamps
+    w_bin = width/tsamp
+    ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
+    # ts_std = ts
+    mean = np.median(ts_std)
+    std = np.std(ts_std-mean)
+    #subtract the mean
+    ts_sub = ts-mean
+    #remove rms
+    #fit this to a gaussian using ML
+    mamplitude = np.max(ts_sub)
+    max_ind = np.argwhere(mamplitude==ts_sub)[0][0]
+    x = np.array(list(range(len(ts_sub))))
+
+    max_l = minimize(log_likelihood,[mamplitude,max_ind+1,2,0],args=(x,ts_sub,std),method='Nelder-Mead')
+    fitx = max_l.x
+    y_fit = gaussian(x,fitx[0],fitx[1],fitx[2],fitx[3])
+    # plt.figure(1)
+    # plt.plot(x,ts_sub,color='blue')
+    # plt.scatter(x,ts_sub,marker='.')
+    # plt.plot(x,y_fit,color='black',linewidth=5)
+    # plt.title(fitx[0])
+    # plt.draw()
+    Amplitude = abs(fitx[0])
+    snr = Amplitude/std
+    # print(snr,Amplitude,std)
+    # plt.pause(1) # <-------
+    # # plt.waitforbuttonpress(0)
+
+    # delete = input("Enter to proceed , n then enter to delete")
+    # plt.clf()
+    # if delete=='n':
+    #     snr=-1
+    #     Amplitude=-1
+    #     std=-1
+    #     print('deleting SNR')
+    #area of pulse, the noise, if gaussian should sum, to 0
+    return snr,Amplitude,std
 
 def grab_spectra(gf,ts,te,mask_fn,dm,mask=True):
     #load the filterbank file
@@ -137,10 +223,10 @@ class inject_obj():
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    def calculate_snr_single(self):
+    def calculate_snr_single(self,mask=False):
         ts = self.toas-3
         te = self.toas+3
-        snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,self.dm,mask=False)
+        snr,amp,std = grab_spectra_manual(self.filfile,ts,te,self.mask,self.dm,mask=mask)
         # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
         self.det_snr = snr
         self.det_amp = amp
@@ -310,6 +396,7 @@ class inject_stats():
     def fit_det(self,p,snr,plot=True):
         popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,1.07])
         self.logisitic_params = popt
+        np.save('det_fun_params',popt)
         plt.plot(snr,logistic(snr,popt[0],popt[1]))
         plt.xlabel('SNR')
         plt.ylabel('Detection percentage')

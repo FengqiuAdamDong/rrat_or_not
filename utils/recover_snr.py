@@ -85,42 +85,85 @@ def grab_spectra(gfb,ts_arr,te_arr,mask_fn_arr,dm):
         data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
         #data.subband(256,subdm=dm,padval='median')
         subband = 256
-        downsamp = 8
+        downsamp = 3
+        #subtract running median and divide by std
+        chunk = 0.5
+        #do this so that chunk_samp will always be a mutliple of 2
+        chunk_samp = int(chunk/2/tsamp/downsamp)*2
+
+
+
         data.downsample(int(downsamp))
-        # data.subband(int(subband))
-        # data = data.scaled(False)
+        dat_arr = data.data
+        samp_low = int(2.75/tsamp/downsamp)
+        samp_high = int(3.25/tsamp/downsamp)
+        import copy
+        _temp = copy.deepcopy(dat_arr)
+        for i in range(dat_arr.shape[1]):
+            half_chunk = int(chunk_samp/2)
+            if ( i>samp_low ) & ( i<samp_high ):
+                pass
+            else:
+                if i<=half_chunk:
+                    #if it's less than half then just forward cast
+                    stat_d = dat_arr[:,0:chunk_samp]
+                elif (i>(samp_low-half_chunk)) & (i<samp_low):
+                    stat_d = dat_arr[:,(samp_low-chunk_samp):samp_low]
+                elif ( i>samp_high ) & (i<( samp_high+half_chunk )):
+                    stat_d = dat_arr[:,samp_high:samp_high+chunk_samp ]
+                elif i>=nsamps-1-half_chunk:
+                    stat_d = dat_arr[:,nsamps-1-chunk_samp:nsamps-1]
+                else:
+                    stat_d = dat_arr[:,i-half_chunk:i+half_chunk]
+
+                med = np.median(stat_d,axis=1)
+                std = np.std(stat_d,axis=1)
+
+            std[std==0]=1
+            _temp[:,i] = (_temp[:,i]-med)/std
+        dat_arr = _temp
+        data.data = dat_arr
         dat_arr = data.data
         dat_arr = dat_arr[~masked_chans,:]
         dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
         dat_ts = np.mean(dat_arr,axis=0)
 
-        SNR,ts_sub,std = calculate_SNR(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
+        SNR,ts_sub,std,max_samp = calculate_SNR(dat_ts,tsamp*downsamp,10e-2,nsamps=int(0.5/tsamp/downsamp))
+
+
+
+
+        plt.figure()
         plt.plot(ts_sub)
+        plt.scatter(max_samp,ts_sub[max_samp],marker="x",s=1000,c="red")
         plt.title(f"{gf} - SNR:{SNR}")
-        # plt.figure()
-        # plt.imshow(dat_arr,aspect='auto')
+        plt.figure()
+        plt.imshow(dat_arr,aspect='auto')
         plt.show()
 
 def calculate_SNR(ts,tsamp,width,nsamps):
     #calculates the SNR given a timeseries
 
     ind_max = nsamps
-    w_bin = width/tsamp
+    w_bin = int(width/tsamp)
     ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
+
     # ts_std = ts
     mean = np.median(ts_std)
     std = np.std(ts_std)
     #subtract the mean
     ts_sub = ts-mean
+    ts_max = ts_sub[nsamps-w_bin:nsamps+w_bin]
     #remove rms
-    Amplitude = ts_sub[nsamps]
+    Amplitude = max(ts_max)
     snr = Amplitude/std
     print(Amplitude,std,snr)
     # print(np.mean(ts_sub))
     # plt.plot(ts_std)
     # plt.show()
     #area of pulse, the noise, if gaussian should sum, to 0
-    return snr,ts_sub,std
+    max_samp = np.argwhere(ts_sub == Amplitude)
+    return snr,ts_sub,std,max_samp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process filterbank positions')

@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+#paths
+import sys
+sys.path
+sys.path.append("/home/adam/Documents/rrat_or_not/injection_scripts/")
+print(sys.path)
+
 import numpy as np
 import os
 import statistics
@@ -7,6 +13,10 @@ from matplotlib import pyplot as plt
 from scipy import optimize as o
 import dill
 import warnings
+import inject_stats
+
+
+
 warnings.filterwarnings("ignore")
 def plot_mat_exp(mat,N_arr,k_arr,snrs,dets):
     true_k = 0
@@ -67,11 +77,10 @@ def plot_mat_ln(mat,N_arr,mu_arr,std_arr,snrs,dets,true_mu,true_std):
 
 if __name__=="__main__":
     import sys
-    folder = sys.argv[1]
     odds_ratios = []
     real_det = sys.argv[1]
-    obs_t = 166788
-    p = 3.025
+    obs_t = 1000
+    p = 1.235
     with open(real_det,'rb') as inf:
         det_class = dill.load(inf)
     det_snr = []
@@ -96,7 +105,7 @@ if __name__=="__main__":
     #log normal original distribution
     mu_arr = np.linspace(mu_min-0.5,mu_min+0.5,mesh_size)
     std_arr = np.linspace(std_min*0.5,std_min*2,mesh_size+1)
-    N_arr = np.linspace(len(det_snr),N_min*2,mesh_size+2)
+    N_arr = np.linspace(len(det_snr),obs_t/p,mesh_size+2)
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
     #find the minimum for the exp
@@ -116,7 +125,7 @@ if __name__=="__main__":
     if 2*min_N > (obs_t/p):
         min_N = obs_t/p/2
     k_arr = np.linspace(k_lim[0],k_lim[1],exp_mesh_size)
-    N_arr_exp = np.linspace(len(det_snr),min_N*2,exp_mesh_size*3)
+    N_arr_exp = np.linspace(len(det_snr),obs_t/p,exp_mesh_size*3)
     mat_exp = statistics_exp.likelihood_exp(k_arr,N_arr_exp,det_snr)
     plot_mat_exp(mat_exp,N_arr_exp,k_arr,det_snr,det_snr)
     #lets calculate bayes factor

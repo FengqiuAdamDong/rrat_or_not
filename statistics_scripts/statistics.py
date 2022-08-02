@@ -17,6 +17,11 @@ def p_detect_0(snr,decay_rate,lower_cutoff=6):
 def p_detect(snr,k=5.5762911,x0=2.12284101,L=1):
     #this will just be an exponential rise at some center
     #added a decay rate variable just so things are compatible
+    #load inj statistics
+    popt = np.load('det_fun_params.npy',allow_pickle=1)
+    k = popt[0]
+    x0 = popt[1]
+    L = 1
     return L/(1+np.exp(-k*(snr-x0)))
 
 def n_detect(snr_emit):

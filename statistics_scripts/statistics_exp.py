@@ -32,6 +32,7 @@ def likelihood_exp(k_arr,N_arr,det_snr):
                     # mat[i,ind] = total_p_exp(v)
                 mat[i,:] = po.map(total_p_exp,X)
     return mat
+
 if __name__=='__main__':
     # x = np.linspace(0,5,100)
     # y = p_detect(x)
