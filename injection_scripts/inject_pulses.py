@@ -17,10 +17,10 @@ from multiprocessing import Pool
 # TRIAL_SNR = [2]
     # 0.8,
 # ]  # total S/N of pulse
-# TRIAL_SNR = np.linspace(1,4,50)
-TRIAL_SNR=[1.5]
+TRIAL_SNR = np.linspace(1,4,50)
+# TRIAL_SNR=[2]
 TRIAL_DMS = [
-    30,
+    100,
 ]  # DM of bursts
 
 DM_CONST = 4149.377593360996  # dispersion constant
@@ -120,28 +120,27 @@ def inject_pulses(data, masked_data,header, freqs, pulse_attrs,plot=False):
         print("rescaling pulses to correct amplitude")
         pulse_wf /= pulse_wf.max(axis=1)[:, np.newaxis]
         pulse_wf *= per_chan_inject_pow
-        # pulse_wf += (np.random.rand(pulse_wf.shape[0],pulse_wf.shape[1])-0.51)
-        # pulse_wf[pulse_wf<0] = 0
-        # pulse_wf = np.around(pulse_wf)
-        # create a spectra object and test
-        # pulse_spec = spec.Spectra(data.freqs,data.dt,pulse_wf)
-        # pulse_spec.dedisperse(100)
-        # pulse_mean = np.mean(pulse_spec.data,axis=0)
+        pulse_wf += (np.random.rand(pulse_wf.shape[0],pulse_wf.shape[1])-0.51)
+        pulse_wf[pulse_wf<0]=0
+        pulse_wf = np.around(pulse_wf)
+        #create a spectra object and test
+        pulse_spec = spec.Spectra(data.freqs,data.dt,pulse_wf)
+        pulse_spec.dedisperse(100)
+        pulse_mean = np.mean(pulse_spec.data,axis=0)
         print("combining simulated pulse with data")
         true_start_bin = time_to_bin(p_toa, tsamp) - toa_bin_top
         true_end_bin = true_start_bin + pulse_wf.shape[1]
         print(f"start bin = {true_start_bin}  end bin = {true_end_bin}")
         #we're going to inject to 0
         #set the bins around the pulse to be the mean
-        # per_chan_mean = np.median(stats_data,axis=1)
-        # for i,b in enumerate(per_chan_toa_bins):
-        #     bins_to_reset = width_bins
-        #     data.data[i,true_start_bin+b-bins_to_reset:true_start_bin+b+bins_to_reset] = per_chan_mean[i]
+        per_chan_mean = np.median(stats_data,axis=1)
+        for i,b in enumerate(per_chan_toa_bins):
+            bins_to_reset = width_bins
+            data.data[i,true_start_bin+b-bins_to_reset:true_start_bin+b+bins_to_reset] = per_chan_mean[i]
         data.data[:, true_start_bin:true_end_bin] += pulse_wf
-        # plt.plot(np.mean(data.data,axis=0))
-        # plt.show()
+
     #replot after scaling
-    # data.data = data.data.astype("uint8")
+    data.data = data.data.astype("uint8")
     # for i, p in enumerate(pulse_attrs):
     #     p_toa, p_snr, p_dm = p
     #     plot_bin = time_to_bin(0.5,tsamp)
@@ -284,8 +283,6 @@ def process(pool_arr):
         freqs,
         pulses_to_add,
     )
-    # scale
-    injdata.data = scale_to_uint8(injdata.data)
     s = np.array(statistics)
     # np.save(f"injection_stats_{snr}_{dm}",statistics)
     # we've done everything with type float32, rescale to uint8
@@ -307,8 +304,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("fil", help="Filterbank file to use as raw data background")
     parser.add_argument("--m", help="this is the mask fn")
-    parser.add_argument("--d", help="Duration of required output file", type=float, default=30)
-    parser.add_argument("--n", help="Number of pulses to inject", type=int, default=2)
+    parser.add_argument("--d", help="Duration of required output file", type=float, default=150)
+    parser.add_argument("--n", help="Number of pulses to inject", type=int, default=30)
     parser.add_argument(
             "-F",
             "--fake",
