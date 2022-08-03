@@ -96,11 +96,7 @@ def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True):
 
     SNR,amp,std = calculate_SNR_manual(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
     return SNR,amp,std
-    # plt.plot(ts_sub)
-    # plt.title(f"{gf} - SNR:{SNR}")
-    # plt.figure()
-    # plt.imshow(dat_arr,aspect='auto')
-    # plt.show()
+
 
 def calculate_SNR_manual(ts,tsamp,width,nsamps):
     #calculates the SNR given a timeseries
