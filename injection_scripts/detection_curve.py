@@ -17,190 +17,6 @@ from scipy.optimize import minimize
 from gaussian_fitter import log_likelihood
 from gaussian_fitter import gaussian
 
-def get_mask_fn(filterbank):
-    folder = filterbank.strip('.fil')
-    mask = f"{folder}_rfifind.mask"
-    return mask
-
-def get_mask(rfimask, startsamp, N):
-    """Return an array of boolean values to act as a mask
-        for a Spectra object.
-
-        Inputs:
-            rfimask: An rfifind.rfifind object
-            startsamp: Starting sample
-            N: number of samples to read
-
-        Output:
-            mask: 2D numpy array of boolean values.
-                True represents an element that should be masked.
-    """
-    sampnums = np.arange(startsamp, startsamp+N)
-    blocknums = np.floor(sampnums/rfimask.ptsperint).astype('int')
-    mask = np.zeros((N, rfimask.nchan), dtype='bool')
-    for blocknum in np.unique(blocknums):
-        blockmask = np.zeros_like(mask[blocknums==blocknum])
-        chans_to_mask = rfimask.mask_zap_chans_per_int[blocknum]
-        if chans_to_mask.any():
-            blockmask[:,chans_to_mask] = True
-        mask[blocknums==blocknum] = blockmask
-    return mask.T
-
-def get_mask_arr(gfb):
-    mask_arr = []
-    for g in gfb:
-        print(g)
-        mask_arr.append(get_mask_fn(g))
-    return mask_arr
-
-def maskfile(maskfn, data, start_bin, nbinsextra):
-    from presto import rfifind
-    rfimask = rfifind.rfifind(maskfn)
-    mask = get_mask(rfimask, start_bin, nbinsextra)[::-1]
-    masked_chans = mask.all(axis=1)
-    data = data.masked(mask, maskval='median-mid80')
-    return data, masked_chans
-
-def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True):
-    #load the filterbank file
-    g = FilterbankFile(gf,mode='read')
-    if ts<0:
-        ts=0
-    tsamp = float(g.header['tsamp'])
-    nsamps = int((te-ts)/tsamp)
-    ssamps = int(ts/tsamp)
-    #sampels to burst
-    nsamps_start_zoom = int(2.5/tsamp)
-    nsamps_end_zoom = int(3.5/tsamp)
-    spec = g.get_spectra(ssamps,nsamps)
-    #load mask
-    spec.dedisperse(dm, padval='median')
-    if mask:
-        data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
-    else:
-        data = spec
-        masked_chans = np.load(mask_fn,allow_pickle=1)
-        # print(gf,mask_fn)
-        # masked_chans = np.zeros(1024)==1
-    #data.subband(256,subdm=dm,padval='median')
-    subband = 256
-    downsamp = 3
-    data.downsample(int(downsamp))
-    # data.subband(int(subband))
-    # data = data.scaled(False)
-    dat_arr = data.data
-    dat_arr = dat_arr[~masked_chans,:]
-    dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
-    dat_ts = np.mean(dat_arr,axis=0)
-
-    SNR,amp,std = calculate_SNR_manual(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
-    return SNR,amp,std
-
-
-def calculate_SNR_manual(ts,tsamp,width,nsamps):
-    #calculates the SNR given a timeseries
-
-    ind_max = nsamps
-    w_bin = width/tsamp
-    ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
-    # ts_std = ts
-    mean = np.median(ts_std)
-    std = np.std(ts_std-mean)
-    #subtract the mean
-    ts_sub = ts-mean
-    #remove rms
-    #fit this to a gaussian using ML
-    mamplitude = np.max(ts_sub)
-    max_ind = np.argwhere(mamplitude==ts_sub)[0][0]
-    x = np.array(list(range(len(ts_sub))))
-
-    max_l = minimize(log_likelihood,[mamplitude,max_ind+1,2,0],args=(x,ts_sub,std),method='Nelder-Mead')
-    fitx = max_l.x
-    y_fit = gaussian(x,fitx[0],fitx[1],fitx[2],fitx[3])
-    # plt.figure(1)
-    # plt.plot(x,ts_sub,color='blue')
-    # plt.scatter(x,ts_sub,marker='.')
-    # plt.plot(x,y_fit,color='black',linewidth=5)
-    # plt.title(fitx[0])
-    # plt.draw()
-    Amplitude = abs(fitx[0])
-    snr = Amplitude/std
-    # print(snr,Amplitude,std)
-    # plt.pause(1) # <-------
-    # # plt.waitforbuttonpress(0)
-
-    # delete = input("Enter to proceed , n then enter to delete")
-    # plt.clf()
-    # if delete=='n':
-    #     snr=-1
-    #     Amplitude=-1
-    #     std=-1
-    #     print('deleting SNR')
-    #area of pulse, the noise, if gaussian should sum, to 0
-    return snr,Amplitude,std
-
-def grab_spectra(gf,ts,te,mask_fn,dm,mask=True):
-    #load the filterbank file
-    g = FilterbankFile(gf,mode='read')
-    tsamp = float(g.header['tsamp'])
-    nsamps = int((te-ts)/tsamp)
-    ssamps = int(ts/tsamp)
-    #sampels to burst
-    nsamps_start_zoom = int(2.5/tsamp)
-    nsamps_end_zoom = int(3.5/tsamp)
-    spec = g.get_spectra(ssamps,nsamps)
-    #load mask
-    spec.dedisperse(dm, padval='median')
-    if mask:
-        data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
-    else:
-        data = spec
-        masked_chans = np.load(mask_fn,allow_pickle=1)
-        # print(gf,mask_fn)
-        # masked_chans = np.zeros(1024)==1
-    #data.subband(256,subdm=dm,padval='median')
-    subband = 256
-    downsamp = 3
-    data.downsample(int(downsamp))
-    # data.subband(int(subband))
-    # data = data.scaled(False)
-    dat_arr = data.data
-    dat_arr = dat_arr[~masked_chans,:]
-    dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
-    dat_ts = np.mean(dat_arr,axis=0)
-
-    SNR,amp,std = calculate_SNR(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
-    return SNR,amp,std
-    # plt.plot(ts_sub)
-    # plt.title(f"{gf} - SNR:{SNR}")
-    # plt.figure()
-    # plt.imshow(dat_arr,aspect='auto')
-    # plt.show()
-
-
-def calculate_SNR(ts,tsamp,width,nsamps):
-    #calculates the SNR given a timeseries
-
-    ind_max = nsamps
-    w_bin = width/tsamp
-    ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
-    # ts_std = ts
-    mean = np.median(ts_std)
-    std = np.std(ts_std-mean)
-    #subtract the mean
-    ts_sub = ts-mean
-    #remove rms
-    Amplitude = ts_sub[nsamps]
-    snr = Amplitude/std
-    # print(np.mean(ts_sub))
-    # plt.figure()
-    # plt.plot(ts_sub)
-    # plt.scatter(nsamps,Amplitude,marker='x',s=30)
-    print(std,Amplitude,snr)
-    # plt.show()
-    #area of pulse, the noise, if gaussian should sum, to 0
-    return snr,Amplitude,std
-
 def logistic(x,k,x0):
     L=1
     return L/(1+np.exp(-k*(x-x0)))
@@ -218,29 +34,6 @@ class inject_obj():
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    def calculate_snr_single(self,mask=False):
-        ts = self.toas-3
-        te = self.toas+3
-        snr,amp,std = grab_spectra_manual(self.filfile,ts,te,self.mask,self.dm,mask=mask)
-        # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
-        self.det_snr = snr
-        self.det_amp = amp
-        self.det_std = std
-        print(snr,amp,std,self.filfile)
-
-    def calculate_snr(self):
-        for t,dm in zip(self.toas,self.dm):
-            ts = t-3
-            te = t+3
-            snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,dm)
-            # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
-            self.det_snr.append(snr)
-            self.det_amp.append(amp)
-            self.det_std.append(std)
-        self.det_snr = np.array(self.det_snr)
-        self.det_amp = np.array(self.det_amp)
-        self.det_std = np.array(self.det_std)
-
     def return_detected(self):
         #returns the detected snrs
         return self.det_snr[self.detected]
@@ -256,11 +49,6 @@ class inject_stats():
         #try to access the attribute, throw an exception if not available
         self.filfiles
         self.inj_samp
-        if len(self.filfiles)>0:
-            if not hasattr(self,'mask_fn'):
-                self.get_mask_fn()
-        else:
-            self.mask_fn = []
 
     def repopulate_io(self, ):
         if hasattr(self,"sorted_inject"):
@@ -271,11 +59,6 @@ class inject_stats():
                 t.repopulate(**s.__dict__)
                 temp.append(t)
             self.sorted_inject = np.array(temp)
-
-    def get_mask_fn(self):
-        #get the filenames of all the masks
-        self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
-
     def load_inj_samp(self):
         inj_data = np.load(self.inj_samp)
         #first column time stamp, second is snr, third column is dm
@@ -290,33 +73,6 @@ class inject_stats():
         for snr,dm in zip(self.snr_arr, self.dm_arr):
             self.sorted_inject.append(inject_obj(snr,self.toa_arr,dm))
         self.sorted_inject = np.array(self.sorted_inject)
-
-    def calculate_snr(self,multiprocessing=False):
-        import copy
-        if multiprocessing:
-            def run_calc(s):
-                s.calculate_snr()
-                print(s.det_snr)
-                return copy.deepcopy(s)
-            #for faster debugging
-            # self.sorted_inject = self.sorted_inject[0:10]
-            with ProcessPool(nodes=64) as p:
-                self.sorted_inject = p.map(run_calc,self.sorted_inject)
-
-        else:
-            for s in self.sorted_inject:
-                s.calculate_snr()
-
-    def calculate_snr_statistics(self):
-        det_snr = []
-        det_snr_std = []
-        inj_snr = []
-        for s in self.sorted_inject:
-            det_snr.append(np.mean(s.det_snr))
-            det_snr_std.append(np.std(s.det_snr))
-            inj_snr.append(s.snr)
-        plt.errorbar(inj_snr,det_snr,det_snr_std,fmt='.')
-        plt.show()
 
     def detected_truth(self,si,truth_arr):
         # if we have detected truth array then or the thing, if not then create
@@ -380,31 +136,21 @@ class inject_stats():
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", action='store_false', default = True, help="Set to do inj_stats analysis")
     parser.add_argument('-l', default = [], nargs='+', help='list of positive burst csv files')
     parser.add_argument('-f', default = [], nargs='+', help='list of filterbank files')
 
     args = parser.parse_args()
-    do_snr_calc = args.d
-    if do_snr_calc:
-        inj_samples = 'sample_injections.npy'
-        filfiles = args.f
-        init = {'filfiles':filfiles,'inj_samp':inj_samples}
-        inj_stats = inject_stats(**init)
-        inj_stats.load_inj_samp()
-        inj_stats.match_inj()
-        # inj_stats.calculate_snr(False)
-        # with open('inj_stats.dill','wb') as of:
-            # dill.dump(inj_stats,of)
-    # else:
-        # with open('inj_stats.dill','rb') as inf:
-            # inj_stats = dill.load(inf)
-        fns = args.l
-        # inj_stats = inject_stats(**inj_stats.__dict__)
-        # inj_stats.repopulate_io()
-        # inj_stats.calculate_snr_statistics()
-        inj_stats.compare(fns)
-        inj_stats.fit_det()
-        print(inj_stats.logisitic_params)
+    inj_samples = 'sample_injections.npy'
+    filfiles = args.f
+    init = {'filfiles':filfiles,'inj_samp':inj_samples}
+    inj_stats = inject_stats(**init)
+    inj_stats.load_inj_samp()
+    inj_stats.match_inj()
+    fns = args.l
+
+    inj_stats.compare(fns)
+    inj_stats.fit_det()
+    print(inj_stats.logisitic_params)
+    np.save('det_fun_params',inj_stats.logisitic_params)
         # with open('inj_stats_fitted.dill','wb') as of:
             # dill.dump(inj_stats,of)

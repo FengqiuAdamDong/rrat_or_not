@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
+from sigpyproc import readers as r
 try:
     from presto.filterbank import FilterbankFile
     from presto import filterbank as fb
@@ -17,7 +18,8 @@ import scipy.optimize as opt
 from scipy.optimize import minimize
 from gaussian_fitter import log_likelihood
 from gaussian_fitter import gaussian
-
+from matplotlib.widgets import Slider, Button, RadioButtons
+import copy
 def get_mask_fn(filterbank):
     folder = filterbank.strip('.fil')
     mask = f"{folder}_rfifind.mask"
@@ -56,51 +58,62 @@ def get_mask_arr(gfb):
 
 def maskfile(maskfn, data, start_bin, nbinsextra):
     from presto import rfifind
+    print('loading mask')
     rfimask = rfifind.rfifind(maskfn)
+    print('getting mask')
     mask = get_mask(rfimask, start_bin, nbinsextra)[::-1]
+    print('get mask finished')
     masked_chans = mask.all(axis=1)
-    data = data.masked(mask, maskval='median-mid80')
+    #mask the data but set to the mean of the channel
+    mask_vals = np.median(data,axis=1)
+    for i in range(len(mask_vals)):
+        _ = data[i,:]
+        _m = mask[i,:]
+        _[_m] = mask_vals[i]
+        data[i,:] = _
     return data, masked_chans
 
-def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True):
+def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True,downsamp=4,subband=256):
     #load the filterbank file
-    g = FilterbankFile(gf,mode='read')
+    g = r.FilReader(gf)
     if ts<0:
         ts=0
-    tsamp = float(g.header['tsamp'])
+    print('start and end times',ts,te)
+    tsamp = float(g.header.tsamp)
     nsamps = int((te-ts)/tsamp)
+    nsamps = nsamps-nsamps%downsamp
     ssamps = int(ts/tsamp)
     #sampels to burst
-    nsamps_start_zoom = int(2.5/tsamp)
-    nsamps_end_zoom = int(3.5/tsamp)
-    spec = g.get_spectra(ssamps,nsamps)
+    nsamps_start_zoom = int(4/tsamp)
+    nsamps_end_zoom = int(6/tsamp)
+    spec = g.read_block(ssamps,nsamps)
     #load mask
-    spec.dedisperse(dm, padval='median')
     if mask:
+        print("masking data")
         data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
-    else:
-        data = spec
-        masked_chans = np.load(mask_fn,allow_pickle=1)
-        # print(gf,mask_fn)
-        # masked_chans = np.zeros(1024)==1
+        print(1024-sum(masked_chans))
     #data.subband(256,subdm=dm,padval='median')
-    subband = 256
-    downsamp = 3
-    data.downsample(int(downsamp))
+    data = data.dedisperse(dm)
+    data = data.downsample(int(downsamp))
     # data.subband(int(subband))
     # data = data.scaled(False)
-    dat_arr = data.data
-    dat_arr = dat_arr[~masked_chans,:]
-    dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
-    dat_ts = np.mean(dat_arr,axis=0)
+    ds_data = copy.deepcopy(data)
+    # ds_data = ds_data.scaled(False)
+    # ds_data.subband(subband)
+    ds_data_zoom = ds_data
+    ds_data_zoom = ds_data_zoom[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
+    dat_ts = np.mean(ds_data_zoom[~masked_chans,:],axis=0)
+    #make a copy to plot the waterfall
+    waterfall_dat = copy.deepcopy(data)
+    waterfall_dat = waterfall_dat.downsample(tfactor=1,ffactor=4)
+    waterfall_dat = waterfall_dat.normalise()
+    waterfall_dat = waterfall_dat[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
 
-    SNR,amp,std = calculate_SNR_manual(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
+    SNR,amp,std = calculate_SNR_manual(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp),ds_data=waterfall_dat)
     return SNR,amp,std
 
-
-def calculate_SNR_manual(ts,tsamp,width,nsamps):
+def calculate_SNR_manual(ts,tsamp,width,nsamps,ds_data):
     #calculates the SNR given a timeseries
-
     ind_max = nsamps
     w_bin = width/tsamp
     ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
@@ -113,93 +126,69 @@ def calculate_SNR_manual(ts,tsamp,width,nsamps):
     #fit this to a gaussian using ML
     mamplitude = np.max(ts_sub)
     max_ind = np.argwhere(mamplitude==ts_sub)[0][0]
-    x = np.array(list(range(len(ts_sub))))
+    xind = np.array(list(range(len(ts_sub))))
 
-    max_l = minimize(log_likelihood,[mamplitude,max_ind+1,2,0],args=(x,ts_sub,std),method='Nelder-Mead')
+    max_l = minimize(log_likelihood,[mamplitude,max_ind,2,0],args=(xind,ts_sub,std),method='Nelder-Mead')
     fitx = max_l.x
-    y_fit = gaussian(x,fitx[0],fitx[1],fitx[2],fitx[3])
-    # plt.figure(1)
-    # plt.plot(x,ts_sub,color='blue')
-    # plt.scatter(x,ts_sub,marker='.')
-    # plt.plot(x,y_fit,color='black',linewidth=5)
-    # plt.title(fitx[0])
-    # plt.draw()
-    Amplitude = abs(fitx[0])
-    snr = Amplitude/std
-    # print(snr,Amplitude,std)
-    # plt.pause(1) # <-------
-    # # plt.waitforbuttonpress(0)
+    y_fit = gaussian(xind,fitx[0],fitx[1],fitx[2],fitx[3])
 
-    # delete = input("Enter to proceed , n then enter to delete")
-    # plt.clf()
-    # if delete=='n':
-    #     snr=-1
-    #     Amplitude=-1
-    #     std=-1
-    #     print('deleting SNR')
-    #area of pulse, the noise, if gaussian should sum, to 0
-    return snr,Amplitude,std
+    fig=plt.figure(figsize=(50,50))
+    ax1 = plt.subplot(1,2,1)
+    cmap=plt.get_cmap('magma')
+    plt.imshow(ds_data,aspect='auto',cmap=cmap)
+    ax = plt.subplot(1,2,2)
 
-def grab_spectra(gf,ts,te,mask_fn,dm,mask=True):
-    #load the filterbank file
-    g = FilterbankFile(gf,mode='read')
-    tsamp = float(g.header['tsamp'])
-    nsamps = int((te-ts)/tsamp)
-    ssamps = int(ts/tsamp)
-    #sampels to burst
-    nsamps_start_zoom = int(2.5/tsamp)
-    nsamps_end_zoom = int(3.5/tsamp)
-    spec = g.get_spectra(ssamps,nsamps)
-    #load mask
-    spec.dedisperse(dm, padval='median')
-    if mask:
-        data, masked_chans = maskfile(mask_fn,spec,ssamps,nsamps)
+    k = plt.plot(xind,ts_sub)
+    my_plot, = plt.plot(xind,y_fit,lw=5)
+    # ax.margins(x=0)
+    axcolor = 'lightgoldenrodyellow'
+    pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
+    p_ax = plt.axes([0.1, 0.1, 0.78, 0.03], facecolor=axcolor)
+    w_ax = plt.axes([0.1, 0.15, 0.78, 0.03], facecolor=axcolor)
+    pl = Slider(pl_ax, 'peak loc',0.0 , 800, valinit=fitx[1], valstep=1)
+    p = Slider(p_ax, 'peak', 0.0, 1, valinit=fitx[0],valstep=1e-5)
+    w = Slider(w_ax, 'width', 0.0,100, valinit=fitx[2],valstep=1)
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.25)
+    global x_new
+    x_new = [-1,-1,-1,-1]
+    def update(val):
+        peak_loc = pl.val
+        peak = p.val
+        sigma = w.val
+        a = np.mean(ts_sub)
+        #refit with new values
+        max_l = minimize(log_likelihood,[peak,peak_loc,sigma,a],args=(xind,ts_sub,std),method='Nelder-Mead')
+        for i,v in enumerate(max_l.x):
+            x_new[i] = v
+
+        print('new fit: ',x_new)
+        new_fit = gaussian(xind,x_new[0],x_new[1],x_new[2],x_new[3])
+        my_plot.set_ydata(new_fit)
+        fig.canvas.draw_idle()
+
+    pl.on_changed(update)
+    p.on_changed(update)
+    w.on_changed(update)
+    plt.show()
+    if x_new!=[-1,-1,-1,-1]:
+        fitx = x_new
+        print("Reassigning fit x becase we've recalculated")
     else:
-        data = spec
-        masked_chans = np.load(mask_fn,allow_pickle=1)
-        # print(gf,mask_fn)
-        # masked_chans = np.zeros(1024)==1
-    #data.subband(256,subdm=dm,padval='median')
-    subband = 256
-    downsamp = 3
-    data.downsample(int(downsamp))
-    # data.subband(int(subband))
-    # data = data.scaled(False)
-    dat_arr = data.data
-    dat_arr = dat_arr[~masked_chans,:]
-    dat_arr = dat_arr[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
-    dat_ts = np.mean(dat_arr,axis=0)
-
-    SNR,amp,std = calculate_SNR(dat_ts,tsamp,10e-3,nsamps=int(0.5/tsamp/downsamp))
-    return SNR,amp,std
-    # plt.plot(ts_sub)
-    # plt.title(f"{gf} - SNR:{SNR}")
+        print('No refitting done')
+    print("new fit" + str(fitx))
+    #there's a negative positive degeneracy
+    fitx[0] = abs(fitx[0])
+    fitx[1] = abs(fitx[1])
+    fitx[2] = abs(fitx[2])
+    #residual
+    ts_sub = ts_sub - gaussian(xind,fitx[0],fitx[1],fitx[2],fitx[3])
     # plt.figure()
-    # plt.imshow(dat_arr,aspect='auto')
+    # plt.plot(ts_sub)
     # plt.show()
-
-
-def calculate_SNR(ts,tsamp,width,nsamps):
-    #calculates the SNR given a timeseries
-
-    ind_max = nsamps
-    w_bin = width/tsamp
-    ts_std = np.delete(ts,range(int(ind_max-w_bin),int(ind_max+w_bin)))
-    # ts_std = ts
-    mean = np.median(ts_std)
-    std = np.std(ts_std-mean)
-    #subtract the mean
-    ts_sub = ts-mean
-    #remove rms
-    Amplitude = ts_sub[nsamps]
+    std = np.std(ts_sub)
+    Amplitude = fitx[0]
     snr = Amplitude/std
-    # print(np.mean(ts_sub))
-    # plt.figure()
-    # plt.plot(ts_sub)
-    # plt.scatter(nsamps,Amplitude,marker='x',s=30)
-    print(std,Amplitude,snr)
-    # plt.show()
-    #area of pulse, the noise, if gaussian should sum, to 0
     return snr,Amplitude,std
 
 def logistic(x,k,x0):
@@ -219,9 +208,9 @@ class inject_obj():
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
 
-    def calculate_snr_single(self,mask=False):
-        ts = self.toas-3
-        te = self.toas+3
+    def calculate_snr_single(self,mask=True):
+        ts = self.toas-5
+        te = self.toas+5
         snr,amp,std = grab_spectra_manual(self.filfile,ts,te,self.mask,self.dm,mask=mask)
         # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
         self.det_snr = snr
@@ -233,7 +222,7 @@ class inject_obj():
         for t,dm in zip(self.toas,self.dm):
             ts = t-3
             te = t+3
-            snr,amp,std = grab_spectra(self.filfile,ts,te,self.mask,dm)
+            snr,amp,std = grab_spectra_manual(self.filfile,ts,te,self.mask,dm)
             # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
             self.det_snr.append(snr)
             self.det_amp.append(amp)
@@ -259,6 +248,7 @@ class inject_stats():
         self.inj_samp
         if not hasattr(self,'mask_fn'):
             self.get_mask_fn()
+
     def repopulate_io(self, ):
         if hasattr(self,"sorted_inject"):
             #repopulate sorted inject
