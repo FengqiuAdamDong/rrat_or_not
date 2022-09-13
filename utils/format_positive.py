@@ -10,7 +10,6 @@ def remove_prefix(text, prefix):
 
 fn = sys.argv[1]
 
-source_name = sys.argv[2]
 filfiles = []
 dms = []
 toas = []
@@ -29,7 +28,7 @@ with open(fn,'r') as csvf:
         dms.append(info_str[4])
 
 
-out_csv = fn.strip('.csv')+'_snr.csv'
+out_csv = fn.replace('.csv','_snr.csv')
 
 with open(out_csv,'w') as csvf:
     writer = csv.writer(csvf,delimiter=',')
