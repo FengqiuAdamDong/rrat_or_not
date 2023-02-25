@@ -299,7 +299,7 @@ def get_filterbank_data_window(fn,maskfn, duration=20,masked_data = 1):
     the middle (+/- duration / 2) and return that data as a
     2D array.
     """
-    from sigpyproc import readers as r
+f   from sigpyproc import readers as r
     print("getting filterbank data")
     filf = r.FilReader(fn)
     hdr = filf.header

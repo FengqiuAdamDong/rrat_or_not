@@ -18,68 +18,97 @@ import inject_stats
 
 
 warnings.filterwarnings("ignore")
+def N_to_pfrac(x):
+    obs_t=1088
+    p=1.235
+    total = obs_t/p
+    return (x/total)
+def pfrac_to_N(x):
+    obs_t=1088
+    p=1.235
+    total = obs_t/p
+    return (total*X)
+
 def plot_mat_exp(mat,N_arr,k_arr,snrs,dets):
     true_k = 0
     max_likelihood_exp = np.max(mat)
     mat = np.exp(mat-np.max(mat))#*np.exp(max_likelihood_exp)
-    plt.figure()
+    fig1,ax1 = plt.subplots()
     posterior = np.trapz(mat,k_arr,axis=0)
-    plt.plot(N_arr,posterior)
-    plt.xlabel('N')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)}")
+    ax1.plot(N_arr,posterior)
+    secax1 = ax1.secondary_xaxis('top',functions = (N_to_pfrac,N_to_pfrac))
+    secax1.set_xlabel('Pulsing Fraction')
+    ax1.set_xlabel('N')
+    ax1.set_title(f"# of det pulses:{len(dets)}")
+
+
+
     plt.figure()
     posterior = np.trapz(mat,N_arr,axis=1)
     plt.plot(k_arr,posterior)
     plt.xlabel('K')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)}")
-    plt.figure()
+    plt.title(f"# of det pulses:{len(dets)}")
+
+
+
+    fig3,ax3 = plt.subplots()
     #marginalise over std
     plt.pcolormesh(k_arr,N_arr,mat.T)
-    plt.xlabel('k')
-    plt.ylabel('N')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true k:{true_k}")
+    secax3 = ax3.secondary_yaxis('right',functions = (N_to_pfrac,N_to_pfrac))
+    secax3.set_ylabel('Pulsing Fraction')
+    ax3.set_xlabel('k')
+    ax3.set_ylabel('N')
+    ax3.set_title(f"# of det pulses:{len(dets)}")
     plt.show()
 
 def plot_mat_ln(mat,N_arr,mu_arr,std_arr,snrs,dets,true_mu,true_std):
     max_likelihood_ln = np.max(mat)
     mat = np.exp(mat-np.max(mat))#*np.exp(max_likelihood_ln)
-    plt.figure()
+    fig1,ax1 = plt.subplots()
     posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),std_arr,axis=0)
-    plt.plot(N_arr,posterior)
-    plt.xlabel('N')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)}")
+    ax1.plot(N_arr,posterior)
+    secax1 = ax1.secondary_xaxis('top',functions = (N_to_pfrac,N_to_pfrac))
+    secax1.set_xlabel('Pulsing Fraction')
+    ax1.set_xlabel('N')
+    ax1.set_title(f"# of det pulses:{len(dets)}")
+    #set a secondary axis
     posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),N_arr,axis=1)
     plt.figure()
     plt.plot(std_arr,posterior)
     plt.xlabel('std')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true mu:{true_mu}")
+    plt.title(f"# of det pulses:{len(dets)}")
     posterior = np.trapz(np.trapz(mat,std_arr,axis=1),N_arr,axis=1)
     plt.figure()
     plt.plot(mu_arr,posterior)
     plt.xlabel('mu')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true mu:{true_mu}")
-    plt.figure()
+    plt.title(f"# of det pulses:{len(dets)}")
+    fig2,ax2 = plt.subplots()
     #marginalise over std
     d_pos = np.trapz(mat,std_arr,axis=1)
     print(d_pos.shape)
-    plt.pcolormesh(mu_arr,N_arr,d_pos.T)
-    plt.xlabel('mu')
-    plt.ylabel('N')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true mu:{true_mu}")
-    plt.figure()
+    ax2.pcolormesh(mu_arr,N_arr,d_pos.T)
+    ax2.set_xlabel('mu')
+    ax2.set_ylabel('N')
+    secax2 = ax2.secondary_yaxis('right',functions = (N_to_pfrac,N_to_pfrac))
+    secax2.set_ylabel('Pulsing Fraction')
+    ax2.set_title(f"# of det pulses:{len(dets)}")
+    fig3,ax3 = plt.subplots()
     d_pos = np.trapz(mat,mu_arr,axis=0)
     print(d_pos.shape)
-    plt.pcolormesh(std_arr,N_arr,d_pos.T)
+    ax3.pcolormesh(std_arr,N_arr,d_pos.T)
+    secax3 = ax3.secondary_yaxis('right',functions = (N_to_pfrac,N_to_pfrac))
+    secax3.set_ylabel('Pulsing Fraction')
     plt.xlabel('std')
     plt.ylabel('N')
-    plt.title(f"# of simulated pulses:{len(snrs)} # of det pulses:{len(dets)} true std:{true_std}")
+    plt.title(f"# of det pulses:{len(dets)}")
     plt.show()
 
 if __name__=="__main__":
     import sys
     odds_ratios = []
     real_det = sys.argv[1]
-    obs_t = 1000
+    # obs_t = 1088
+    obs_t = 2000
     p = 1.235
     with open(real_det,'rb') as inf:
         det_class = dill.load(inf)
@@ -88,7 +117,15 @@ if __name__=="__main__":
         if pulse_obj.det_snr!=-1:
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
-
+    #lets filter the det_SNRs too
+    snr_thresh = 1
+    det_snr = np.array(det_snr)
+    det_snr = det_snr[det_snr>snr_thresh]
+    plt.title('Histogram of detected pulses')
+    plt.hist(det_snr,bins=50)
+    plt.xlabel('SNR')
+    plt.ylabel('count')
+    plt.show()
     # plt.figure()
     # plt.hist(pulse_snrs,bins=50)
     # plt.figure()
@@ -100,8 +137,8 @@ if __name__=="__main__":
     std_min = res.x[1]
     N_min = res.x[2]
     print(mu_min,std_min,N_min)
-    mesh_size = 80
-    exp_mesh_size = 100
+    mesh_size = 150
+    exp_mesh_size = 150
     #log normal original distribution
     mu_arr = np.linspace(mu_min-0.5,mu_min+0.5,mesh_size)
     std_arr = np.linspace(std_min*0.5,std_min*2,mesh_size+1)
@@ -111,6 +148,7 @@ if __name__=="__main__":
     #find the minimum for the exp
     res = o.minimize(statistics_exp.negative_loglike,[1,len(det_snr)],(det_snr),
                 method='Nelder-Mead',bounds=[(0,10),(len(det_snr),obs_t/p)])
+
     # create an array for k
     min_k = res.x[0]
     min_N = res.x[1]
