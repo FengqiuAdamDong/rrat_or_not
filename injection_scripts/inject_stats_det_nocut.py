@@ -116,9 +116,6 @@ if __name__=='__main__':
     #just use a nominal dm
     dm1 = np.zeros(len(fil1))+dm
     #in the cut out the pulse is always at 3s
-
-
-
     init_obj = {'filfiles':fil1,'dms':dm1,'toas':toa1,'mask_fn':mask1}
     inject_stats = inject_stats(**init_obj)
     inject_stats.calculate_snr(True)
