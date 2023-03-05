@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
-from simulate_pulse import simulate_pulses
-from simulate_pulse import simulate_pulses_exp
 from scipy.stats import norm
 from math import comb
 from scipy.special import gammaln
@@ -21,9 +19,16 @@ def p_detect(snr):
     popt = np.load('det_fun_params.npy',allow_pickle=1)
     k = popt[0]
     x0 = popt[1]
+    # print(k,x0)
     L = 1
-    return L/(1+np.exp(-k*(snr-x0)))
+    # x = np.linspace(1,6)
+    # detect_plot =  L/(1+np.exp(-k*(x-x0)))
+    # plt.plot(x,detect_plot)
+    # plt.show()
+    # x0=x0+5
+    detection_fn = L/(1+np.exp(-k*(snr-x0)))
 
+    return detection_fn
 def n_detect(snr_emit):
     #snr emit is the snr that the emitted pulse has
     p = p_detect(snr_emit)
@@ -133,6 +138,9 @@ def likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=20):
 
 
 if __name__=='__main__':
+    from simulate_pulse import simulate_pulses
+    from simulate_pulse import simulate_pulses_exp
+
     # x = np.linspace(0,5,100)
     # y = p_detect(x)
     # plt.plot(x,y)

@@ -108,7 +108,7 @@ if __name__=="__main__":
     odds_ratios = []
     real_det = sys.argv[1]
     # obs_t = 1088
-    obs_t = 2000
+    obs_t = 1088.84
     p = 1.235
     with open(real_det,'rb') as inf:
         det_class = dill.load(inf)
@@ -118,31 +118,33 @@ if __name__=="__main__":
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
     #lets filter the det_SNRs too
+    det_snr = np.array(det_snr)
+    det_snr = det_snr[det_snr>2.3]
     snr_thresh = 1
     det_snr = np.array(det_snr)
     det_snr = det_snr[det_snr>snr_thresh]
     plt.title('Histogram of detected pulses')
-    plt.hist(det_snr,bins=50)
+    plt.hist(det_snr,bins=50,density=True)
     plt.xlabel('SNR')
     plt.ylabel('count')
-    plt.show()
-    # plt.figure()
-    # plt.hist(pulse_snrs,bins=50)
-    # plt.figure()
-    # plt.hist(det_snr,bins=50)
     det_snr = np.array(det_snr)
     res = o.minimize(statistics.negative_loglike,[0.5,0.1,len(det_snr)],(det_snr),
-                method='Nelder-Mead',bounds=[(-2,2),(0.01,2),(len(det_snr),obs_t/p)])
+                method='Nelder-Mead',bounds=[(-2,2),(0.01,2),(len(det_snr),4*obs_t/p)])
     mu_min = res.x[0]
     std_min = res.x[1]
     N_min = res.x[2]
+    snr_s = np.linspace(1,10,1000)
+    y = statistics.snr_distribution(snr_s,mu_min,std_min)
+    plt.plot(snr_s,y)
+    plt.show()
+
     print(mu_min,std_min,N_min)
-    mesh_size = 150
+    mesh_size = 50
     exp_mesh_size = 150
     #log normal original distribution
     mu_arr = np.linspace(mu_min-0.5,mu_min+0.5,mesh_size)
     std_arr = np.linspace(std_min*0.5,std_min*2,mesh_size+1)
-    N_arr = np.linspace(len(det_snr),obs_t/p,mesh_size+2)
+    N_arr = np.linspace(len(det_snr),3*obs_t/p,mesh_size+2)
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
     #find the minimum for the exp

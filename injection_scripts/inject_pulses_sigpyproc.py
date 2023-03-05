@@ -19,7 +19,7 @@ from sigpyproc import utils as u
 # TRIAL_SNR = [10]
     # 0.8,
 # ]  # total S/N of pulse
-# TRIAL_SNR = np.linspace(2,5,10)
+# TRIAL_SNR = np.linspace(0,6,60)
 # TRIAL_SNR=[2,3,4,5,6,7,8,9,10]
 TRIAL_SNR = [5]
 TRIAL_DMS = [
@@ -74,7 +74,7 @@ def create_pulse_attributes(npulses=1, duration=200,min_sep=1):
 
     # save the injection sample to a numpy file
     print("saving injection sample to: sample_injections.npy")
-    downsamp = 8
+    downsamp = 3
     stats_window = 0.9
     np.savez("sample_injections", grid=grid_coords,downsamp=downsamp,stats_window=stats_window)
 
@@ -100,6 +100,7 @@ def inject_pulses(data,masked_chans,header, freqs, pulse_attrs,downsamp,stats_wi
     tsamp = header.tsamp
     statistics = []
     #10s stats window
+    data = copy.deepcopy(data)
     for i, p in enumerate(pulse_attrs):
         p_toa, p_snr, p_dm = p
         print("computing toas per channel")
@@ -138,7 +139,7 @@ def inject_pulses(data,masked_chans,header, freqs, pulse_attrs,downsamp,stats_wi
         #calculate off pulse mean
         print("calculating expected S/N per channel")
         # convert S/N into actual power value
-        width = 10e-3  # 10-ms FWHM pulses
+        width = 5e-3  # 10-ms FWHM pulses
         # p_inj = adjusted_peak(p_snr,tsamp,width,downsamp)
         p_inj = p_snr
         print(f"new peak snr {p_inj}")
@@ -175,8 +176,8 @@ def inject_pulses(data,masked_chans,header, freqs, pulse_attrs,downsamp,stats_wi
 
     # data = data.astype("uint8")
     # np.save('data',data)
-    for i, p in enumerate(pulse_attrs):
-        statistics.append(calculate_SNR_wrapper([p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans]))
+    # for i, p in enumerate(pulse_attrs):
+        # statistics.append(calculate_SNR_wrapper([p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans]))
     return data,statistics
 
 def calculate_SNR_wrapper(X):
@@ -406,7 +407,7 @@ if __name__ == "__main__":
         pool_arr = []
         for s in TRIAL_SNR:
             pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,header, freqs, rawdata,masked_data,masked_chans,header_presto,downsamp,stats_window))
-        for p in pool_arr:
-            process(p)
-        # with Pool(10) as p:
-           # p.map(process,pool_arr)
+        # for p in pool_arr:
+            # process(p)
+        with Pool(10) as p:
+           p.map(process,pool_arr)

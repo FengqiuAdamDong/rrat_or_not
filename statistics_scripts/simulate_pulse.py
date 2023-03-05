@@ -2,10 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-def p_detect(snr,k=5.5762911,x0=2.12284101,L=1):
-    #this will just be an exponential rise at some center
-    #added a decay rate variable just so things are compatible
-    return L/(1+np.exp(-k*(snr-x0)))
+from statistics import p_detect
 
 def n_detect(snr_emit):
     #snr emit is the snr that the emitted pulse has

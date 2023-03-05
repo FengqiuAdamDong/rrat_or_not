@@ -74,7 +74,7 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
         data[i,:] = _
     return data, masked_chans
 
-def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True,downsamp=4,subband=256):
+def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True,downsamp=4,subband=256,manual=False):
     #load the filterbank file
     g = r.FilReader(gf)
     if ts<0:
@@ -110,10 +110,12 @@ def grab_spectra_manual(gf,ts,te,mask_fn,dm,mask=True,downsamp=4,subband=256):
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[:,int(nsamps_start_zoom/downsamp):int(nsamps_end_zoom/downsamp)]
 
-    # SNR,amp,std = fit_SNR_manual(dat_ts,tsamp,2e-2,nsamps=int(0.9/tsamp/downsamp),ds_data=waterfall_dat)
-    SNR,amp,std = fit_SNR(dat_ts,tsamp,2e-2,nsamps=int(0.9/tsamp/downsamp),ds_data=waterfall_dat)
+    if manual:
+        SNR,amp,std = fit_SNR_manual(dat_ts,tsamp,2e-2,nsamps=int(0.9/tsamp/downsamp),ds_data=waterfall_dat)
+    else:
+        SNR,amp,std = fit_SNR(dat_ts,tsamp,2e-2,nsamps=int(0.9/tsamp/downsamp),ds_data=waterfall_dat)
 
-    print(gf,downsamp,SNR,amp,std)
+    print("filename:",gf,"downsample:",downsamp,"SNR:",SNR,"amp:",amp,"std",std)
     return SNR,amp,std
 
 def fit_SNR(ts,tsamp,width,nsamps,ds_data):
@@ -254,7 +256,7 @@ class inject_obj():
     def calculate_snr_single(self,mask=True):
         ts = self.toas-5
         te = self.toas+5
-        snr,amp,std = grab_spectra_manual(self.filfile,ts,te,self.mask,self.dm,mask=mask,downsamp=self.downsamp)
+        snr,amp,std = grab_spectra_manual(gf=self.filfile,ts=ts,te=te,mask_fn=self.mask,dm=self.dm,subband=256,mask=True,downsamp = self.downsamp,manual=False)
         # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
         self.det_snr = snr
         self.det_amp = amp
@@ -321,8 +323,8 @@ class inject_stats():
             sp_ = f.split('_')
             snr_str = sp_[-1]
             snr_str = snr_str.strip('.fil').strip('snr')
-            snr = np.round(float(snr_str),3)
-            snr_ind = np.round(self.snr_arr,3)==snr
+            snr = np.round(float(snr_str),2)
+            snr_ind = np.round(self.snr_arr,2)==snr
             cur_toa = self.toa_arr[snr_ind]
             cur_dm = self.dm_arr[snr_ind]
             self.sorted_inject.append(inject_obj(snr,cur_toa,cur_dm,self.downsamp,f,m))
@@ -364,13 +366,13 @@ class inject_stats():
 
 
     def compare(self, fn):
-        from read_positive_burst import read_positive_burst
+        from read_positive_burst import read_positive_burst_inj
         matched = np.zeros(len(self.dm_arr))
         time_tol = 0.5
         dm_tol = 10
         snr_tol = 1e-2
         for csv in fn:
-            dm,burst_time,boxcar_det_snr,inj_snr,MJD = read_positive_burst(csv)
+            dm,burst_time,boxcar_det_snr,inj_snr,MJD = read_positive_burst_inj(csv)
             for t,d,inj_s in zip(burst_time,dm,inj_snr):
                 #here we gotta match the values
                 t_low = t-time_tol
