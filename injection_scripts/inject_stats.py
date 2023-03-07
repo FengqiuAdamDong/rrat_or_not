@@ -188,6 +188,8 @@ def fit_SNR_manual(ts,tsamp,width,nsamps,ds_data):
     pl = Slider(pl_ax, 'peak loc',0.0 , len(ts), valinit=fitx[1], valstep=1)
     p = Slider(p_ax, 'peak', 0.0, 1, valinit=fitx[0],valstep=1e-5)
     w = Slider(w_ax, 'width', 0.0,100, valinit=fitx[2],valstep=1)
+    but_ax = plt.axes([0.1, 0.2, 0.3, 0.03], facecolor=axcolor)
+    skipb = Button(but_ax,"Skip")
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
     global x_new
@@ -207,16 +209,28 @@ def fit_SNR_manual(ts,tsamp,width,nsamps,ds_data):
         my_plot.set_ydata(new_fit)
         fig.canvas.draw_idle()
 
+    class skip_class:
+        skip=False
+        def skip_event(self,event):
+            self.skip=True
+            plt.close()
+
+    skip = skip_class()
+    skipb.on_clicked(skip.skip_event)
     pl.on_changed(update)
     p.on_changed(update)
     w.on_changed(update)
     plt.show()
+    if skip.skip:
+        print("skipping")
+        return -1,-1,-1
+
     if x_new!=[-1,-1,-1,-1]:
         fitx = x_new
         print("Reassigning fit x becase we've recalculated")
     else:
         print('No refitting done')
-    print("new fit" + str(fitx))
+    # print("new fit" + str(fitx))
     #there's a negative positive degeneracy
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
