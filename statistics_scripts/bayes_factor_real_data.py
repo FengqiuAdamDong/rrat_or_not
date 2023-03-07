@@ -108,8 +108,8 @@ if __name__=="__main__":
     odds_ratios = []
     real_det = sys.argv[1]
     # obs_t = 1088
-    obs_t = 1088.84
-    p = 1.235
+    obs_t = 100
+    p = 2
     with open(real_det,'rb') as inf:
         det_class = dill.load(inf)
     det_snr = []
@@ -119,12 +119,16 @@ if __name__=="__main__":
             det_snr.append(pulse_obj.det_snr)
     #lets filter the det_SNRs too
     det_snr = np.array(det_snr)
-    det_snr = det_snr[det_snr>2.3]
+
+    # det_snr = det_snr[det_snr<100]
+    # det_snr = det_snr-0.3
+    # det_snr = det_snr[det_snr>2.5]
+    # det_snr = det_snr[det_snr<12]
     snr_thresh = 1
     det_snr = np.array(det_snr)
     det_snr = det_snr[det_snr>snr_thresh]
     plt.title('Histogram of detected pulses')
-    plt.hist(det_snr,bins=50,density=True)
+    n,bins,patches = plt.hist(det_snr,bins=50)
     plt.xlabel('SNR')
     plt.ylabel('count')
     det_snr = np.array(det_snr)
@@ -133,8 +137,10 @@ if __name__=="__main__":
     mu_min = res.x[0]
     std_min = res.x[1]
     N_min = res.x[2]
-    snr_s = np.linspace(1,10,1000)
+    snr_s = np.linspace(1e-2,25,1000)
     y = statistics.snr_distribution(snr_s,mu_min,std_min)
+    scale = n[0]/statistics.snr_distribution(bins[0]+np.diff(bins)[0],mu_min,std_min)
+    y = y*scale
     plt.plot(snr_s,y)
     plt.show()
 
@@ -149,14 +155,27 @@ if __name__=="__main__":
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
     #find the minimum for the exp
     res = o.minimize(statistics_exp.negative_loglike,[1,len(det_snr)],(det_snr),
-                method='Nelder-Mead',bounds=[(0,10),(len(det_snr),obs_t/p)])
+                method='Nelder-Mead',bounds=[(0,10),(len(det_snr),4*obs_t/p)])
+
+    plt.title('Histogram of detected pulses')
+    n,bins,patches = plt.hist(det_snr,bins=50,density=True)
+    plt.xlabel('SNR')
+    plt.ylabel('count')
 
     # create an array for k
     min_k = res.x[0]
     min_N = res.x[1]
+
+    y = np.exp(statistics.log_snr_distribution_exp(snr_s,min_k))
+    scale = n[0]/np.exp(statistics.log_snr_distribution_exp(bins[0]+np.diff(bins)[0],min_k))
+    y = y*scale
+    plt.plot(snr_s,y)
+    plt.show()
+
+
+
     mu_lim = [min(mu_arr),max(mu_arr)]
     mu_range = (mu_lim[1]-mu_lim[0])/2
-
     print(min_k,min_N)
     if min_k<mu_range:
         k_lim = [0.01,mu_range*2]
@@ -165,7 +184,7 @@ if __name__=="__main__":
     if 2*min_N > (obs_t/p):
         min_N = obs_t/p/2
     k_arr = np.linspace(k_lim[0],k_lim[1],exp_mesh_size)
-    N_arr_exp = np.linspace(len(det_snr),obs_t/p,exp_mesh_size*3)
+    N_arr_exp = np.linspace(len(det_snr),3*obs_t/p,exp_mesh_size*3)
     mat_exp = statistics_exp.likelihood_exp(k_arr,N_arr_exp,det_snr)
     plot_mat_exp(mat_exp,N_arr_exp,k_arr,det_snr,det_snr)
     #lets calculate bayes factor

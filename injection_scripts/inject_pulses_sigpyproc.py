@@ -19,9 +19,9 @@ from sigpyproc import utils as u
 # TRIAL_SNR = [10]
     # 0.8,
 # ]  # total S/N of pulse
-# TRIAL_SNR = np.linspace(0,6,60)
+TRIAL_SNR = np.linspace(2.5,50,60)
 # TRIAL_SNR=[2,3,4,5,6,7,8,9,10]
-TRIAL_SNR = [5]
+# TRIAL_SNR = [5]
 TRIAL_DMS = [
     100,
 ]  # DM of bursts
@@ -65,7 +65,7 @@ def create_pulse_attributes(npulses=1, duration=200,min_sep=1):
         dtoa = np.zeros(npulses+1)
         while min(dtoa)<min_sep:
             #don't inject anything into the last 10% of data
-            toas = sorted(np.random.uniform(0.2, 0.8, npulses) * duration)
+            toas = sorted(np.random.uniform(0.1, 0.9, npulses) * duration)
             dtoa = np.diff(toas)
             if len(toas)==1:
                 break
@@ -100,7 +100,6 @@ def inject_pulses(data,masked_chans,header, freqs, pulse_attrs,downsamp,stats_wi
     tsamp = header.tsamp
     statistics = []
     #10s stats window
-    data = copy.deepcopy(data)
     for i, p in enumerate(pulse_attrs):
         p_toa, p_snr, p_dm = p
         print("computing toas per channel")
@@ -319,26 +318,36 @@ def get_filterbank_data_window(fn,maskfn, duration=20,masked_data = 1):
     hdr.nsamples = masked_data.shape[1]  # total number of data samples (nchan * nspec)
     return hdr, freqs, _, masked_data,masked_chans,header
 
+def multiprocess(arr):
+    dm,s,ifn,duration,maskfn,injection_sample,stats_window,downsamp,single_snr_dm = arr
+    header, freqs, rawdata,masked_data,masked_chans,header_presto = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn,masked_data=None)
+    p_arr = (dm,s,ifn,duration,maskfn,injection_sample,header, freqs, rawdata,masked_data,masked_chans,header_presto,downsamp,stats_window,single_snr_dm)
+    process(p_arr)
+
 def process(pool_arr):
-    dm,snr,ifn,duration,maskfn,injection_sample,header_,freq_,rawdata_,masked_data, masked_chans_,header_presto,downsamp,stats_window = pool_arr
+    #this SNR field is only for the filename purposes, so you can pass a string into here
+    dm,snr,ifn,duration,maskfn,injection_sample,header_,freq_,rawdata_,masked_data_, masked_chans_,header_presto,downsamp,stats_window,single_snr_dm = pool_arr
     header = copy.deepcopy(header_)
     freq = copy.deepcopy(freq_)
     rawdata = copy.deepcopy(rawdata_)
-    masked_data = copy.deepcopy(masked_data)
+    masked_chans = copy.deepcopy(masked_chans_)
     print(f"dm={dm} snr={snr} ds={downsamp} stats_window={stats_window}")
     #figure out what pulses to add
-    add_mask = np.logical_and(
-        injection_sample[:, -1] == dm, injection_sample[:, 1] == snr
-    )
+    if single_snr_dm:
+        add_mask = np.logical_and(
+            injection_sample[:, -1] == dm, injection_sample[:, 1] == snr
+        )
 
-    pulses_to_add = injection_sample[add_mask]
+        pulses_to_add = injection_sample[add_mask]
+    else:
+        pulses_to_add = injection_sample
 
 
     injdata,statistics = inject_pulses(
         rawdata,
         masked_chans,
         header,
-        freqs,
+        freq,
         pulses_to_add,
         downsamp,
         stats_window
@@ -402,12 +411,19 @@ if __name__ == "__main__":
     # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
     print(f"getting data cutout from: {ifn}")
     #add the pulses
-    header, freqs, rawdata,masked_data,masked_chans,header_presto = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn,masked_data=None)
-    for dm in TRIAL_DMS:
-        pool_arr = []
-        for s in TRIAL_SNR:
-            pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,header, freqs, rawdata,masked_data,masked_chans,header_presto,downsamp,stats_window))
-        # for p in pool_arr:
-            # process(p)
-        with Pool(10) as p:
-           p.map(process,pool_arr)
+    multiprocessing = True
+    if multiprocessing:
+        for dm in TRIAL_DMS:
+            pool_arr = []
+            for s in TRIAL_SNR:
+                pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,stats_window,downsamp,True))
+            with Pool(10) as p:
+                p.map(multiprocess,pool_arr)
+    else:
+        header, freqs, rawdata,masked_data,masked_chans,header_presto = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn,masked_data=None)
+        for dm in TRIAL_DMS:
+            pool_arr = []
+            for s in TRIAL_SNR:
+                pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,header, freqs, rawdata,masked_data,masked_chans,header_presto,downsamp,stats_window,True))
+            for p in pool_arr:
+                process(p)

@@ -171,8 +171,8 @@ def fit_SNR_manual(ts,tsamp,width,nsamps,ds_data):
     max_l = minimize(log_likelihood,[mamplitude,max_ind,2,0],args=(xind,ts_sub,std),method='Nelder-Mead')
     fitx = max_l.x
     y_fit = gaussian(xind,fitx[0],fitx[1],fitx[2],fitx[3])
-    # fig=plt.figure(figsize=(50,50))
-    fig=plt.figure(figsize=(5,5))
+    fig=plt.figure(figsize=(50,50))
+    # fig=plt.figure(figsize=(5,5))
     ax1 = plt.subplot(1,2,1)
     cmap=plt.get_cmap('magma')
     plt.imshow(ds_data,aspect='auto',cmap=cmap)
@@ -256,7 +256,7 @@ class inject_obj():
     def calculate_snr_single(self,mask=True):
         ts = self.toas-5
         te = self.toas+5
-        snr,amp,std = grab_spectra_manual(gf=self.filfile,ts=ts,te=te,mask_fn=self.mask,dm=self.dm,subband=256,mask=True,downsamp = self.downsamp,manual=False)
+        snr,amp,std = grab_spectra_manual(gf=self.filfile,ts=ts,te=te,mask_fn=self.mask,dm=self.dm,subband=256,mask=True,downsamp = self.downsamp,manual=True)
         # print(f"Calculated snr:{snr} A:{amp} S:{std} Nominal SNR:{self.snr}")
         self.det_snr = snr
         self.det_amp = amp
@@ -351,7 +351,7 @@ class inject_stats():
         det_snr_std = []
         inj_snr = []
         for s in self.sorted_inject:
-            det_snr.append(np.mean(s.det_snr))
+            det_snr.append(np.median(s.det_snr))
             det_snr_std.append(np.std(s.det_snr))
             inj_snr.append(s.snr)
         plt.errorbar(inj_snr,det_snr,det_snr_std,fmt='.')
