@@ -15,17 +15,15 @@ import dill
 import warnings
 import inject_stats
 
+obs_t = 886
+p = 2.392
 
 
 warnings.filterwarnings("ignore")
 def N_to_pfrac(x):
-    obs_t=1088
-    p=1.235
     total = obs_t/p
     return (x/total)
 def pfrac_to_N(x):
-    obs_t=1088
-    p=1.235
     total = obs_t/p
     return (total*X)
 
@@ -108,8 +106,6 @@ if __name__=="__main__":
     odds_ratios = []
     real_det = sys.argv[1]
     # obs_t = 1088
-    obs_t = 100
-    p = 2
     with open(real_det,'rb') as inf:
         det_class = dill.load(inf)
     det_snr = []
@@ -121,10 +117,10 @@ if __name__=="__main__":
     det_snr = np.array(det_snr)
 
     # det_snr = det_snr[det_snr<100]
-    # det_snr = det_snr-0.3
+    det_snr = det_snr-0.1
     # det_snr = det_snr[det_snr>2.5]
     # det_snr = det_snr[det_snr<12]
-    snr_thresh = 1
+    snr_thresh = 1.5
     det_snr = np.array(det_snr)
     det_snr = det_snr[det_snr>snr_thresh]
     plt.title('Histogram of detected pulses')
@@ -133,7 +129,7 @@ if __name__=="__main__":
     plt.ylabel('count')
     det_snr = np.array(det_snr)
     res = o.minimize(statistics.negative_loglike,[0.5,0.1,len(det_snr)],(det_snr),
-                method='Nelder-Mead',bounds=[(-2,2),(0.01,2),(len(det_snr),4*obs_t/p)])
+                method='Nelder-Mead',bounds=[(-2,2),(0.01,2),(len(det_snr),2*obs_t/p)])
     mu_min = res.x[0]
     std_min = res.x[1]
     N_min = res.x[2]
@@ -148,9 +144,9 @@ if __name__=="__main__":
     mesh_size = 50
     exp_mesh_size = 150
     #log normal original distribution
-    mu_arr = np.linspace(mu_min-0.5,mu_min+0.5,mesh_size)
+    mu_arr = np.linspace(mu_min-1,mu_min+0.5,mesh_size)
     std_arr = np.linspace(std_min*0.5,std_min*2,mesh_size+1)
-    N_arr = np.linspace(len(det_snr),3*obs_t/p,mesh_size+2)
+    N_arr = np.linspace(len(det_snr),2*obs_t/p,mesh_size+2)
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
     #find the minimum for the exp

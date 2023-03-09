@@ -12,7 +12,7 @@ def p_detect_0(snr,decay_rate,lower_cutoff=6):
     p[snr<lower_cutoff] = 0
     return p
 
-def p_detect(snr,cutoff=1,upper_cutoff=1000):
+def p_detect(snr,cutoff=1.5,upper_cutoff=1000):
     #this will just be an exponential rise at some center
     #added a decay rate variable just so things are compatible
     #load inj statistics
