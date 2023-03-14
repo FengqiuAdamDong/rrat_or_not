@@ -14,6 +14,7 @@ import dill
 import warnings
 import inject_stats
 import argparse
+
 parser = argparse.ArgumentParser(description='Simulate some pulses')
 parser.add_argument('-o', type=float, default=500,
                     help='mean')
@@ -28,7 +29,7 @@ p = args.p
 real_det = args.i
 
 
-warnings.filterwarnings("ignore")
+# warnings.filterwarnings("ignore")
 def N_to_pfrac(x):
     total = obs_t/p
     return (x/total)
@@ -125,6 +126,7 @@ if __name__=="__main__":
     det_snr = np.array(det_snr)
 
     # det_snr = det_snr[det_snr<100]
+    # det_snr = det_snr-0.1
     # det_snr = det_snr[det_snr>2.5]
     # det_snr = det_snr[det_snr<12]
     snr_thresh = 1
@@ -135,8 +137,8 @@ if __name__=="__main__":
     plt.xlabel('SNR')
     plt.ylabel('count')
     det_snr = np.array(det_snr)
-    res = o.minimize(statistics.negative_loglike,[0.5,0.1,len(det_snr)],(det_snr),
-                method='Nelder-Mead',bounds=[(-2,2),(0.01,2),(len(det_snr),2*obs_t/p)])
+    res = o.minimize(statistics.negative_loglike,[0.5,0.2,len(det_snr)],(det_snr),
+                method='Nelder-Mead',bounds=[(0.001,2),(0.1,2),(len(det_snr),100000)])
     mu_min = res.x[0]
     std_min = res.x[1]
     N_min = res.x[2]
@@ -144,6 +146,7 @@ if __name__=="__main__":
     y = statistics.lognorm_dist(snr_s,mu_min,std_min)*statistics.p_detect(snr_s)
     y_scale = np.trapz(y,snr_s)
     y = y/y_scale
+
     plt.plot(snr_s,y)
     plt.show()
 
@@ -151,8 +154,8 @@ if __name__=="__main__":
     mesh_size = 50
     exp_mesh_size = 150
     #log normal original distribution
-    mu_arr = np.linspace(mu_min-0.3,mu_min+0.3,mesh_size)
-    std_arr = np.linspace(std_min*0.3,std_min+0.3,mesh_size+1)
+    mu_arr = np.linspace(0.8,1.2,mesh_size)
+    std_arr = np.linspace(0.4,0.65,mesh_size+1)
     N_arr = np.linspace(len(det_snr),obs_t/p,mesh_size+2)
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)

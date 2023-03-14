@@ -62,7 +62,7 @@ def first_exp(snr,k):
 
 def second_exp(n,k,N):
     snr_arr = np.linspace(-20,2,100000)
-    snr_arr = np.exp(snr_arr)
+    snrarr = np.exp(snr_arr)
     p_snr = log_snr_distribution_exp(snr_arr,k)
     p_not_det = np.log(1-(p_detect(snr_arr)))
     p_second = p_snr+p_not_det
@@ -77,27 +77,35 @@ def second_exp(n,k,N):
         p_second_int=1
     return p_second_int*(N-n)
 
-def first(snr,mu,std):
-    p_det = p_detect(snr)
-    snr_p = lognorm_dist(snr,mu,std)
-    return np.sum(np.log(p_det*snr_p))
+def first(mu_snr,mu,std,sigma_snr=0.5):
+    snr_array = np.linspace(1e-20,100,1000)
+    snr_arr_m,mu_snr_m = np.meshgrid(snr_array,mu_snr)
+    p_musnr_giv_snr = norm.pdf(snr_arr_m-mu_snr_m,0,sigma_snr)
 
-def second(n,mu,std,N):
+    p_det = p_detect(mu_snr)
+    snr_p = lognorm_dist(snr_arr_m,mu,std)
+    integrand = snr_p*p_musnr_giv_snr
+    #integrate of dlogsnr
+    first_term = np.log(np.trapz(integrand,snr_array,axis=-1))+np.log(p_det)
+    return np.sum(first_term)
+
+def second(n,mu,std,N,sigma_snr=0.4):
     #get a logspace
-    snr_arr = np.linspace(0.01,100,10000)
+    mu_snr_arr = np.linspace(-10,10,301)
+    snr_arr = np.linspace(1e-20,20,400)
+    snr_m,mu_snr_m = np.meshgrid(snr_arr,mu_snr_arr)
     #take log of the snr distribution
-    p_snr = np.log(lognorm_dist(snr_arr,mu,std))
-    p_not_det = np.log(1-(p_detect(snr_arr)))
+    p_snr = lognorm_dist(snr_m,mu,std)
+    p_not_det = 1-p_detect(mu_snr_m)
+
+    p_musnr_giv_snr = norm.pdf(mu_snr_m-snr_m,0,sigma_snr)
     #combine the two terms
-    p_second = p_snr+p_not_det
-    #integrate over flux
-    # plt.figure()
-    # plt.plot(snr_arr,p_second)
-    # plt.show()
-    # exponentiate and integrate, re log using the log sum exp trick to prevent overflows (and low numbers)
-    p_second_int = np.log(np.trapz(np.exp(p_second-np.max(p_second)),snr_arr))+np.max(p_second)
-    if p_second_int>1:
-        print(p_second_int)
+    p_second_conv = p_musnr_giv_snr*p_snr
+    p_second = p_second_conv*p_not_det
+    p_second_int = np.log(np.trapz(np.trapz(p_second,snr_arr),mu_snr_arr))
+    # print(np.trapz(np.trapz(p_second,snr_arr),mu_snr_arr))
+    if np.exp(p_second_int)>1:
+        import pdb; pdb.set_trace()
         p_second_int=1
     return p_second_int*(N-n)
 
@@ -106,19 +114,16 @@ def total_p(X):
     std = X['std']
     N = X['N']
     snr_arr = X['snr_arr']
-    # if (mu > 0.095) & (mu<1.1):
-    #     if (std > 0.095) & (std<1.1) :
-    #         if (N > 24000) & (N < 26000):
-    #             import pdb; pdb.set_trace()
-    f = first(snr_arr,mu,std)
-    s = second(len(snr_arr),mu,std,N)
-    # NCn = comb(N,len(snr_arr))
-    # print(NCn,f,s)
-    # NCn = 1
+
+    sigma_snr = 0.5
+    f = first(snr_arr,mu,std,sigma_snr=sigma_snr)
+    s = second(len(snr_arr),mu,std,N,sigma_snr=sigma_snr)
+
+
+
+
     n = len(snr_arr)
     log_NCn = gammaln(N+1)-gammaln(n+1)-gammaln(N-n+1)
-    # import pdb; pdb.set_trace()
-    # print(log_NCn,f,s)
     return log_NCn+f+s
 
 def negative_loglike(X,det_snr):

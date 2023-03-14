@@ -369,6 +369,8 @@ class inject_stats():
             det_snr_std.append(np.std(s.det_snr))
             inj_snr.append(s.snr)
         plt.errorbar(inj_snr,det_snr,det_snr_std,fmt='.')
+        plt.xlabel("Injected SNR")
+        plt.ylabel("Detected SNR")
         plt.show()
 
     def detected_truth(self,si,truth_arr):

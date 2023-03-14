@@ -13,11 +13,11 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Simulate some pulses')
     parser.add_argument('-mu', type=float, default=0.5,
                         help='mean')
-    parser.add_argument('-std', type=float, default=0.31,
+    parser.add_argument('-std', type=float, default=0.2,
                         help='standard deviation')
-    parser.add_argument('-obs', type=float, default=1088,
+    parser.add_argument('-obs', type=float, default=1000,
                         help='standard deviation')
-    parser.add_argument('-p', type=float, default=1.28,
+    parser.add_argument('-p', type=float, default=1,
                         help='standard deviation')
     parser.add_argument('-f', type=float, default=1,
                         help='standard deviation')
@@ -36,8 +36,13 @@ if __name__=='__main__':
     p = args.p
     f = args.f
     dill_file = args.d
+    from numpy.random import normal
+    sigma_snr = 0.5
     pulses = simulate_pulses(obs_t,p,f,mu,std)
+    rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
+    pulses = rv+pulses
     detected_pulses = n_detect(pulses)
+    print(len(detected_pulses))
     import dill
     with open(dill_file,'rb') as inf:
         det_class = dill.load(inf)

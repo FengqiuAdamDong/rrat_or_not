@@ -24,8 +24,8 @@ def simulate_pulses(obs_t,period,f,mu,std,random=True):
         pulse_N = np.sum(rands<f)
     else:
         pulse_N = int(N*f)
-    pulse_snr = np.random.normal(mu,std,pulse_N)
-    return 10**pulse_snr
+    pulse_snr = np.random.lognormal(mu,std,pulse_N)
+    return pulse_snr
 
 def simulate_pulses_exp(obs_t,period,f,k,random=True):
     #we simulate the pulses as a power law instead of a log normal
