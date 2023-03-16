@@ -95,6 +95,8 @@ def plot_mat_ln(mat,N_arr,mu_arr,std_arr,snrs,dets,true_mu,true_std):
     d_pos = np.trapz(mat,std_arr,axis=1)
     print(d_pos.shape)
     ax2.pcolormesh(mu_arr,N_arr,d_pos.T)
+    # ax2.set_xscale("log")
+    ax2.set_xlim([np.min(mu_arr),np.max(mu_arr)])
     ax2.set_xlabel('mu')
     ax2.set_ylabel('N')
     secax2 = ax2.secondary_yaxis('right',functions = (N_to_pfrac,N_to_pfrac))
@@ -137,60 +139,59 @@ if __name__=="__main__":
     plt.xlabel('SNR')
     plt.ylabel('count')
     det_snr = np.array(det_snr)
-    res = o.minimize(statistics.negative_loglike,[0.5,0.2,len(det_snr)],(det_snr),
-                method='Nelder-Mead',bounds=[(0.001,2),(0.1,2),(len(det_snr),100000)])
-    mu_min = res.x[0]
-    std_min = res.x[1]
-    N_min = res.x[2]
+    # res = o.minimize(statistics.negative_loglike,[0.5,0.2,len(det_snr)],(det_snr),
+    #             method='Nelder-Mead',bounds=[(0.001,2),(0.1,2),(len(det_snr),100000)])
+    # mu_min = res.x[0]
+    # std_min = res.x[1]
+    # N_min = res.x[2]
     snr_s = np.linspace(1e-2,25,1000)
-    y = statistics.lognorm_dist(snr_s,mu_min,std_min)*statistics.p_detect(snr_s)
-    y_scale = np.trapz(y,snr_s)
-    y = y/y_scale
+    # y = statistics.lognorm_dist(snr_s,mu_min,std_min)*statistics.p_detect(snr_s)
+    # y_scale = np.trapz(y,snr_s)
+    # y = y/y_scale
 
-    plt.plot(snr_s,y)
-    plt.show()
+    # plt.plot(snr_s,y)
+    # plt.show()
 
-    print(mu_min,std_min,N_min)
+    # print(mu_min,std_min,N_min)
     mesh_size = 50
     exp_mesh_size = 150
     #log normal original distribution
-    mu_arr = np.linspace(0.8,1.2,mesh_size)
-    std_arr = np.linspace(0.4,0.65,mesh_size+1)
+    mu_arr = np.linspace(0,0.3,mesh_size)
+    std_arr = np.linspace(0.1,0.3,mesh_size+1)
     N_arr = np.linspace(len(det_snr),obs_t/p,mesh_size+2)
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
+
+
+
+
+
+
+
+
+
+    #Exponential distributions start here#####################
     #find the minimum for the exp
     res = o.minimize(statistics_exp.negative_loglike,[1,len(det_snr)],(det_snr),
                 method='Nelder-Mead',bounds=[(0,10),(len(det_snr),4*obs_t/p)])
-
+    print(res.x)
     plt.title('Histogram of detected pulses')
-    n,bins,patches = plt.hist(det_snr,bins=50,density=True)
+    n,bins,patches = plt.hist(det_snr,bins="auto",density=True)
     plt.xlabel('SNR')
     plt.ylabel('count')
 
     # create an array for k
     min_k = res.x[0]
     min_N = res.x[1]
-
-    y = np.exp(statistics.log_snr_distribution_exp(snr_s,min_k))
-    scale = n[0]/np.exp(statistics.log_snr_distribution_exp(bins[0]+np.diff(bins)[0],min_k))
+    y = np.exp(statistics_exp.log_snr_distribution_exp(snr_s,min_k))
+    scale = n[0]/np.exp(statistics_exp.log_snr_distribution_exp(bins[0]+np.diff(bins)[0],min_k))
     y = y*scale
     plt.plot(snr_s,y)
     plt.show()
 
 
-
-    mu_lim = [min(mu_arr),max(mu_arr)]
-    mu_range = (mu_lim[1]-mu_lim[0])/2
-    print(min_k,min_N)
-    if min_k<mu_range:
-        k_lim = [0.01,mu_range*2]
-    else:
-        k_lim = (min_k-mu_range,min_k+mu_range)
-    if 2*min_N > (obs_t/p):
-        min_N = obs_t/p/2
-    k_arr = np.linspace(k_lim[0],k_lim[1],exp_mesh_size)
-    N_arr_exp = np.linspace(len(det_snr),3*obs_t/p,exp_mesh_size*3)
+    k_arr = np.linspace(1.5,2.5,exp_mesh_size)
+    N_arr_exp = np.linspace(len(det_snr),obs_t/p,exp_mesh_size*3)
     mat_exp = statistics_exp.likelihood_exp(k_arr,N_arr_exp,det_snr)
     plot_mat_exp(mat_exp,N_arr_exp,k_arr,det_snr,det_snr)
     #lets calculate bayes factor

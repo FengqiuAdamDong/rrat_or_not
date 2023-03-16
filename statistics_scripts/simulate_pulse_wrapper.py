@@ -5,6 +5,7 @@ import numpy as np
 import sys
 from simulate_pulse import simulate_pulses
 from simulate_pulse import n_detect
+from simulate_pulse import simulate_pulses_exp
 import matplotlib.pyplot as plt
 
 if __name__=='__main__':
@@ -12,7 +13,7 @@ if __name__=='__main__':
 
     parser = argparse.ArgumentParser(description='Simulate some pulses')
     parser.add_argument('-mu', type=float, default=0.5,
-                        help='mean')
+                        help='mean or the k parameter for an exponential distribution')
     parser.add_argument('-std', type=float, default=0.2,
                         help='standard deviation')
     parser.add_argument('-obs', type=float, default=1000,
@@ -23,7 +24,7 @@ if __name__=='__main__':
                         help='standard deviation')
     parser.add_argument('-d', type=str, default="",
                         help='dill_file')
-
+    parser.add_argument('-e', action="store_true", default=False,help="turn flag on for exponential distribution")
 
 
 
@@ -37,8 +38,11 @@ if __name__=='__main__':
     f = args.f
     dill_file = args.d
     from numpy.random import normal
-    sigma_snr = 0.5
-    pulses = simulate_pulses(obs_t,p,f,mu,std)
+    sigma_snr = 1
+    if args.e:
+        pulses = simulate_pulses_exp(obs_t,p,f,mu)
+    else:
+        pulses = simulate_pulses(obs_t,p,f,mu,std)
     rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
     pulses = rv+pulses
     detected_pulses = n_detect(pulses)
@@ -54,8 +58,9 @@ if __name__=='__main__':
             det_snr.append(pulse_obj.det_snr)
 
     plt.figure()
-    plt.hist(detected_pulses,bins= 100,density=True,label="fake data")
-    plt.hist(det_snr,bins=100,density=True,alpha=0.5,label="real data")
+    plt.hist(detected_pulses,bins= "auto",density=True,label="fake data")
+    plt.hist(pulses,bins= "auto",density=True,alpha=0.6,label="fake data no selection")
+    plt.hist(det_snr,bins="auto",density=True,alpha=0.5,label="real data")
     plt.legend()
     plt.show()
     #create a fake det_classes

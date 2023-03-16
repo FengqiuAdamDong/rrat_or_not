@@ -12,12 +12,6 @@ def lognorm_dist(x,mu,sigma):
     pdf = (np.exp(-(np.log(x) - mu)**2 / (2 * sigma**2))/ (x * sigma * np.sqrt(2 * np.pi)))
     return pdf
 
-def p_detect_0(snr,decay_rate,lower_cutoff=6):
-    #this will just be an exponential rise at some center
-    p = 1-np.exp(-1*decay_rate*(snr-lower_cutoff))
-    p[snr<lower_cutoff] = 0
-    return p
-
 def p_detect(snr,cutoff=1,upper_cutoff=1000):
     #this will just be an exponential rise at some center
     #added a decay rate variable just so things are compatible
@@ -50,33 +44,6 @@ def snr_distribution(snr,mu,std):
     pdf = pdf/(snr*np.log(10))
     return pdf
 
-def log_snr_distribution_exp(snr,k):
-    #create meshgrids
-    logpdf = np.log(k)-k*snr
-    return logpdf
-
-def first_exp(snr,k):
-    p_det = np.log(p_detect(snr))
-    snr_p = log_snr_distribution_exp(snr,k)
-    return np.sum(p_det+snr_p)
-
-def second_exp(n,k,N):
-    snr_arr = np.linspace(-20,2,100000)
-    snrarr = np.exp(snr_arr)
-    p_snr = log_snr_distribution_exp(snr_arr,k)
-    p_not_det = np.log(1-(p_detect(snr_arr)))
-    p_second = p_snr+p_not_det
-    #integrate over flux
-    # plt.plot(snr_arr,p_second)
-    # plt.title(f"{k}")
-    # plt.show()
-    #use the log sum exp trick when integrating to prevent overflows
-    p_second_int = np.log(np.trapz(np.exp(p_second-np.max(p_second)),snr_arr))+np.max(p_second)
-    if p_second_int>1:
-        print(p_second_int)
-        p_second_int=1
-    return p_second_int*(N-n)
-
 def first(mu_snr,mu,std,sigma_snr=0.5):
     snr_array = np.linspace(1e-20,100,1000)
     snr_arr_m,mu_snr_m = np.meshgrid(snr_array,mu_snr)
@@ -91,8 +58,8 @@ def first(mu_snr,mu,std,sigma_snr=0.5):
 
 def second(n,mu,std,N,sigma_snr=0.4):
     #get a logspace
-    mu_snr_arr = np.linspace(-10,10,301)
-    snr_arr = np.linspace(1e-20,20,400)
+    mu_snr_arr = np.linspace(-10,10,1001)
+    snr_arr = np.linspace(1e-20,20,1000)
     snr_m,mu_snr_m = np.meshgrid(snr_arr,mu_snr_arr)
     #take log of the snr distribution
     p_snr = lognorm_dist(snr_m,mu,std)

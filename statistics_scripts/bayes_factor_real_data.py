@@ -148,14 +148,14 @@ if __name__=="__main__":
     plt.show()
 
     print(mu_min,std_min,N_min)
-    mesh_size = 50
+    mesh_size = 1
     exp_mesh_size = 150
     #log normal original distribution
     mu_arr = np.linspace(mu_min-0.3,mu_min+0.3,mesh_size)
     std_arr = np.linspace(std_min*0.3,std_min+0.3,mesh_size+1)
     N_arr = np.linspace(len(det_snr),obs_t/p,mesh_size+2)
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
-    plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
+    # plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0)
     #find the minimum for the exp
     res = o.minimize(statistics_exp.negative_loglike,[1,len(det_snr)],(det_snr),
                 method='Nelder-Mead',bounds=[(0,10),(len(det_snr),4*obs_t/p)])
