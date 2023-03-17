@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+LOCAL=false
 while getopts l flag
 do
     case "${flag}" in
