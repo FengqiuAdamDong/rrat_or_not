@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-while getopts l flag
+while getopts l: flag
 do
     case "${flag}" in
         l) LOCAL=true;;
