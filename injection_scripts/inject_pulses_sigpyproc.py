@@ -19,7 +19,7 @@ from sigpyproc import utils as u
 # TRIAL_SNR = [10]
     # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0.1,5,5)
+TRIAL_SNR = np.linspace(0.1,8,30)
 # TRIAL_SNR=[2,3,4,5,6,7,8,9,10]
 # TRIAL_SNR = [5]
 TRIAL_DMS = [

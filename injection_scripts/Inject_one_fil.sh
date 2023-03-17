@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
-#SBATCH --time=16:00:00
+#SBATCH --time=10:00:00
 #SBATCH --mem=24GB
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections
@@ -36,7 +36,7 @@ echo $fil
 echo $mask
 cd $SLURM_TMPDIR
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 50 --n 5 $fil
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 200 --n 20 $fil
 #come back
 cd -
 cp $SLURM_TMPDIR/*snr*.fil .
