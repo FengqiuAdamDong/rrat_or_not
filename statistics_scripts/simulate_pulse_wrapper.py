@@ -88,6 +88,7 @@ if __name__=='__main__':
         if pulse_obj.det_snr!=-1:
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
+
     plt.figure()
     plt.hist(detected_pulses,bins= 100,density=True,label="original fake data")
     plt.hist(det_snr,bins=100,density=True,alpha=0.5,label="new fake data")

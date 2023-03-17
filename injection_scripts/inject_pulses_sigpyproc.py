@@ -19,7 +19,7 @@ from sigpyproc import utils as u
 # TRIAL_SNR = [10]
     # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(2.5,50,60)
+TRIAL_SNR = np.linspace(0.1,5,5)
 # TRIAL_SNR=[2,3,4,5,6,7,8,9,10]
 # TRIAL_SNR = [5]
 TRIAL_DMS = [
@@ -411,7 +411,7 @@ if __name__ == "__main__":
     # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
     print(f"getting data cutout from: {ifn}")
     #add the pulses
-    multiprocessing = True
+    multiprocessing = False
     if multiprocessing:
         for dm in TRIAL_DMS:
             pool_arr = []

@@ -58,8 +58,8 @@ def first(mu_snr,mu,std,sigma_snr=0.5):
 
 def second(n,mu,std,N,sigma_snr=0.4):
     #get a logspace
-    mu_snr_arr = np.linspace(-10,10,1001)
-    snr_arr = np.linspace(1e-20,20,1000)
+    mu_snr_arr = np.linspace(-10,10,301)
+    snr_arr = np.linspace(1e-20,20,300)
     snr_m,mu_snr_m = np.meshgrid(snr_arr,mu_snr_arr)
     #take log of the snr distribution
     p_snr = lognorm_dist(snr_m,mu,std)

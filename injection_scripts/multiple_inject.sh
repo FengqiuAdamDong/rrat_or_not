@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+while getopts l flag
+do
+    case "${flag}" in
+        l) LOCAL=true;;
+    esac
+done
+
 for f in *.fil
 do
     #strip the extension
@@ -11,6 +18,11 @@ do
     #copy the filterbank file back in
     cp -d $f $MASKFOL
     cd $MASKFOL
-    sbatch $SOURCEDIR/Inject_one_fil.sh $f $MASK
+    if [ "$LOCAL" != true ]; then
+        sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK
+    else
+        $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l &
+    fi
+
     cd ..
 done

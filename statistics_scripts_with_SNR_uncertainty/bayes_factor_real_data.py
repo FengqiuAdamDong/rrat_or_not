@@ -209,5 +209,5 @@ if __name__=="__main__":
     #     plot_mat_ln(mat,N_arr,mu_arr,std_arr,pulse_snrs,det_snr,true_mu,true_std)
     #     plot_mat_exp(mat_exp,N_arr_exp,k_arr,pulse_snrs,det_snr)
 
-
+    np.savez("bayes_factor_data",mu_arr=mu_arr,std_arr=std_arr,N_arr=N_arr,mat=mat,k_arr=k_arr,N_arr_exp=N_arr_exp,mat_exp=mat_exp)
     print('log Odds Ratio in favour of LN model',OR)

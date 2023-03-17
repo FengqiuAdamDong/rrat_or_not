@@ -16,12 +16,13 @@ def read_positive_burst_inj(fn):
             candidate_file_name = directory.split('/')[-1]
             filterbank_filename = directory.split('/')[-3]
             snr_field = filterbank_filename.split('_')[-1]
-            inj_snr.append(float(snr_field.strip('snr')))
-            fields = candidate_file_name.split('_')
-            boxcar_det_snr.append(float(fields[-1]))
-            MJD.append(float(fields[2]))
-            time.append(float(fields[4]))
-            dm.append(float(fields[6]))
+            if "snr" in snr_field:
+                inj_snr.append(float(snr_field.strip('snr')))
+                fields = candidate_file_name.split('_')
+                boxcar_det_snr.append(float(fields[-1]))
+                MJD.append(float(fields[2]))
+                time.append(float(fields[4]))
+                dm.append(float(fields[6]))
     return dm,time,boxcar_det_snr,inj_snr,MJD
 
 def read_positive_burst(fn):

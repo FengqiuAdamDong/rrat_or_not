@@ -2,11 +2,12 @@
 set -euo pipefail
 
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-for FOL in *
+for f in *.fil
 do
     #get the maskfile
+    FOL="${f%.*}"
     echo $FOL
     cd $FOL
-    python ~/Documents/rrat_or_not/injection_scripts/inject_stats.py -d -l positive_*.csv
+    python "$SOURCEDIR"/inject_stats.py -d -l positive_1.csv
     cd ..
 done

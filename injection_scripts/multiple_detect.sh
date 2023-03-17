@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+while getopts l flag
+do
+    case "${flag}" in
+        l) LOCAL=true;;
+    esac
+done
 
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 for f in *.fil
@@ -10,6 +16,10 @@ do
     echo $FOL
     cd $FOL
     #copy the filterbank file back in
-    sbatch $SOURCEDIR/detect_one_fil.sh -l *snr*.fil
+    if [ "$LOCAL" != true ]; then
+        sbatch $SOURCEDIR/detect_one_fil.sh -i $FOL -l
+    else
+        $SOURCEDIR/detect_one_fil.sh -i $FOL -l
+    fi
     cd ..
 done

@@ -422,6 +422,17 @@ class inject_stats():
         plt.scatter(snr,det_frac,marker="X")
         plt.show()
 
+    def return_detected(self):
+        snr = []
+        det = []
+        tot = []
+        for s in self.sorted_inject:
+            snr.append(s.snr)
+            det.append(sum(s.detected))
+            tot.append(len(s.detected))
+        return snr,det,tot
+
+
     def fit_det(self,p,snr,plot=True):
         popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,2.07],maxfev=int(1e6))
         self.logisitic_params = popt
