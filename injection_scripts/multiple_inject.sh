@@ -19,10 +19,15 @@ do
     #copy the filterbank file back in
     cp -d $f $MASKFOL
     cd $MASKFOL
-    if [ "$LOCAL" != true ]; then
-        sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK
+    status=$(python $SOURCEDIR/detect_inject_status.py sample_injections.npz)
+    if [ "$status" != 0 ]; then
+        if [ "$LOCAL" != true ]; then
+            sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK
+        else
+            $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l &
+        fi
     else
-        $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l &
+        echo $MASKFOL inj complete
     fi
 
     cd ..
