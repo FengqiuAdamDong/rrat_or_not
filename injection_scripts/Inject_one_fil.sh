@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
-#SBATCH --time=10:00:00
-#SBATCH --mem=24GB
+#SBATCH --time=3:00:00
+#SBATCH --mem=12G
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
