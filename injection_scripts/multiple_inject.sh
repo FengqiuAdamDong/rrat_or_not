@@ -22,9 +22,9 @@ do
     status=$(python $SOURCEDIR/detect_inject_status.py sample_injections.npz)
     if [ "$status" != 0 ]; then
         if [ "$LOCAL" != true ]; then
-            sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK
+            sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -a $SOURCEDIR
         else
-            $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l &
+            $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l a $SOURCEDIR &
         fi
     else
         echo $MASKFOL inj complete

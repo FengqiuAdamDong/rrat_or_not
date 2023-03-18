@@ -9,12 +9,13 @@
 #SBATCH --error=%x-%j.err
 set -euo pipefail
 LOCAL=false
-while getopts m:i:l flag
+while getopts a:m:i:l flag
 do
     case "${flag}" in
         m) mask=${OPTARG};;
         i) fil=${OPTARG};;
         l) LOCAL=true;;
+        a) SCRIPT_DIR=${OPTARG};;
     esac
 done
 PULSAR=$(echo "$fil" | rev | cut -f2- -d '.' | rev)
@@ -36,7 +37,6 @@ cp -r *rfifind* $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 200 --n 20 $fil
 #come back
 cd -
