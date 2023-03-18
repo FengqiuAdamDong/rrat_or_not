@@ -18,9 +18,9 @@ do
     cd $FOL
     #copy the filterbank file back in
     if [ "$LOCAL" != true ]; then
-        sbatch $SOURCEDIR/detect_one_fil.sh -i $FOL -l
+        sbatch $SOURCEDIR/detect_one_fil.sh -i $FOL -l -a $SOURCEDIR
     else
-        $SOURCEDIR/detect_one_fil.sh -i $FOL -l
+        $SOURCEDIR/detect_one_fil.sh -i $FOL -l -a $SOURCEDIR
     fi
     cd ..
 done

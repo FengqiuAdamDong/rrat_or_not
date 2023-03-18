@@ -9,11 +9,12 @@
 #SBATCH --error=%x-%j.err
 set -euo pipefail
 LOCAL=false
-while getopts i:l flag
+while getopts a:i:l flag
 do
     case "${flag}" in
         i) fil=${OPTARG};;
         l) LOCAL=true;;
+        a) SCRIPT_DIR=${OPTARG};;
     esac
 done
 PULSAR=$(echo "$fil" | rev | cut -f2- -d '.' | rev)
@@ -37,7 +38,6 @@ cp *snr*.fil $SLURM_TMPDIR
 #copy all the rfifind stuff so that we can find/use the masks
 cp */*rfifind* $SLURM_TMPDIR
 cd $SLURM_TMPDIR
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 python "$SCRIPT_DIR"/inject_stats.py -l *snr*.fil
 #come back
 cd -
