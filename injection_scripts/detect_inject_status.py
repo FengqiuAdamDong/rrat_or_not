@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 import glob
-
+import os
 def check_injection_status(sample):
     grid = sample['grid']
     snrs = grid[:,1]
@@ -23,9 +23,12 @@ def check_injection_status(sample):
 
 
 if __name__=="__main__":
-    sample = np.load(sys.argv[1],allow_pickle=1)
-    injection_complete = check_injection_status(sample)
-    if injection_complete:
-        print("0")
+    if os.path.exists(sys.argv[1]):
+        sample = np.load(sys.argv[1],allow_pickle=1)
+        injection_complete = check_injection_status(sample)
+        if injection_complete:
+            print("0")
+        else:
+            print("1")
     else:
         print("1")
