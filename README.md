@@ -2,8 +2,9 @@
 
 Here I will document how to run injections for CHIME/Pulsar filterbank files
 *Injections*
-First off,
-Run check_single_pulse.sh from the automated filterbank repo, you'll need the mask files
-Then run multiple_inject.sh, you can alter the inject parameters in injec_pulses.py
-Next run run_check_single_pulse.sh to run the pipeline on all the injected filterbank files
-Finally run multiple_detect.sh to get detection statistics
+- run multiple_inject.sh (use -l if running locally)
+- run mutlple_detect.sh 
+- at the same time run run_check_single_pulse.sh
+- python combine_inject_stats.py *.fil
+
+You should get an overall curve that tells you how CHIPSPIPE has done
