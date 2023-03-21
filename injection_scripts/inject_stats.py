@@ -422,7 +422,7 @@ class inject_stats():
         if plot==True:
             plt.scatter(snr,det_frac,marker="X")
             plt.title(title)
-            plt.savefig(f+"_detection_curve.png")
+            plt.savefig(title+"_detection_curve.png")
             plt.close()
 
     def return_detected(self):
