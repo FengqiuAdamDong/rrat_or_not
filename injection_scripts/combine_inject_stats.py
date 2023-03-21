@@ -22,10 +22,6 @@ class inject_stats_collection:
                 csv = f"{f}/positive_bursts_1.csv"
                 try:
                     inst.compare([csv],title=f)
-                except:
-                    #for whatever reason, this failed, lets write it out and just move on
-                    print(f"failed on {f}")
-                    continue
                 snr,det,tot = inst.return_detected()
                 for s,d,t in zip(snr,det,tot):
                     if s in snrs:
@@ -50,11 +46,17 @@ if __name__=="__main__":
     inj_collection = inject_stats_collection()
     for i,f in enumerate(fil_files):
         folder_name = f.replace(".fil","")
-        with open(folder_name+'/inj_stats.dill','rb') as inf:
-            inj_stats = dill.load(inf)
-            inj_stats = inject_stats(**inj_stats.__dict__)
-            inj_stats.repopulate_io()
+        try:
+            with open(folder_name+'/inj_stats.dill','rb') as inf:
+                inj_stats = dill.load(inf)
+                inj_stats = inject_stats(**inj_stats.__dict__)
+                inj_stats.repopulate_io()
 
-            inj_collection.inj_stats.append(inj_stats)
-            inj_collection.folder.append(folder_name)
+                inj_collection.inj_stats.append(inj_stats)
+                inj_collection.folder.append(folder_name)
+        except Exception as e:
+            #for whatever reason, this failed, lets write it out and just move on
+            print(f"failed on {f} with error {e}")
+            continue
+
     inj_collection.calculate_detection_curve()
