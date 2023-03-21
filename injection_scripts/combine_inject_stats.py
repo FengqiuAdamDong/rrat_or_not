@@ -38,6 +38,31 @@ class inject_stats_collection:
         plt.scatter(snrs,det_frac)
         plt.savefig("overall_selection.png")
 
+def combine_images():
+    import sys
+    import os
+    import glob
+    from PIL import Image
+    image_array = glob.glob("*detection_curve.png")
+    images = [Image.open(x) for x in image_array]
+    widths, heights = zip(*(i.size for i in images))
+    row_len = 10
+    total_width = widths[0]*row_len
+    max_height = (int(len(heights)/row_len)+1)*heights[0]
+
+    new_im = Image.new('RGB', (total_width, max_height))
+
+    x_offset = 0
+    y_offset = 0
+    for i,im in enumerate(images):
+        new_im.paste(im, (x_offset,y_offset))
+        if (i>0)&((i%row_len)==0):
+            y_offset += im.size[1]
+            x_offset = 0
+        else:
+            x_offset += im.size[0]
+
+    new_im.save('detection_curves_all_combined.jpg')
 
 #All inputs are
 if __name__=="__main__":
@@ -59,3 +84,4 @@ if __name__=="__main__":
             continue
 
     inj_collection.calculate_detection_curve()
+    combine_images()
