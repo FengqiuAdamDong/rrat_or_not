@@ -20,8 +20,7 @@ class inject_stats_collection:
             if csvs!="all":
                 #only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
-                try:
-                    inst.compare([csv],title=f)
+                inst.compare([csv],title=f)
                 snr,det,tot = inst.return_detected()
                 for s,d,t in zip(snr,det,tot):
                     if s in snrs:
