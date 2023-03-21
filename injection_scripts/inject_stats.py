@@ -381,7 +381,7 @@ class inject_stats():
             si.detected = truth_arr
 
 
-    def compare(self, fn):
+    def compare(self, fn,plot=True,title="detection curve"):
         from read_positive_burst import read_positive_burst_inj
         matched = np.zeros(len(self.dm_arr))
         time_tol = 0.5
@@ -418,9 +418,12 @@ class inject_stats():
         ind = np.argsort(snr)
         snr = snr[ind]
         det_frac = det_frac[ind]
-        self.fit_det(det_frac,snr)
-        plt.scatter(snr,det_frac,marker="X")
-        plt.show()
+        self.fit_det(det_frac,snr,plot=plot)
+        if plot==True:
+            plt.scatter(snr,det_frac,marker="X")
+            plt.title(title)
+            plt.savefig(f+"_detection_curve.png")
+            plt.close()
 
     def return_detected(self):
         snr = []
@@ -437,9 +440,10 @@ class inject_stats():
         popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,2.07],maxfev=int(1e6))
         self.logisitic_params = popt
         np.save('det_fun_params',popt)
-        plt.plot(snr,logistic(snr,popt[0],popt[1]))
-        plt.xlabel('SNR')
-        plt.ylabel('Detection percentage')
+        if plot:
+            plt.plot(snr,logistic(snr,popt[0],popt[1]))
+            plt.xlabel('SNR')
+            plt.ylabel('Detection percentage')
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()

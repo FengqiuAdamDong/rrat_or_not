@@ -20,7 +20,7 @@ class inject_stats_collection:
             if csvs!="all":
                 #only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
-                inst.compare([csv])
+                inst.compare([csv],title=f)
                 snr,det,tot = inst.return_detected()
                 for s,d,t in zip(snr,det,tot):
                     if s in snrs:
@@ -36,7 +36,7 @@ class inject_stats_collection:
         snrs = np.array(snrs)
         det_frac = detecteds/totals
         plt.scatter(snrs,det_frac)
-        plt.show()
+        plt.savefig("overall_selection.png")
 
 
 #All inputs are
@@ -53,4 +53,3 @@ if __name__=="__main__":
             inj_collection.inj_stats.append(inj_stats)
             inj_collection.folder.append(folder_name)
     inj_collection.calculate_detection_curve()
-    import pdb; pdb.set_trace()
