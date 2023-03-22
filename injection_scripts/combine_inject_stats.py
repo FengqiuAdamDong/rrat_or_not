@@ -36,10 +36,24 @@ class inject_stats_collection:
         snrs = np.array(snrs)
         det_frac = detecteds/totals
         plt.scatter(snrs,det_frac)
+        fit_det(det_frac,snrs)
         plt.savefig("overall_selection.png")
 
+def logistic(x,k,x0):
+    L=1
+    return L/(1+np.exp(-k*(x-x0)))
+
+def fit_det(p,snr,plot=True):
+    import scipy.optimize as opt
+    popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,2.07],maxfev=int(1e6))
+    self.logisitic_params = popt
+    np.save('det_fun_params',popt)
+    if plot:
+        plt.plot(snr,logistic(snr,popt[0],popt[1]))
+        plt.xlabel('SNR')
+        plt.ylabel('Detection percentage')
+
 def combine_images():
-    import sys
     import os
     import glob
     from PIL import Image
