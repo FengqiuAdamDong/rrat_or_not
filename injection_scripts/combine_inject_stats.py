@@ -46,7 +46,7 @@ def logistic(x,k,x0):
 def fit_det(p,snr,plot=True):
     import scipy.optimize as opt
     popt,pcov = opt.curve_fit(logistic,snr,p,[9.6,2.07],maxfev=int(1e6))
-    self.logisitic_params = popt
+    logisitic_params = popt
     np.save('det_fun_params',popt)
     if plot:
         plt.plot(snr,logistic(snr,popt[0],popt[1]))
