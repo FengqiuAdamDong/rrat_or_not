@@ -28,8 +28,8 @@ def p_detect(snr,cutoff=1,upper_cutoff=1000):
     L = 1
     detection_fn = L/(1+np.exp(-k*(snr-x0)))
     #cut off at 2.5
-    detection_fn[snr<cutoff] = 0
-    detection_fn[snr>upper_cutoff] = 0
+    # detection_fn[snr<cutoff] = 0
+    # detection_fn[snr>upper_cutoff] = 0
     # plt.scatter(snr,detection_fn)
     # plt.show()
     return detection_fn

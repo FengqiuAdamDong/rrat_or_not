@@ -188,8 +188,12 @@ def fit_SNR_manual(ts,tsamp,width,nsamps,ds_data):
     pl = Slider(pl_ax, 'peak loc',0.0 , len(ts), valinit=fitx[1], valstep=1)
     p = Slider(p_ax, 'peak', 0.0, 1, valinit=fitx[0],valstep=1e-5)
     w = Slider(w_ax, 'width', 0.0,100, valinit=fitx[2],valstep=1)
-    but_ax = plt.axes([0.1, 0.2, 0.3, 0.03], facecolor=axcolor)
+    but_ax = plt.axes([0.1, 0.02, 0.3, 0.03], facecolor=axcolor)
+    but_save = plt.axes([0.5, 0.02, 0.3, 0.03], facecolor=axcolor)
+
     skipb = Button(but_ax,"Skip")
+    saveb = Button(but_save,"Save")
+
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
     global x_new
@@ -214,9 +218,13 @@ def fit_SNR_manual(ts,tsamp,width,nsamps,ds_data):
         def skip_event(self,event):
             self.skip=True
             plt.close()
+    def save(val):
+        plt.close()
 
     skip = skip_class()
     skipb.on_clicked(skip.skip_event)
+    saveb.on_clicked(save)
+
     pl.on_changed(update)
     p.on_changed(update)
     w.on_changed(update)

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+echo $SOURCEDIR
 LOCAL=false
 while getopts l flag
 do
@@ -29,7 +30,7 @@ do
         if [ "$LOCAL" != true ]; then
             sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -a $SOURCEDIR
         else
-            $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l a $SOURCEDIR &
+            $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l -a $SOURCEDIR &
         fi
     else
         echo $MASKFOL inj complete

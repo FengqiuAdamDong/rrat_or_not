@@ -6,6 +6,7 @@ import sys
 from simulate_pulse import simulate_pulses
 from simulate_pulse import n_detect
 from simulate_pulse import simulate_pulses_exp
+from simulate_pulse import simulate_pulses_gauss
 import matplotlib.pyplot as plt
 
 if __name__=='__main__':
@@ -24,7 +25,7 @@ if __name__=='__main__':
                         help='standard deviation')
     parser.add_argument('-d', type=str, default="",
                         help='dill_file')
-    parser.add_argument('-e', action="store_true", default=False,help="turn flag on for exponential distribution")
+    parser.add_argument('--mode', type=str, default="Lognorm",help="Choose the distribution you want the fake data to have, the options are Lognorm, Gauss, Exp")
 
 
 
@@ -38,14 +39,18 @@ if __name__=='__main__':
     f = args.f
     dill_file = args.d
     from numpy.random import normal
-    sigma_snr = 1
-    if args.e:
+    sigma_snr = 0.4
+    mode = args.mode
+    if mode=="Exp":
         pulses = simulate_pulses_exp(obs_t,p,f,mu)
-    else:
+    elif mode=="Lognorm":
         pulses = simulate_pulses(obs_t,p,f,mu,std)
-    rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
-    pulses = rv+pulses
+    elif mode=="Gauss":
+        pulses = simulate_pulses_gauss(obs_t,p,f,mu,std)
+
+    rv = normal(loc=0,scale=sigma_snr,size=len(detected_pulses))
     detected_pulses = n_detect(pulses)
+    detected_pulses = detected_pulses+rv
     print(len(detected_pulses))
     import dill
     with open(dill_file,'rb') as inf:

@@ -13,13 +13,14 @@ import copy
 from multiprocessing import Pool
 import sigpyproc
 from sigpyproc import utils as u
+import sys
 # define the random number generator
 #np.random.seed(12345)
 
 # TRIAL_SNR = [10]
     # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0.1,8,30)
+TRIAL_SNR = np.linspace(0.1,4,30)
 # TRIAL_SNR=[2,3,4,5,6,7,8,9,10]
 # TRIAL_SNR = [5]
 TRIAL_DMS = [
@@ -52,7 +53,7 @@ def scale_to_uint8(a):
     a = ((a - mn) / mx) * 255
     return a.astype(np.uint8)
 
-def create_pulse_attributes(npulses=1, duration=200,min_sep=1):
+def create_pulse_attributes(npulses=1, duration=200,min_sep=2):
     """
     For a given number of pulses over a certain time duration,
     create an injection sample based on the pre-determined list
@@ -65,8 +66,12 @@ def create_pulse_attributes(npulses=1, duration=200,min_sep=1):
         dtoa = np.zeros(npulses+1)
         while min(dtoa)<min_sep:
             #don't inject anything into the last 10% of data
-            toas = sorted(np.random.uniform(0.1, 0.9, npulses) * duration)
+            centre_pulse = (duration/2)
+            toas = ((np.linspace(0,npulses,npulses)-int(npulses/2))*min_sep)+centre_pulse
             dtoa = np.diff(toas)
+            if (min(toas)<(5))|(max(toas)>(duration-5)):
+                print("too many pulses for length, toas:",toas)
+                sys.exit(1)
             if len(toas)==1:
                 break
     # get the cartesian product so that we have a generator of TOA x SNR x DM
@@ -411,13 +416,13 @@ if __name__ == "__main__":
     # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
     print(f"getting data cutout from: {ifn}")
     #add the pulses
-    multiprocessing = False
+    multiprocessing = True
     if multiprocessing:
         for dm in TRIAL_DMS:
             pool_arr = []
             for s in TRIAL_SNR:
                 pool_arr.append((dm,s,ifn,duration,maskfn,injection_sample,stats_window,downsamp,True))
-            with Pool(10) as p:
+            with Pool(5) as p:
                 p.map(multiprocess,pool_arr)
     else:
         header, freqs, rawdata,masked_data,masked_chans,header_presto = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn,masked_data=None)

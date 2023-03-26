@@ -6,31 +6,73 @@ from math import comb
 from scipy.special import gammaln
 from multiprocessing import Pool
 import os
+import scipy.optimize as opt
 popt = np.load('det_fun_params.npy',allow_pickle=1)
-
 def lognorm_dist(x,mu,sigma):
-    pdf = (np.exp(-(np.log(x) - mu)**2 / (2 * sigma**2))/ (x * sigma * np.sqrt(2 * np.pi)))
+    pdf = np.zeros(x.shape)
+    pdf[x>0] = (np.exp(-(np.log(x[x>0]) - mu)**2 / (2 * sigma**2))/ (x[x>0] * sigma * np.sqrt(2 * np.pi)))
     return pdf
+def logistic(x,k,x0):
+    L=1
+    return L/(1+np.exp(-k*(x-x0)))
 
-def p_detect(snr,cutoff=1,upper_cutoff=1000):
+
+# def convolve_logistic_gauss(mu_snr, sigma_snr):
+#     #convolves the logistic function with
+#     x_len = 1000
+#     x_lims = [-10,10]
+#     snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
+#     p_musnr_giv_snr = norm.pdf(snr_arr,0,sigma_snr)
+#     p_det = p_detect_giv_snr_true(snr_arr)
+#     #convolve the two arrays
+#     conv = np.convolve(p_det,p_musnr_giv_snr)*np.diff(snr_arr)[0]
+#     conv_lims = [-20,20]
+#     conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
+#     popt,pcov = opt.curve_fit(logistic,conv_snr_array[800:1200],conv[800:1200],[2,2.07],maxfev=int(1e6))
+#     convolve_mu_snr = logistic(mu_snr,popt[0],popt[1])
+
+#     #interpolate the values for mu_snr
+#     # convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
+#     # plt.close()
+#     # plt.figure()
+#     # plt.plot(conv_snr_array,conv,label="conv",linewidth=5)
+#     # plt.plot(snr_arr,p_musnr_giv_snr,alpha=0.5,label="gauss")
+#     # plt.plot(snr_arr,p_det,alpha=0.5,label="pdet")
+#     # plt.scatter(mu_snr,convolve_mu_snr,alpha=0.5,label="interp")
+#     # plt.legend()
+#     # plt.show()
+#     return convolve_mu_snr
+
+# def p_detect_giv_snr_true(snr):
+#     #this will just be an exponential rise at some center
+#     #added a decay rate variable just so things are compatible
+#     #load inj statistics
+#     #P detect is actually Pdet given detected SNR, in reality I measure Pdet true SNR
+#     k = popt[0]
+#     x0 = popt[1]
+#     # print(k,x0)
+#     L = 1
+#     detection_fn = L/(1+np.exp(-k*(snr-x0)))
+#     return detection_fn
+
+# def p_detect(snr_det,sigma_snr):
+#     return convolve_logistic_gauss(snr_det,sigma_snr)
+def p_detect(snr,threhold):
     #this will just be an exponential rise at some center
     #added a decay rate variable just so things are compatible
     #load inj statistics
+    #P detect is actually Pdet given detected SNR, in reality I measure Pdet true SNR
     k = popt[0]
     x0 = popt[1]
     # print(k,x0)
     L = 1
     detection_fn = L/(1+np.exp(-k*(snr-x0)))
-    #cut off at 2.5
-    detection_fn[snr<cutoff] = 0
-    detection_fn[snr>upper_cutoff] = 0
-    # plt.scatter(snr,detection_fn)
-    # plt.show()
     return detection_fn
+
 
 def n_detect(snr_emit):
     #snr emit is the snr that the emitted pulse has
-    p = p_detect(snr_emit)
+    p = p_detect(snr_emit,0.4)
     #simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     #probability the random number is less than p gives you an idea of what will be detected
@@ -44,33 +86,47 @@ def snr_distribution(snr,mu,std):
     pdf = pdf/(snr*np.log(10))
     return pdf
 
-def first(mu_snr,mu,std,sigma_snr=0.5):
-    snr_array = np.linspace(1e-20,100,1000)
-    snr_arr_m,mu_snr_m = np.meshgrid(snr_array,mu_snr)
-    p_musnr_giv_snr = norm.pdf(snr_arr_m-mu_snr_m,0,sigma_snr)
+def convolve_gauss_ln(mu_snr,mu,std,sigma_snr):
+    #returns the convolution of a ln and gaussian
+    x_len = 10000
+    x_lims = [-5,5]
+    snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
+    p_musnr_giv_snr = norm.pdf(snr_arr,0,sigma_snr)
+    snr_p = lognorm_dist(snr_arr,mu,std)
+    #convolve the two arrays
+    conv = np.convolve(snr_p,p_musnr_giv_snr)*np.diff(snr_arr)[0]
+    conv_lims = [-10,10]
+    conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
+    #interpolate the values for mu_snr
+    convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
+    # plt.close()
+    # plt.figure()
+    # plt.plot(conv_snr_array,conv,label="conv",linewidth=5)
+    # plt.plot(snr_arr,p_musnr_giv_snr,alpha=0.5,label="gauss")
+    # plt.plot(snr_arr,snr_p,alpha=0.5,label="LN")
+    # plt.scatter(mu_snr,convolve_mu_snr,alpha=0.5,label="mu_snr interp")
+    # plt.plot(snr_arr,norm.pdf(snr_arr,loc=np.exp(mu),scale=sigma_snr),alpha=0.5,label="norm at LN mu")
+    # plt.title(f"{mu},{std},{sigma_snr}")
+    # plt.legend()
+    # plt.show()
+    return convolve_mu_snr
 
-    p_det = p_detect(mu_snr)
-    snr_p = lognorm_dist(snr_arr_m,mu,std)
-    integrand = snr_p*p_musnr_giv_snr
+def first(mu_snr,mu,std,sigma_snr=0.5):
+    #mu_snr is the detected snr
+    p_det = p_detect(mu_snr,sigma_snr)
+    gausslogn = convolve_gauss_ln(mu_snr,mu,std,sigma_snr)
     #integrate of dlogsnr
-    first_term = np.log(np.trapz(integrand,snr_array,axis=-1))+np.log(p_det)
+    first_term = np.log(gausslogn)+np.log(p_det)
     return np.sum(first_term)
 
 def second(n,mu,std,N,sigma_snr=0.4):
     #get a logspace
-    mu_snr_arr = np.linspace(-10,10,301)
-    snr_arr = np.linspace(1e-20,20,300)
-    snr_m,mu_snr_m = np.meshgrid(snr_arr,mu_snr_arr)
-    #take log of the snr distribution
-    p_snr = lognorm_dist(snr_m,mu,std)
-    p_not_det = 1-p_detect(mu_snr_m)
+    mu_snr = np.linspace(-10,10,1001)
+    gausslogn = convolve_gauss_ln(mu_snr,mu,std,sigma_snr)
+    p_not_det = 1-p_detect(mu_snr,sigma_snr)
 
-    p_musnr_giv_snr = norm.pdf(mu_snr_m-snr_m,0,sigma_snr)
-    #combine the two terms
-    p_second_conv = p_musnr_giv_snr*p_snr
-    p_second = p_second_conv*p_not_det
-    p_second_int = np.log(np.trapz(np.trapz(p_second,snr_arr),mu_snr_arr))
-    # print(np.trapz(np.trapz(p_second,snr_arr),mu_snr_arr))
+    p_second = gausslogn*p_not_det
+    p_second_int = np.log(np.trapz(p_second,mu_snr))
     if np.exp(p_second_int)>1:
         import pdb; pdb.set_trace()
         p_second_int=1
@@ -81,8 +137,9 @@ def total_p(X):
     std = X['std']
     N = X['N']
     snr_arr = X['snr_arr']
-
-    sigma_snr = 0.5
+    if N<len(snr_arr):
+        raise Exception(" N<n")
+    sigma_snr = 0.4
     f = first(snr_arr,mu,std,sigma_snr=sigma_snr)
     s = second(len(snr_arr),mu,std,N,sigma_snr=sigma_snr)
 

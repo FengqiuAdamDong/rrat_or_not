@@ -42,6 +42,21 @@ def simulate_pulses_exp(obs_t,period,f,k,random=True):
     pulse_snr = -np.log(1-rands)/k
     return pulse_snr
 
+#so in this script we need to simulate N pulses from a pulsar
+def simulate_pulses_gauss(obs_t,period,f,mu,std,random=True):
+    #number of pulses
+    N = int(obs_t/period)
+    #draw N random variables between 0 and 1
+    rands = np.random.rand(N)
+    #check how many are successes
+    if random:
+        pulse_N = np.sum(rands<f)
+    else:
+        pulse_N = int(N*f)
+    pulse_snr = np.random.normal(mu,std,pulse_N)
+    return pulse_snr
+
+
 if __name__=='__main__':
     import argparse
 

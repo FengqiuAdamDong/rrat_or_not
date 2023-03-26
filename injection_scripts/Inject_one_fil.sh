@@ -18,6 +18,7 @@ do
         a) SCRIPT_DIR=${OPTARG};;
     esac
 done
+echo $SCRIPT_DIR
 PULSAR=$(echo "$fil" | rev | cut -f2- -d '.' | rev)
 EXT="${fil##*.}"
 
@@ -37,7 +38,7 @@ cp -r *rfifind* $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 200 --n 20 $fil
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 120 --n 50 $fil
 #come back
 cd -
 cp $SLURM_TMPDIR/*snr*.fil .
