@@ -9,65 +9,20 @@ from simulate_pulse import simulate_pulses_exp
 from simulate_pulse import simulate_pulses_gauss
 import matplotlib.pyplot as plt
 from scipy.stats import norm
-
+from statistics import lognorm_dist
 popt = np.load('det_fun_params.npy',allow_pickle=1)
 
 def logistic(x,k,x0):
     L=1
     return L/(1+np.exp(-k*(x-x0)))
 
-# def convolve_logistic_gauss(mu_snr, sigma_snr=0.4):
-#     #convolves the logistic function with
-#     # x_len = 1000
-#     # x_lims = [-10,10]
-#     # snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
-#     # p_musnr_giv_snr = norm.pdf(snr_arr,0,sigma_snr)
-#     # p_det = p_detect_giv_snr_true(snr_arr)
-#     # #convolve the two arrays
-#     # conv = np.convolve(p_det,p_musnr_giv_snr)*np.diff(snr_arr)[0]
-#     # conv_lims = [-20,20]
-#     # conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
-#     # popt,pcov = opt.curve_fit(logistic,conv_snr_array[800:1200],conv[800:1200],[2,2.07],maxfev=int(1e6))
-#     # convolve_mu_snr = logistic(mu_snr,popt[0],popt[1])
-
-#     #reparameterised logistic
-#     gamma = np.sqrt(1+(np.pi*sigma_snr**2)/(8*1/popt[0]**2))
-#     gamma_alpha = gamma * popt[0]
-#     convolve_mu_snr = logistic(mu_snr,gamma_alpha,popt[1])
-#     #interpolate the values for mu_snr
-#     # convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
-#     # plt.close()
-#     # plt.figure()
-#     # plt.plot(conv_snr_array,conv,label="conv",linewidth=5)
-#     # plt.plot(snr_arr,convolve_approx,label="conv approx",alpha=0.8)
-#     # plt.plot(snr_arr,p_musnr_giv_snr,alpha=0.5,label="gauss")
-#     # plt.plot(snr_arr,p_det,alpha=0.5,label="pdet")
-#     # plt.scatter(mu_snr,convolve_mu_snr,alpha=0.5,label="interp",c='k')
-#     # plt.legend()
-#     # plt.show()
-#     return convolve_mu_snr
-
-# def p_detect_giv_snr_true(snr):
-#     #this will just be an exponential rise at some center
-#     #added a decay rate variable just so things are compatible
-#     #load inj statistics
-#     #P detect is actually Pdet given detected SNR, in reality I measure Pdet true SNR
-#     k = popt[0]
-#     x0 = popt[1]
-#     # print(k,x0)
-#     L = 1
-#     detection_fn = L/(1+np.exp(-k*(snr-x0)))
-#     return detection_fn
-# def p_detect(snr_det,sigma_snr=0.4):
-#     return convolve_logistic_gauss(snr_det,sigma_snr)
-#
-#
 def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
     x_len = 10000
     x_lims = [-20,20]
     snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     p_musnr_giv_snr = norm2(snr_arr,0,sigma_snr)
-    p_det_giv_param = p_detect(snr_arr)*norm.pdf(snr_arr,mu,std)
+    # p_det_giv_param = p_detect(snr_arr)*norm.pdf(snr_arr,mu,std)
+    p_det_giv_param = p_detect(snr_arr)*lognorm_dist(snr_arr,mu,std)
     #convolve the two arrays
     conv = np.convolve(p_det_giv_param,p_musnr_giv_snr)*np.diff(snr_arr)[0]
     conv_lims = [-40,40]
@@ -147,6 +102,9 @@ if __name__=='__main__':
     dill_file = args.d
     from numpy.random import normal
     sigma_snr = 0.4
+    #save the detection function with the detection error
+    np.savez("det_fun_params",popt=popt,det_error=sigma_snr)
+
     mode = args.mode
     if mode=="Exp":
         pulses = simulate_pulses_exp(obs_t,p,f,mu)

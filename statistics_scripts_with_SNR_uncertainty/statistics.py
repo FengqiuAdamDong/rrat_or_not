@@ -7,129 +7,126 @@ from scipy.special import gammaln
 from multiprocessing import Pool
 import os
 import scipy.optimize as opt
-popt = np.load('det_fun_params.npy',allow_pickle=1)
-# popt = np.load('det_fun_params.npy',allow_pickle=1)['det_fun_params']
-# sigma_snr = np.load("det_fun_paras.npy",allow_pickle=1)['sigma_snr']
-def lognorm_dist(x,mu,sigma):
-    pdf = np.zeros(x.shape)
-    pdf[x>0] = (np.exp(-(np.log(x[x>0]) - mu)**2 / (2 * sigma**2))/ (x[x>0] * sigma * np.sqrt(2 * np.pi)))
-    return pdf
-def logistic(x,k,x0):
-    L=1
-    return L/(1+np.exp(-k*(x-x0)))
 
-def p_detect(snr,cutoff=1):
-    #this will just be an exponential rise at some center
-    #added a decay rate variable just so things are compatible
-    #load inj statistics
+popt = np.load("det_fun_params.npz", allow_pickle=1)["popt"]
+det_error = np.load("det_fun_params.npz", allow_pickle=1)["det_error"]
+
+
+def lognorm_dist(x, mu, sigma):
+    pdf = np.zeros(x.shape)
+    pdf[x > 0] = np.exp(-((np.log(x[x > 0]) - mu) ** 2) / (2 * sigma**2)) / (
+        x[x > 0] * sigma * np.sqrt(2 * np.pi)
+    )
+    return pdf
+
+
+def logistic(x, k, x0):
+    L = 1
+    return L / (1 + np.exp(-k * (x - x0)))
+
+
+def p_detect(snr, cutoff=1):
+    # this will just be an exponential rise at some center
+    # added a decay rate variable just so things are compatible
+    # load inj statistics
     k = popt[0]
     x0 = popt[1]
     # print(k,x0)
     L = 1
-    detection_fn = L/(1+np.exp(-k*(snr-x0)))
+    detection_fn = L / (1 + np.exp(-k * (snr - x0)))
     # detection_fn[snr<cutoff] = 0
-
     return detection_fn
 
 
 def n_detect(snr_emit):
-    #snr emit is the snr that the emitted pulse has
+    # snr emit is the snr that the emitted pulse has
     p = p_detect(snr_emit)
-    #simulate random numbers between 0 and 1
+    # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
-    #probability the random number is less than p gives you an idea of what will be detected
-    detected = snr_emit[rands<p]
+    # probability the random number is less than p gives you an idea of what will be detected
+    detected = snr_emit[rands < p]
     return detected
 
-def snr_distribution(snr,mu,std):
-    #create meshgrids
-    pdf = norm.pdf(np.log10(snr),loc=mu,scale=std)
-    #convert to pdf for SNR and not log SNR
-    pdf = pdf/(snr*np.log(10))
-    return pdf
 
-def convolve_gauss_ln(mu_snr,mu,std,sigma_snr):
-    #returns the convolution of a ln and gaussian
+def first(snr, mu, std, sigma_snr):
     x_len = 10000
-    x_lims = [-10,10]
-    snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
-    p_musnr_giv_snr = norm.pdf(snr_arr,0,sigma_snr)
-    snr_p = lognorm_dist(snr_arr,mu,std)
-    #convolve the two arrays
-    conv = np.convolve(snr_p,p_musnr_giv_snr)*np.diff(snr_arr)[0]
-    conv_lims = [-20,20]
-    conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
-    #interpolate the values for mu_snr
-    convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
-    # plt.close()
-    # plt.figure()
-    # plt.plot(conv_snr_array,conv,label="conv",linewidth=5)
-    # plt.plot(snr_arr,p_musnr_giv_snr,alpha=0.5,label="gauss")
-    # plt.plot(snr_arr,snr_p,alpha=0.5,label="LN")
-    # plt.scatter(mu_snr,convolve_mu_snr,alpha=0.5,label="mu_snr interp")
-    # plt.plot(snr_arr,norm.pdf(snr_arr,loc=np.exp(mu),scale=sigma_snr),alpha=0.5,label="norm at LN mu")
-    # plt.title(f"{mu},{std},{sigma_snr}")
-    # plt.legend()
-    # plt.show()
-    return convolve_mu_snr
+    x_lims = [-25, 25]
+    snr_true_array = np.linspace(x_lims[0], x_lims[1], x_len)
+    expmodnorm = lognorm_dist(snr_true_array, mu, std)
+    p_det = p_detect(snr_true_array)
+    p_det_mod_norm = p_det * expmodnorm
 
-def first(mu_snr,mu,std,sigma_snr=0.4):
-    #mu_snr is the detected snr
-    p_det = p_detect(mu_snr,sigma_snr)
-    gausslogn = convolve_gauss_ln(mu_snr,mu,std,sigma_snr)
-    #integrate of dlogsnr
-    first_term = np.log(gausslogn)+np.log(p_det)
-    return np.sum(first_term)
+    P_snr_true_giv_det = norm.pdf(snr_true_array, 0, sigma_snr)
+    conv = np.convolve(p_det_mod_norm, P_snr_true_giv_det) * np.diff(snr_true_array)[0]
+    conv_lims = [-50, 50]
+    conv_snr_array = np.linspace(conv_lims[0], conv_lims[1], (x_len * 2) - 1)
 
-def second(n,mu,std,N,sigma_snr=0.4):
-    #get a logspace
-    mu_snr = np.linspace(-10,10,1001)
-    gausslogn = convolve_gauss_ln(mu_snr,mu,std,sigma_snr)
-    p_not_det = 1-p_detect(mu_snr,sigma_snr)
+    convolve_mu_snr = np.interp(snr, conv_snr_array, conv)
 
-    p_second = gausslogn*p_not_det
-    p_second_int = np.log(np.trapz(p_second,mu_snr))
-    if np.exp(p_second_int)>1:
-        import pdb; pdb.set_trace()
-        p_second_int=1
-    return p_second_int*(N-n)
+    return np.sum(np.log(convolve_mu_snr))
+
+
+def second(n, mu, std, N, sigma_snr):
+    snr = np.linspace(-10, 10, 1000)
+
+    x_len = 10000
+    x_lims = [-25, 25]
+    snr_true_array = np.linspace(x_lims[0], x_lims[1], x_len)
+    expmodnorm = lognorm_dist(snr_true_array, mu, std)
+    p_det = 1 - p_detect(snr_true_array)
+    p_det_mod_norm = p_det * expmodnorm
+
+    P_snr_true_giv_det = norm.pdf(snr_true_array, 0, sigma_snr)
+    conv = np.convolve(p_det_mod_norm, P_snr_true_giv_det) * np.diff(snr_true_array)[0]
+    conv_lims = [-50, 50]
+    conv_snr_array = np.linspace(conv_lims[0], conv_lims[1], (x_len * 2) - 1)
+    convolve_mu_snr = np.interp(snr, conv_snr_array, conv)
+
+    integral = np.trapz(convolve_mu_snr, snr)
+    p_second_int = np.log(integral)
+
+    if p_second_int > 1:
+        print(p_second_int)
+        p_second_int = 1
+    return p_second_int * (N - n)
+
 
 def total_p(X):
-    mu = X['mu']
-    std = X['std']
-    N = X['N']
-    snr_arr = X['snr_arr']
-    if N<len(snr_arr):
+    mu = X["mu"]
+    std = X["std"]
+    N = X["N"]
+    snr_arr = X["snr_arr"]
+    if N < len(snr_arr):
         raise Exception(" N<n")
-    sigma_snr = 0.4
-    f = first(snr_arr,mu,std,sigma_snr=sigma_snr)
-    s = second(len(snr_arr),mu,std,N,sigma_snr=sigma_snr)
+    sigma_snr = det_error
+    f = first(snr_arr, mu, std, sigma_snr=sigma_snr)
+    s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
     n = len(snr_arr)
-    log_NCn = gammaln(N+1)-gammaln(n+1)-gammaln(N-n+1)
-    return log_NCn+f+s
+    log_NCn = gammaln(N + 1) - gammaln(n + 1) - gammaln(N - n + 1)
+    return log_NCn + f + s
 
-def negative_loglike(X,det_snr):
-    x={"mu":X[0],"std":X[1],"N":X[2],"snr_arr":det_snr}
-    return -1*total_p(x)
 
-def likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=20):
+def negative_loglike(X, det_snr):
+    x = {"mu": X[0], "std": X[1], "N": X[2], "snr_arr": det_snr}
+    return -1 * total_p(x)
+
+
+def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
     # # create a mesh grid of N, mu and stds
-    mat = np.zeros((mesh_size,mesh_size+1,mesh_size+2))
+    mat = np.zeros((mesh_size, mesh_size + 1, mesh_size + 2))
     with Pool(50) as po:
-        for i,mu_i in enumerate(mu_arr):
-            for j,std_i in enumerate(std_arr):
+        for i, mu_i in enumerate(mu_arr):
+            for j, std_i in enumerate(std_arr):
                 X = []
-                for k,N_i in enumerate(N_arr):
-                    X.append({'mu':mu_i,'std':std_i,'N':N_i,'snr_arr':det_snr})
-                # mat[i,j,:] = po.map(total_p,X)
-                for ind,v in enumerate(X):
-                    mat[i,j,ind] = total_p(v)
+                for k, N_i in enumerate(N_arr):
+                    X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr})
+                mat[i, j, :] = po.map(total_p, X)
+                # for ind,v in enumerate(X):
+                # mat[i,j,ind] = total_p(v)
     return mat
 
 
-
-
-if __name__=='__main__':
+if __name__ == "__main__":
     from simulate_pulse import simulate_pulses
     from simulate_pulse import simulate_pulses_exp
 
@@ -139,36 +136,55 @@ if __name__=='__main__':
     # plt.show()
     pos_array = []
     for a in range(1):
-        obs_t =500000
+        obs_t = 500000
         mu = 0.3
         std = 0.1
         p = 2
         frac = 0.001
-        pulse_snrs = simulate_pulses(obs_t,p,frac,mu,std)
+        pulse_snrs = simulate_pulses(obs_t, p, frac, mu, std)
         mesh_size = 50
 
         det_snr = n_detect(pulse_snrs)
-        mu_arr = np.linspace(mu-0.1,mu+0.05,mesh_size)
-        std_arr = np.linspace(std-0.04,std+0.05,mesh_size+1)
-        N_arr = np.linspace((obs_t*frac/p)*0.5,(obs_t*frac/p)*2,mesh_size+2,dtype=int)
-        print("number of generated pulses",len(pulse_snrs),"number of detections",len(det_snr))
+        mu_arr = np.linspace(mu - 0.1, mu + 0.05, mesh_size)
+        std_arr = np.linspace(std - 0.04, std + 0.05, mesh_size + 1)
+        N_arr = np.linspace(
+            (obs_t * frac / p) * 0.5, (obs_t * frac / p) * 2, mesh_size + 2, dtype=int
+        )
+        print(
+            "number of generated pulses",
+            len(pulse_snrs),
+            "number of detections",
+            len(det_snr),
+        )
 
         # N_arr = np.linspace(len(det_snr),(obs_t/p)*frac*2,mesh_size+2,dtype=int)
 
-        mat = likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size)
+        mat = likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size)
         fn = f"d_{a}"
-        print('saving',fn)
+        print("saving", fn)
         save_dir = f"obs_{obs_t}_mu_{mu}_std_{std}_p_{p}_frac_{frac}"
         if not os.path.isdir(save_dir):
             os.mkdir(save_dir)
         fn = f"{save_dir}/{fn}"
-        np.savez(fn,data=mat,mu=mu_arr,std=std_arr,N=N_arr,snrs=pulse_snrs,
-                    det=det_snr,true_mu=mu,true_std=std,p=p,true_frac=frac,obs_t=obs_t)
+        np.savez(
+            fn,
+            data=mat,
+            mu=mu_arr,
+            std=std_arr,
+            N=N_arr,
+            snrs=pulse_snrs,
+            det=det_snr,
+            true_mu=mu,
+            true_std=std,
+            p=p,
+            true_frac=frac,
+            obs_t=obs_t,
+        )
         # import pdb; pdb.set_trace()
         # mat = mat-np.max(mat)
         mat = np.exp(mat)
         # integrate over mu and std
-        posterior = np.trapz(np.trapz(mat,mu_arr,axis=0),std_arr,axis=0)
+        posterior = np.trapz(np.trapz(mat, mu_arr, axis=0), std_arr, axis=0)
         pos_array.append(posterior)
 
         # np.save('simulated_pulses_0.65_0.1',[pulse_snrs,det_snr])
@@ -176,19 +192,19 @@ if __name__=='__main__':
         # pulse_snrs = pulses[0]
         # det_snr = pulses[1]
 
-    np.save('posteriors',pos_array)
+    np.save("posteriors", pos_array)
     plt.figure()
-    plt.plot(N_arr,posterior)
-    plt.xlabel('N')
+    plt.plot(N_arr, posterior)
+    plt.xlabel("N")
     plt.title(f"# of simulated pulses:{len(pulse_snrs)} # of det pulses:{len(det_snr)}")
     plt.show()
 
     plt.figure()
-    plt.hist(det_snr,bins=100)
+    plt.hist(det_snr, bins=100)
     plt.title(f"total number of pulses:{len(det_snr)}")
     plt.xlabel(f"detected snr")
     plt.figure()
-    plt.hist(pulse_snrs,bins=100)
+    plt.hist(pulse_snrs, bins=100)
     plt.xlabel("emmitted snr")
     plt.title(f"total number of pulses:{len(pulse_snrs)}")
     plt.show()

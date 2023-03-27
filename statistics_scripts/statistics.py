@@ -9,7 +9,8 @@ import os
 popt = np.load('det_fun_params.npy',allow_pickle=1)
 
 def lognorm_dist(x,mu,sigma):
-    pdf = (np.exp(-(np.log(x) - mu)**2 / (2 * sigma**2))/ (x * sigma * np.sqrt(2 * np.pi)))
+    pdf = np.zeros(x.shape)
+    pdf[x>0] = (np.exp(-(np.log(x[x>0]) - mu)**2 / (2 * sigma**2))/ (x[x>0] * sigma * np.sqrt(2 * np.pi)))
     return pdf
 
 def p_detect_0(snr,decay_rate,lower_cutoff=6):
