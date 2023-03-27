@@ -127,7 +127,7 @@ if __name__=="__main__":
     # det_snr = det_snr-0.2
     # det_snr = det_snr[det_snr>2.5]
     # det_snr = det_snr[det_snr<12]
-    snr_thresh = 1
+    # snr_thresh = 1
     det_snr = np.array(det_snr)
     # det_snr = det_snr[det_snr>snr_thresh]
     # det_snr = det_snr
@@ -147,11 +147,11 @@ if __name__=="__main__":
     exp_mesh_size = 150
 
     #gaussian fit
-    # mu_arr_gauss = np.linspace(0.3,1.7,gauss_mesh_size)
-    # std_arr_gauss = np.linspace(0.3,0.9,gauss_mesh_size+1)
-    # N_arr_gauss = np.linspace(52,1800,gauss_mesh_size+2)
-    # mat_gauss = statistics_gaus.likelihood_gauss(mu_arr_gauss,std_arr_gauss,N_arr_gauss,det_snr,mesh_size=gauss_mesh_size)
-    # plot_mat_ln(mat_gauss,N_arr_gauss,mu_arr_gauss,std_arr_gauss,det_snr,det_snr,0,0,title=f"gaussian num det={len(det_snr)}")
+    mu_arr_gauss = np.linspace(1.5,2.5,gauss_mesh_size)
+    std_arr_gauss = np.linspace(0.3,0.7,gauss_mesh_size+1)
+    N_arr_gauss = np.linspace(600,1400,gauss_mesh_size+2)
+    mat_gauss = statistics_gaus.likelihood_gauss(mu_arr_gauss,std_arr_gauss,N_arr_gauss,det_snr,mesh_size=gauss_mesh_size)
+    plot_mat_ln(mat_gauss,N_arr_gauss,mu_arr_gauss,std_arr_gauss,det_snr,det_snr,0,0,title=f"gaussian num det={len(det_snr)}")
 
 
 
@@ -178,9 +178,9 @@ if __name__=="__main__":
     # print(mu_min,std_min,N_min)
 
     #log normal original distribution
-    mu_arr = np.linspace(0.49,0.51,mesh_size)
-    std_arr = np.linspace(0.19,0.21,mesh_size+1)
-    N_arr = np.linspace(4000,12000,mesh_size+2)
+    mu_arr = np.linspace(0.45,0.53,mesh_size)
+    std_arr = np.linspace(0.15,0.25,mesh_size+1)
+    N_arr = np.linspace(8000,14000,mesh_size+2)
 
     mat = statistics.likelihood_lognorm(mu_arr,std_arr,N_arr,det_snr,mesh_size=mesh_size)
     plot_mat_ln(mat,N_arr,mu_arr,std_arr,det_snr,det_snr,0,0,title=f"Lnorm num det:{len(det_snr)}")
