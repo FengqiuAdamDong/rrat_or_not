@@ -10,8 +10,7 @@ import scipy.optimize as opt
 
 popt = np.load("det_fun_params.npz", allow_pickle=1)["popt"]
 det_error = np.load("det_fun_params.npz", allow_pickle=1)["det_error"]
-
-
+print(det_error)
 def lognorm_dist(x, mu, sigma):
     pdf = np.zeros(x.shape)
     pdf[x > 0] = np.exp(-((np.log(x[x > 0]) - mu) ** 2) / (2 * sigma**2)) / (

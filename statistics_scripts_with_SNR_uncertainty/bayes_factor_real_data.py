@@ -163,8 +163,8 @@ if __name__ == "__main__":
 
     # log normal original distribution
     mu_arr = np.linspace(0.45, 0.55, mesh_size)
-    std_arr = np.linspace(0.18, 0.22, mesh_size + 1)
-    N_arr = np.linspace(90000, 105000, mesh_size + 2)
+    std_arr = np.linspace(0.08, 0.12, mesh_size + 1)
+    N_arr = np.linspace(9000, 11000, mesh_size + 2)
 
     mat = statistics.likelihood_lognorm(
         mu_arr, std_arr, N_arr, det_snr, mesh_size=mesh_size

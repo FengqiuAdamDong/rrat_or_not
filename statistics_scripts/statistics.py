@@ -6,8 +6,8 @@ from math import comb
 from scipy.special import gammaln
 from multiprocessing import Pool
 import os
-
-popt = np.load("det_fun_params.npy", allow_pickle=1)
+popt = np.load("det_fun_params.npz", allow_pickle=1)["popt"]
+det_error = np.load("det_fun_params.npz", allow_pickle=1)["det_error"]
 
 
 def lognorm_dist(x, mu, sigma):

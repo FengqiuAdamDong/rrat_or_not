@@ -10,7 +10,6 @@ from simulate_pulse import simulate_pulses_gauss
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from statistics import lognorm_dist
-popt = np.load('det_fun_params.npy',allow_pickle=1)
 
 def logistic(x,k,x0):
     L=1
@@ -101,9 +100,11 @@ if __name__=='__main__':
     f = args.f
     dill_file = args.d
     from numpy.random import normal
-    sigma_snr = 0.4
+    popt = np.load("det_fun_params.npz", allow_pickle=1)["popt"]
+    sigma_snr = np.load("det_fun_params.npz", allow_pickle=1)["det_error"]
+    print(sigma_snr)
     #save the detection function with the detection error
-    np.savez("det_fun_params",popt=popt,det_error=sigma_snr)
+
 
     mode = args.mode
     if mode=="Exp":
