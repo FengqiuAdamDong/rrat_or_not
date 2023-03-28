@@ -24,8 +24,8 @@ import sys
 # ]  # total S/N of pulse
 # TRIAL_FLUENCE = np.linspace(0.1,4,30)
 # TRIAL_FLUENCE=[2,3,4,5,6,7,8,9,10]
-# TRIAL_FLUENCE = [0.0005,0.001,0.002,0.003]
-TRIAL_FLUENCE = np.linspace(7e-4, 2.5e-3, 30)
+TRIAL_FLUENCE = [0.003]
+# TRIAL_FLUENCE = np.linspace(7e-4, 2.5e-3, 30)
 TRIAL_DMS = [
     100,
 ]  # DM of bursts
@@ -66,7 +66,7 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
     max_dm_delay = dm_delay(max(TRIAL_DMS), 800, 400)
 
     toas = np.zeros(npulses) + duration
-    pulse_width = 10e-3 #10ms pulse width
+    pulse_width = [10e-3] #10ms pulse width
     while max(toas) > (duration - max_dm_delay):
         dtoa = np.zeros(npulses + 1)
         while min(dtoa) < min_sep:
@@ -131,7 +131,7 @@ def inject_pulses(
     print(pulse_attrs)
     # 10s stats window
     for i, p in enumerate(pulse_attrs):
-        p_toa, p_fluence, p_dm = p
+        p_toa, p_fluence, p_dm,p_width = p
         print("computing toas per channel")
         # start the pulse 100 samples after the first simulated time step
         toa_bin_top = 500
@@ -161,13 +161,11 @@ def inject_pulses(
         # calculate off pulse mean
         print("calculating expected S/N per channel")
         # convert S/N into actual power value
-        width = 12.4e-3  # 10-ms FWHM pulses
-        # p_inj = adjusted_peak(p_fluence,tsamp,width,downsamp)
         # simulate the pulse as a Gaussian, normalise such that the
         # peak corresponds to the per-channel power level corresponding
         # to the total S/N
 
-        width_bins = time_to_bin(width, tsamp)
+        width_bins = time_to_bin(p_width, tsamp)
         total_inj_pow = p_fluence / (width_bins * tsamp) / np.sqrt(2 * np.pi)
         print(f"total power:{total_inj_pow}")
 
@@ -283,11 +281,12 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     masked_chans = mask.all(axis=1)
     # mask the data but set to the mean of the channel
     mask_vals = np.median(data, axis=1)
-    for i in range(len(mask_vals)):
-        _ = data[i, :]
-        _m = mask[i, :]
-        _[_m] = mask_vals[i]
-        data[i, :] = _
+    # we used to need to mask files, not anymore though pass the data straight through
+    # for i in range(len(mask_vals)):
+    #     _ = data[i, :]
+    #     _m = mask[i, :]
+    #     _[_m] = mask_vals[i]
+    #     data[i, :] = _
     return data, masked_chans
 
 
@@ -409,7 +408,7 @@ def process(pool_arr):
     # figure out what pulses to add
     if single_fluence_dm:
         add_mask = np.logical_and(
-            injection_sample[:, -1] == dm, injection_sample[:, 1] == fluence
+            injection_sample[:, 2] == dm, injection_sample[:, 1] == fluence
         )
 
         pulses_to_add = injection_sample[add_mask]
