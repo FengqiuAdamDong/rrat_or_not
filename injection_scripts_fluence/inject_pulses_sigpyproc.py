@@ -24,8 +24,10 @@ import sys
 # ]  # total S/N of pulse
 # TRIAL_FLUENCE = np.linspace(0.1,4,30)
 # TRIAL_FLUENCE=[2,3,4,5,6,7,8,9,10]
-TRIAL_FLUENCE = [0.003]
-# TRIAL_FLUENCE = np.linspace(7e-4, 2.5e-3, 30)
+# TRIAL_FLUENCE = [0.003]
+TRIAL_FLUENCE = np.linspace(0.1e-3, 5e-3, 50)
+pulse_width = [12.41e-3]  # 10ms pulse width
+
 TRIAL_DMS = [
     100,
 ]  # DM of bursts
@@ -66,7 +68,6 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
     max_dm_delay = dm_delay(max(TRIAL_DMS), 800, 400)
 
     toas = np.zeros(npulses) + duration
-    pulse_width = [10e-3] #10ms pulse width
     while max(toas) > (duration - max_dm_delay):
         dtoa = np.zeros(npulses + 1)
         while min(dtoa) < min_sep:
@@ -82,7 +83,9 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
             if len(toas) == 1:
                 break
     # get the cartesian product so that we have a generator of TOA x FLUENCE x DM
-    grid_coords = np.array([*itertools.product(toas, TRIAL_FLUENCE, TRIAL_DMS,pulse_width)])
+    grid_coords = np.array(
+        [*itertools.product(toas, TRIAL_FLUENCE, TRIAL_DMS, pulse_width)]
+    )
 
     # save the injection sample to a numpy file
     print("saving injection sample to: sample_injections.npy")
@@ -131,7 +134,7 @@ def inject_pulses(
     print(pulse_attrs)
     # 10s stats window
     for i, p in enumerate(pulse_attrs):
-        p_toa, p_fluence, p_dm,p_width = p
+        p_toa, p_fluence, p_dm, p_width = p
         print("computing toas per channel")
         # start the pulse 100 samples after the first simulated time step
         toa_bin_top = 500
@@ -181,8 +184,8 @@ def inject_pulses(
 
         # ensure that everything is shifted correctly when changes to uint8
         # just run on 32 bit data, whatever
-        pulse_wf += (np.random.rand(pulse_wf.shape[0],pulse_wf.shape[1])-0.5)
-        pulse_wf[pulse_wf<0]=0
+        pulse_wf += np.random.rand(pulse_wf.shape[0], pulse_wf.shape[1]) - 0.5
+        pulse_wf[pulse_wf < 0] = 0
         pulse_wf = np.around(pulse_wf)
         # combining the pulse with data
         print("combining simulated pulse with data")
@@ -484,7 +487,7 @@ if __name__ == "__main__":
     # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
     print(f"getting data cutout from: {ifn}")
     # add the pulses
-    multiprocessing = True
+    multiprocessing = False
     if multiprocessing:
         for dm in TRIAL_DMS:
             pool_arr = []

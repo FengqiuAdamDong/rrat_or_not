@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from statistics import p_detect
+from scipy.stats import expon
 
 
 def n_detect(snr_emit):
@@ -42,7 +43,7 @@ def simulate_pulses_exp(obs_t, period, f, k, random=True):
     else:
         pulse_N = int(N * f)
     rands = np.random.rand(pulse_N)
-    pulse_snr = -np.log(1 - rands) / k
+    pulse_snr = expon.rvs(scale=1/k,size=pulse_N)
     return pulse_snr
 
 

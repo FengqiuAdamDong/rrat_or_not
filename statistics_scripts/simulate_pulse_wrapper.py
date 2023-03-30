@@ -9,22 +9,33 @@ from simulate_pulse import simulate_pulses_exp
 from simulate_pulse import simulate_pulses_gauss
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+from scipy.stats import expon
 from statistics import lognorm_dist
-
+import dill
+with open("inj_stats_fitted.dill", "rb") as inf:
+    inj_stats = dill.load(inf)
+popt = inj_stats.fit_logistic_amp
+det_error = inj_stats.detect_error_amp
+sigma_snr=det_error
 def logistic(x,k,x0):
     L=1
     return L/(1+np.exp(-k*(x-x0)))
 
 def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
     x_len = 10000
-    x_lims = [-20,20]
+    const = 91
+    # xlim = (100/mu)
+    # print(xlim)
+    xlim = np.exp(mu)*std*const
+    x_lims = [-xlim, xlim]
     snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     p_musnr_giv_snr = norm2(snr_arr,0,sigma_snr)
-    # p_det_giv_param = p_detect(snr_arr)*norm.pdf(snr_arr,mu,std)
-    p_det_giv_param = p_detect(snr_arr)*lognorm_dist(snr_arr,mu,std)
+    # p_det_giv_param = p_detect(snr_arr)*expon.pdf(snr_arr,scale=1/mu)
+    p_det_giv_param = p_detect(snr_arr)*norm.pdf(snr_arr,mu,std)
+    # p_det_giv_param = p_detect(snr_arr)*lognorm_dist(snr_arr,mu,std)
     #convolve the two arrays
     conv = np.convolve(p_det_giv_param,p_musnr_giv_snr)*np.diff(snr_arr)[0]
-    conv_lims = [-40,40]
+    conv_lims = [-(xlim*2), xlim*2]
     conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
     #interpolate the values for mu_snr
     convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
@@ -40,17 +51,23 @@ def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
     return convolve_mu_snr
 
 
-def p_detect(snr,cutoff=1):
-    #this will just be an exponential rise at some center
-    #added a decay rate variable just so things are compatible
-    #load inj statistics
+def p_detect(snr, cutoff=1):
+    # this will just be an exponential rise at some center
+    # added a decay rate variable just so things are compatible
+    # load inj statistics
     k = popt[0]
     x0 = popt[1]
     # print(k,x0)
     L = 1
-    detection_fn = L/(1+np.exp(-k*(snr-x0)))
+    detection_fn = np.zeros(len(snr))
+    try:
+        snr_limit = 1
+        detection_fn[(snr>-snr_limit)&(snr<snr_limit)] = L / (1 + np.exp(-k * (snr[(snr>-snr_limit)&(snr<snr_limit)] - x0)))
+        detection_fn[snr>=snr_limit] = 1
+        detection_fn[snr<=-snr_limit] = 0
+    except:
+        import pdb; pdb.set_trace()
     # detection_fn[snr<cutoff] = 0
-
     return detection_fn
 
 # def first_gauss(snr,mu,std,sigma_snr=0.4):
@@ -100,9 +117,12 @@ if __name__=='__main__':
     f = args.f
     dill_file = args.d
     from numpy.random import normal
-    popt = np.load("det_fun_params.npz", allow_pickle=1)["popt"]
-    sigma_snr = np.load("det_fun_params.npz", allow_pickle=1)["det_error"]
-    print(sigma_snr)
+    snr = np.linspace(0,0.4)
+    det_fn = p_detect(snr)
+    plt.plot(snr,det_fn)
+    plt.show()
+    print("sigma_snr",sigma_snr)
+
     #save the detection function with the detection error
 
 
@@ -146,6 +166,10 @@ if __name__=='__main__':
     for snr in detected_pulses:
         temp = inject_obj()
         temp.det_snr = snr
+        temp.det_fluence = snr
+        temp.det_amp = snr
+        temp.fluence_amp = snr
+        temp.det_std = snr
         inject_obj_arr.append(temp)
     inj_obj_arr = np.array(inject_obj_arr)
     det_class.filfiles = filfiles
@@ -162,7 +186,7 @@ if __name__=='__main__':
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
 
-    snr_array = np.linspace(0,10,1000)
+    snr_array = np.linspace(-1,10,1000)
     first = first_gauss(snr_array,mu,std,sigma_snr)
     first = first/np.trapz(first,snr_array)
     plt.figure()

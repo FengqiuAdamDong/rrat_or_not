@@ -453,8 +453,8 @@ class inject_stats:
             det_snr.append(np.median(s.det_snr))
             det_snr_std.append(np.std(s.det_snr))
             inj_snr.append(s.snr)
-        #convert det err to inj error
-        p = np.polyfit(det_snr,inj_snr)
+        # convert det err to inj error
+        p = np.polyfit(det_snr, inj_snr)
         plt.errorbar(det_snr, inj_snr, xerr=det_snr_std, fmt=".")
         plt.xlabel("Injected SNR")
         plt.ylabel("Detected SNR")

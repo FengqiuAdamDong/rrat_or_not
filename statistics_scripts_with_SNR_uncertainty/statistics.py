@@ -7,10 +7,17 @@ from scipy.special import gammaln
 from multiprocessing import Pool
 import os
 import scipy.optimize as opt
+import dill
 
-popt = np.load("det_fun_params.npz", allow_pickle=1)["popt"]
-det_error = np.load("det_fun_params.npz", allow_pickle=1)["det_error"]
-print(det_error)
+with open("inj_stats_fitted.dill", "rb") as inf:
+    inj_stats = dill.load(inf)
+popt = inj_stats.fit_logistic_amp
+det_error = inj_stats.detect_error_amp
+
+snr_arr = np.linspace(-2, 2, 1000)
+print("det error", det_error)
+
+
 def lognorm_dist(x, mu, sigma):
     pdf = np.zeros(x.shape)
     pdf[x > 0] = np.exp(-((np.log(x[x > 0]) - mu) ** 2) / (2 * sigma**2)) / (
@@ -32,9 +39,24 @@ def p_detect(snr, cutoff=1):
     x0 = popt[1]
     # print(k,x0)
     L = 1
-    detection_fn = L / (1 + np.exp(-k * (snr - x0)))
+    detection_fn = np.zeros(len(snr))
+    try:
+        snr_limit = 1
+        detection_fn[(snr > -snr_limit) & (snr < snr_limit)] = L / (
+            1 + np.exp(-k * (snr[(snr > -snr_limit) & (snr < snr_limit)] - x0))
+        )
+        detection_fn[snr >= snr_limit] = 1
+        detection_fn[snr <= -snr_limit] = 0
+    except:
+        import pdb
+
+        pdb.set_trace()
     # detection_fn[snr<cutoff] = 0
     return detection_fn
+
+
+detfn = p_detect(snr_arr)
+plt.plot(snr_arr, detfn)
 
 
 def n_detect(snr_emit):
@@ -49,27 +71,39 @@ def n_detect(snr_emit):
 
 def first(snr, mu, std, sigma_snr):
     x_len = 10000
-    x_lims = [-25, 25]
+    const = 91
+    xlim = np.exp(mu) * std * const
+    x_lims = [-xlim, xlim]
     snr_true_array = np.linspace(x_lims[0], x_lims[1], x_len)
     expmodnorm = lognorm_dist(snr_true_array, mu, std)
     p_det = p_detect(snr_true_array)
     p_det_mod_norm = p_det * expmodnorm
-
     P_snr_true_giv_det = norm.pdf(snr_true_array, 0, sigma_snr)
     conv = np.convolve(p_det_mod_norm, P_snr_true_giv_det) * np.diff(snr_true_array)[0]
-    conv_lims = [-50, 50]
+    conv_lims = [-(xlim * 2), xlim * 2]
     conv_snr_array = np.linspace(conv_lims[0], conv_lims[1], (x_len * 2) - 1)
-
     convolve_mu_snr = np.interp(snr, conv_snr_array, conv)
+    try:
+        log_convolve_mu_snr = np.zeros(len(convolve_mu_snr))
+        log_convolve_mu_snr[convolve_mu_snr == 0] = -np.inf
+        log_convolve_mu_snr[convolve_mu_snr > 0] = np.log(
+            convolve_mu_snr[convolve_mu_snr > 0]
+        )
+    except:
+        import pdb
 
-    return np.sum(np.log(convolve_mu_snr))
+        pdb.set_trace()
+    return np.sum(log_convolve_mu_snr)
 
 
 def second(n, mu, std, N, sigma_snr):
-    snr = np.linspace(-10, 10, 1000)
 
     x_len = 10000
-    x_lims = [-25, 25]
+    const = 91
+    xlim = np.exp(mu) * std * const
+    x_lims = [-xlim, xlim]
+    snr = np.linspace(-xlim / 2, xlim / 2, 1000)
+
     snr_true_array = np.linspace(x_lims[0], x_lims[1], x_len)
     expmodnorm = lognorm_dist(snr_true_array, mu, std)
     p_det = 1 - p_detect(snr_true_array)
@@ -77,16 +111,24 @@ def second(n, mu, std, N, sigma_snr):
 
     P_snr_true_giv_det = norm.pdf(snr_true_array, 0, sigma_snr)
     conv = np.convolve(p_det_mod_norm, P_snr_true_giv_det) * np.diff(snr_true_array)[0]
-    conv_lims = [-50, 50]
+    conv_lims = [-(xlim * 2), xlim * 2]
     conv_snr_array = np.linspace(conv_lims[0], conv_lims[1], (x_len * 2) - 1)
     convolve_mu_snr = np.interp(snr, conv_snr_array, conv)
-
     integral = np.trapz(convolve_mu_snr, snr)
-    p_second_int = np.log(integral)
+    try:
+        p_second_int = np.log(integral)
+    except:
+        import pdb
 
-    if p_second_int > 1:
-        print(p_second_int)
+        pdb.set_trace()
+    # plt.plot(snr_true_array,expmodnorm)
+    # plt.show()
+    if integral > 1:
+        print("Integral error", integral)
         p_second_int = 1
+        import pdb
+
+        pdb.set_trace()
     return p_second_int * (N - n)
 
 
