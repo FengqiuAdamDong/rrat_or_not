@@ -30,8 +30,10 @@ def logistic(x, k, x0):
     L = 1
     return L / (1 + np.exp(-k * (x - x0)))
 
+def p_detect(snr):
+    return inj_stats.predict_poly(snr)
 
-def p_detect(snr, cutoff=1):
+def p_detect_logisitic(snr, cutoff=1):
     # this will just be an exponential rise at some center
     # added a decay rate variable just so things are compatible
     # load inj statistics
@@ -102,7 +104,7 @@ def second(n, mu, std, N, sigma_snr):
     const = 91
     xlim = np.exp(mu) * std * const
     x_lims = [-xlim, xlim]
-    snr = np.linspace(-xlim / 2, xlim / 2, 1000)
+    snr = np.linspace(-xlim / 2, xlim / 2, 10000)
 
     snr_true_array = np.linspace(x_lims[0], x_lims[1], x_len)
     expmodnorm = lognorm_dist(snr_true_array, mu, std)
@@ -119,15 +121,13 @@ def second(n, mu, std, N, sigma_snr):
         p_second_int = np.log(integral)
     except:
         import pdb
-
         pdb.set_trace()
     # plt.plot(snr_true_array,expmodnorm)
     # plt.show()
-    if integral > 1:
+    if integral > 1.01:
         print("Integral error", integral)
         p_second_int = 1
         import pdb
-
         pdb.set_trace()
     return p_second_int * (N - n)
 

@@ -2,13 +2,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from statistics import p_detect
 from scipy.stats import expon
 
-
 def n_detect(snr_emit):
+    import dill
+    with open("inj_stats_fitted.dill", "rb") as inf:
+        inj_stats = dill.load(inf)
+
     # snr emit is the snr that the emitted pulse has
-    p = p_detect(snr_emit)
+    p = inj_stats.predict_poly(snr_emit)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
@@ -50,6 +52,11 @@ def simulate_pulses_exp(obs_t, period, f, k, random=True):
 # so in this script we need to simulate N pulses from a pulsar
 def simulate_pulses_gauss(obs_t, period, f, mu, std, random=True):
     # number of pulses
+    from scipy.stats import truncnorm
+    #get clips
+    a = -mu/std
+    b = (100-mu)/std
+
     N = int(obs_t / period)
     # draw N random variables between 0 and 1
     rands = np.random.rand(N)
@@ -58,8 +65,9 @@ def simulate_pulses_gauss(obs_t, period, f, mu, std, random=True):
         pulse_N = np.sum(rands < f)
     else:
         pulse_N = int(N * f)
-    pulse_snr = np.random.normal(mu, std, pulse_N)
-    return pulse_snr
+
+    pulse_snr = truncnorm.rvs(a=a,b=b,loc=mu,scale=std,size=pulse_N)
+    return pulse_snr,a,b
 
 
 if __name__ == "__main__":

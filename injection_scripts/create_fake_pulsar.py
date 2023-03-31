@@ -6,6 +6,7 @@ from simulate_pulse import simulate_pulses
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import normal
+#this scripts creates a filterbank file that has a fake pulsar in it!!
 def create_lognorm_pulses(mu,std,p,f,d,dm,downsamp=3,stats_window=0.9,sigma_snr=0.3):
     #always start 5 seconds in and end 5 seconds early
     d = d-10

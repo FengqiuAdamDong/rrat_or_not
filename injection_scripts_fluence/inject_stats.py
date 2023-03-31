@@ -127,6 +127,16 @@ def grab_spectra_manual(
             ds_data=waterfall_dat,
             downsamp=downsamp,
         )
+        if (loc>(0.95))|(loc<0.85):
+            #repeat if initial loc guess is wrong
+            SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
+                dat_ts,
+                tsamp * downsamp,
+                6e-2,
+                nsamps=int(loc / tsamp / downsamp),
+                ds_data=waterfall_dat,
+                downsamp=downsamp,
+            )
         # std gives you how wide it is, so go to 3sigma
         # nsamp is where the burst is, so use loc
         # query ts no ds _AFTER_ loc is determined!!
@@ -136,7 +146,7 @@ def grab_spectra_manual(
             3 * sigma_width,
             nsamp=int(loc / tsamp),
             ds_data=waterfall_dat,
-            plot=True,
+            plot=False,
         )
     else:
         # fit using downsampled values
@@ -366,7 +376,7 @@ def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     plt.show()
     if skip.skip:
         print("skipping")
-        return -1, -1, -1
+        return -1, -1, -1, -1, -1
 
     if x_new != [-1, -1, -1, -1]:
         fitx = x_new
@@ -812,7 +822,9 @@ class inject_stats:
             axes.set_ylim([-0.5,1.5])
             axes.legend()
             plt.show()
-
+        #make sure 1 and 0 are the limits
+        p_pred[p_pred>1] = 1
+        p_pred[p_pred<0] = 0
         return p_pred
 
 
