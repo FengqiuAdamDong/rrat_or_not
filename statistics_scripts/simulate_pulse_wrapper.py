@@ -13,17 +13,54 @@ from scipy.stats import expon
 from scipy.stats import truncnorm
 from statistics import lognorm_dist
 import dill
+from scipy.integrate import quad
 with open("inj_stats_fitted.dill", "rb") as inf:
     inj_stats = dill.load(inf)
-popt = inj_stats.fit_logistic_amp
+# popt = inj_stats.fit_logistic_amp
 det_error = inj_stats.detect_error_amp
 sigma_snr=det_error
-def logistic(x,k,x0):
-    L=1
-    return L/(1+np.exp(-k*(x-x0)))
+
+def logistic(x, k, x0):
+    L = 1
+    snr = x
+    detection_fn = np.zeros(len(snr))
+    snr_limit = 1
+    detection_fn[(snr > -snr_limit) & (snr < snr_limit)] = L / (
+        1 + np.exp(-k * (snr[(snr > -snr_limit) & (snr < snr_limit)] - x0))
+    )
+    detection_fn[snr >= snr_limit] = 1
+    detection_fn[snr <= -snr_limit] = 0
+    return detection_fn
+
+def time_varying_convolve(f, g, t, *args):
+    """
+    Compute the time-varying convolution of two functions.
+
+    Parameters:
+        f (callable): The function to be convolved.
+        g (callable): The kernel function that is changing over time.
+        t (array_like): The array of time values over which to compute the convolution.
+        *args: Additional arguments to be passed to `f` and `g`.
+
+    Returns:
+        array_like: The result of the convolution at each time value.
+    """
+    result = np.zeros_like(t)
+    for i, ti in enumerate(t):
+        integrand = lambda u: f(*args, ti-u) * g(u)
+        result[i], _ = quad(integrand, -np.inf, np.inf)
+    return result
+
+def g(amp_arr):
+    shifted_amp_array = amp_array/logistic(amp_arr,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
+    norm.pdf(shifted_amp_array,0)
+
+def f(mu,std,amp_arr):
+    #this is the function that describes the probability density of the _true_ emission amplitude
+    return inj_stats.predict_poly(amp_arr)*lognorm_dist(amp_arr,mu,std)
 
 def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
-    x_len = 10000
+    x_len = 1000000
     const = 91
     a = -mu/std
     b = (100-mu)/std
@@ -33,14 +70,18 @@ def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
     xlim = np.exp(mu)*std*const
     x_lims = [-xlim, xlim]
     snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
-    p_musnr_giv_snr = norm2(snr_arr,0,sigma_snr)
+    shift_function = logistic(snr_arr,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
+    p_musnr_giv_snr = norm2(snr_arr/shift_function,0,sigma_snr)
     # p_det_giv_param = inj_stats.predict_poly(snr_arr)*expon.pdf(snr_arr,scale=1/mu)
-    p_det_giv_param = inj_stats.predict_poly(snr_arr)*truncnorm.pdf(snr_arr,loc=mu,scale=std,a=a,b=b)
-    # p_det_giv_param = inj_stats.predict_poly(snr_arr)*lognorm_dist(snr_arr,mu,std)
+    # p_det_giv_param = inj_stats.predict_poly(snr_arr)*truncnorm.pdf(snr_arr,loc=mu,scale=std,a=a,b=b)
+    p_det_giv_param = inj_stats.predict_poly(snr_arr)*lognorm_dist(snr_arr,mu,std)
     #convolve the two arrays
-    conv = np.convolve(p_det_giv_param,p_musnr_giv_snr)*np.diff(snr_arr)[0]
+
+    conv = np.convolve(p_musnr_giv_snr,p_det_giv_param)*np.diff(snr_arr)[0]
     conv_lims = [-(xlim*2), xlim*2]
     conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
+    # shifted_conv_snr_array = logistic(conv_snr_array,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1]) * conv_snr_array
+
     #interpolate the values for mu_snr
     convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
 
@@ -114,7 +155,11 @@ if __name__=='__main__':
     # rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
     # pulses = rv+pulses
     detected_pulses = n_detect(pulses)
-    rv = normal(loc=0,scale=sigma_snr,size=len(detected_pulses))
+    #rv is a biased gaussian
+    conv_factor = logistic(detected_pulses,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
+    means = (detected_pulses/conv_factor) - detected_pulses
+    stds = np.zeros(len(means))+sigma_snr
+    rv = normal(loc=means,scale=stds)
     detected_pulses = rv+detected_pulses
     print(len(detected_pulses))
     import dill

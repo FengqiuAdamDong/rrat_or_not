@@ -11,7 +11,7 @@ import dill
 
 with open("inj_stats_fitted.dill", "rb") as inf:
     inj_stats = dill.load(inf)
-popt = inj_stats.fit_logistic_amp
+# popt = inj_stats.fit_logistic_amp
 det_error = inj_stats.detect_error_amp
 
 snr_arr = np.linspace(-2, 2, 1000)
@@ -28,7 +28,15 @@ def lognorm_dist(x, mu, sigma):
 
 def logistic(x, k, x0):
     L = 1
-    return L / (1 + np.exp(-k * (x - x0)))
+    snr = x
+    detection_fn = np.zeros(len(snr))
+    snr_limit = 1
+    detection_fn[(snr > -snr_limit) & (snr < snr_limit)] = L / (
+        1 + np.exp(-k * (snr[(snr > -snr_limit) & (snr < snr_limit)] - x0))
+    )
+    detection_fn[snr >= snr_limit] = 1
+    detection_fn[snr <= -snr_limit] = 0
+    return detection_fn
 
 def p_detect(snr):
     return inj_stats.predict_poly(snr)
@@ -84,7 +92,15 @@ def first(snr, mu, std, sigma_snr):
     conv = np.convolve(p_det_mod_norm, P_snr_true_giv_det) * np.diff(snr_true_array)[0]
     conv_lims = [-(xlim * 2), xlim * 2]
     conv_snr_array = np.linspace(conv_lims[0], conv_lims[1], (x_len * 2) - 1)
-    convolve_mu_snr = np.interp(snr, conv_snr_array, conv)
+    # need to shift the conv SNR array to a lower position depending on the value
+    shifted_conv_snr_array = logistic(conv_snr_array,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1]) * conv_snr_array
+    # shifted_conv_snr_array = conv_snr_array
+    # fig,axes = plt.subplots(1,1)
+    # axes.plot(conv_snr_array,conv,label="no shift")
+    # axes.plot(shifted_conv_snr_array,conv,label="shifted")
+    # plt.legend()
+    # plt.show()
+    convolve_mu_snr = np.interp(snr, shifted_conv_snr_array, conv)
     try:
         log_convolve_mu_snr = np.zeros(len(convolve_mu_snr))
         log_convolve_mu_snr[convolve_mu_snr == 0] = -np.inf
@@ -115,7 +131,9 @@ def second(n, mu, std, N, sigma_snr):
     conv = np.convolve(p_det_mod_norm, P_snr_true_giv_det) * np.diff(snr_true_array)[0]
     conv_lims = [-(xlim * 2), xlim * 2]
     conv_snr_array = np.linspace(conv_lims[0], conv_lims[1], (x_len * 2) - 1)
-    convolve_mu_snr = np.interp(snr, conv_snr_array, conv)
+    shifted_conv_snr_array = logistic(conv_snr_array,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1]) * conv_snr_array
+    # shifted_conv_snr_array = conv_snr_array
+    convolve_mu_snr = np.interp(snr, shifted_conv_snr_array, conv)
     integral = np.trapz(convolve_mu_snr, snr)
     try:
         p_second_int = np.log(integral)
@@ -124,11 +142,10 @@ def second(n, mu, std, N, sigma_snr):
         pdb.set_trace()
     # plt.plot(snr_true_array,expmodnorm)
     # plt.show()
-    if integral > 1.01:
+    if integral > 1:
         print("Integral error", integral)
-        p_second_int = 1
-        import pdb
-        pdb.set_trace()
+        # p_second_int = 1
+
     return p_second_int * (N - n)
 
 
@@ -163,7 +180,7 @@ def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
                     X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr})
                 mat[i, j, :] = po.map(total_p, X)
                 # for ind,v in enumerate(X):
-                # mat[i,j,ind] = total_p(v)
+                    # mat[i,j,ind] = total_p(v)
     return mat
 
 

@@ -715,49 +715,49 @@ class inject_stats:
         # get lists to plot
         fluence = []
         det_frac = []
+        detected_amplitudes = []
+        detected_amplitudes_mean = []
         for s in self.sorted_inject:
             fluence.append(np.mean(s.fluence))
             det_frac.append(sum(s.detected) / len(s.detected))
-        # sort fluence
+            detected_amplitudes.append(s.det_amp[s.detected])
+            detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
         fluence = np.array(fluence)
         det_frac = np.array(det_frac)
+        detected_amplitudes = np.array(detected_amplitudes)
+        detected_amplitudes_mean = np.array(detected_amplitudes_mean)
+
         ind = np.argsort(fluence)
         self.det_frac = det_frac[ind]
+        self.detected_amplitudes = detected_amplitudes[ind]
+        self.detected_amplitudes_mean = detected_amplitudes_mean[ind]
+        nan_ind = ~np.isnan(self.detected_amplitudes_mean)
+        self.inj_amp_ratio = self.inj_amp/self.detected_amplitudes_mean
+        self.error_correction_log_params = self.fit_logistic(self.inj_amp_ratio[nan_ind],self.detected_amplitudes_mean[nan_ind])
+        fig,axes = plt.subplots(1,1)
+        axes.scatter(self.detected_amplitudes_mean[nan_ind],self.inj_amp_ratio[nan_ind])
+        x = np.linspace(0,0.16,1000)
+        axes.plot(x,logistic(x,self.error_correction_log_params[0],self.error_correction_log_params[1]))
+        plt.show()
 
-        #fit a logistic function
-        self.fit_logistic_amp = self.fit_det(self.det_frac, self.inj_amp)
-        self.fit_logistic_fluence = self.fit_det(self.det_frac,self.inj_fluence)
+        rows = int(np.sqrt(len(self.inj_amp)))+1
+        fig,axes = plt.subplots(rows,rows)
+
+
+        for i in range(len(self.inj_amp)):
+            row = int(i/rows)
+            column = i%rows
+            axes[row,column].hist(self.detected_amplitudes[i],bins="auto",density=1)
+            axes[row,column].axvline(self.inj_amp[i],label="injected amplitude")
+            axes[row,column].axvline(self.detected_amplitudes_mean[i],color='r',label="detected amplitude mean")
+            axes[row,column].legend()
+        plt.show()
+        # sort fluence
+                #fit a logistic function
         predict_x_array = np.linspace(0,10,10000)
         # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
         self.fit_poly()
         self.predict_poly(predict_x_array,plot=True)
-
-        # self.fit_gen_log(self.det_frac,self.inj_amp)
-        # self.gaussian_process_fit(self.det_frac,self.inj_amp)
-        if plot:
-            fig, axes = plt.subplots(1, 2)
-            axes[0].plot(
-                self.inj_fluence,
-                logistic(self.inj_fluence, self.fit_logistic_fluence[0], self.fit_logistic_fluence[1]),
-                label="fit",
-            )
-            axes[0].scatter(self.inj_fluence, self.det_frac, label="measurements")
-            axes[0].set_xlabel("fluence")
-            axes[0].set_ylabel("det_fraction")
-            axes[0].set_title("Detection fraction for fluence")
-            axes[0].legend()
-            axes[1].plot(
-                self.inj_amp,
-                logistic(self.inj_amp, self.fit_logistic_amp[0], self.fit_logistic_amp[1]),
-                label="fit",
-            )
-            axes[1].scatter(self.inj_amp, self.det_frac, label="measurements")
-            axes[1].set_xlabel("Amplitude")
-            axes[1].set_ylabel("det_frac")
-            axes[1].set_title("Detection fraction for amplitude")
-            axes[1].legend()
-            plt.show()
-        # get errors for each
 
     def return_detected(self):
         fluence = []
@@ -769,6 +769,15 @@ class inject_stats:
             tot.append(len(s.detected))
         return fluence, det, tot
 
+
+
+
+
+
+
+
+
+    #these functions are for fitting the detection function. not all of them are used, but could be if required
     def interpolate(self,predict_x_array,p,x):
         from scipy.interpolate import CubicSpline
         x_pad_upper = np.linspace(1e-3,100,1000)+np.max(x)
@@ -794,8 +803,6 @@ class inject_stats:
         axes.legend()
         plt.show()
 
-
-
     def predict_poly(self,predict_x,plot=False):
         x = self.inj_amp
         p = self.det_frac
@@ -818,7 +825,7 @@ class inject_stats:
             axes.plot(predict_x,p_pred,label="poly_fit")
             axes.set_xlabel("Amplitude")
             axes.set_ylabel("Det Frac")
-            axes.set_title("Gaussian Process fit")
+            axes.set_title("Polynomial fit")
             axes.set_ylim([-0.5,1.5])
             axes.legend()
             plt.show()
@@ -826,7 +833,6 @@ class inject_stats:
         p_pred[p_pred>1] = 1
         p_pred[p_pred<0] = 0
         return p_pred
-
 
     def fit_poly(self,plot=False):
         x = self.inj_amp
@@ -838,8 +844,6 @@ class inject_stats:
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=4)
 
         self.poly_det_fit = poly
-
-
 
     def fit_gen_log(self,p,x):
         x_pad_upper = np.linspace(0,10,1000)+np.max(x)
@@ -897,7 +901,7 @@ class inject_stats:
         axes.legend()
         plt.show()
 
-    def fit_det(self, p, fluence):
+    def fit_logistic(self, p, fluence):
         popt, pcov = opt.curve_fit(logistic, fluence, p, [2, 0.040], maxfev=int(1e6))
         return popt
 
