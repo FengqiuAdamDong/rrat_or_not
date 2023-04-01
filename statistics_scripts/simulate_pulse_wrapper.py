@@ -32,7 +32,7 @@ def logistic(x, k, x0):
     detection_fn[snr <= -snr_limit] = 0
     return detection_fn
 
-def time_varying_convolve(f, g, t, *args):
+def convolve(my_f, my_g, t, mu,std,sigma):
     """
     Compute the time-varying convolution of two functions.
 
@@ -47,49 +47,34 @@ def time_varying_convolve(f, g, t, *args):
     """
     result = np.zeros_like(t)
     for i, ti in enumerate(t):
-        integrand = lambda u: f(*args, ti-u) * g(u)
-        result[i], _ = quad(integrand, -np.inf, np.inf)
+        integrand = lambda u: my_f(mu,std, u) * my_g(sigma,ti,u)
+
+        result[i], _ = quad(integrand, 0, np.inf)
     return result
 
-def g(amp_arr):
-    shifted_amp_array = amp_array/logistic(amp_arr,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
-    norm.pdf(shifted_amp_array,0)
+def my_g(sigma,ti,amp_arr):
+    try:
+        shifted_amp_array = amp_arr/logistic(np.array([amp_arr]),inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
+    except:
+        import pdb; pdb.set_trace()
+    return norm.pdf(ti,loc=shifted_amp_array,scale=sigma)
 
-def f(mu,std,amp_arr):
+def my_f(mu,std,amp_arr):
     #this is the function that describes the probability density of the _true_ emission amplitude
-    return inj_stats.predict_poly(amp_arr)*lognorm_dist(amp_arr,mu,std)
+    try:
+        return_val = inj_stats.predict_poly(np.array([amp_arr]))*lognorm_dist(np.array([amp_arr]),mu,std)
+    except:
+        import pdb; pdb.set_trace()
+    return  return_val
 
 def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
-    x_len = 1000000
-    const = 91
-    a = -mu/std
-    b = (100-mu)/std
-
-    # xlim = (100/mu)
-    # print(xlim)
-    xlim = np.exp(mu)*std*const
-    x_lims = [-xlim, xlim]
-    snr_arr = np.linspace(x_lims[0],x_lims[1],x_len)
-    shift_function = logistic(snr_arr,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
-    p_musnr_giv_snr = norm2(snr_arr/shift_function,0,sigma_snr)
-    # p_det_giv_param = inj_stats.predict_poly(snr_arr)*expon.pdf(snr_arr,scale=1/mu)
-    # p_det_giv_param = inj_stats.predict_poly(snr_arr)*truncnorm.pdf(snr_arr,loc=mu,scale=std,a=a,b=b)
-    p_det_giv_param = inj_stats.predict_poly(snr_arr)*lognorm_dist(snr_arr,mu,std)
-    #convolve the two arrays
-
-    conv = np.convolve(p_musnr_giv_snr,p_det_giv_param)*np.diff(snr_arr)[0]
-    conv_lims = [-(xlim*2), xlim*2]
-    conv_snr_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
-    # shifted_conv_snr_array = logistic(conv_snr_array,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1]) * conv_snr_array
-
+    conv_snr_array = np.linspace(-0.5,0.5,1000)
+    conv = convolve(my_f,my_g,conv_snr_array,mu,std,sigma_snr)
     #interpolate the values for mu_snr
     convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
-
     plt.close()
     plt.figure()
     plt.plot(conv_snr_array,conv,label="conv",linewidth=5)
-    plt.plot(snr_arr,p_musnr_giv_snr,alpha=0.5,label="gauss2")
-    plt.plot(snr_arr,p_det_giv_param,alpha=0.5,label="pdet")
     plt.scatter(mu_snr,convolve_mu_snr,alpha=0.5,label="interp",c='k')
     plt.legend()
     plt.show()
@@ -208,7 +193,7 @@ if __name__=='__main__':
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
 
-    snr_array = np.linspace(-1,1,10000)
+    snr_array = np.linspace(-0.5,0.5,10000)
     first = first_gauss(snr_array,mu,std,sigma_snr)
     first = first/np.trapz(first,snr_array)
     plt.figure()
