@@ -10,7 +10,7 @@ def n_detect(snr_emit):
         inj_stats = dill.load(inf)
 
     # snr emit is the snr that the emitted pulse has
-    p = inj_stats.predict_poly(snr_emit)
+    p = inj_stats.predict_poly(snr_emit,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected

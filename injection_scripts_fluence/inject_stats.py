@@ -717,15 +717,22 @@ class inject_stats:
         det_frac = []
         detected_amplitudes = []
         detected_amplitudes_mean = []
+        all_detected_amplitudes = []
+        detected_pulses = []
         for s in self.sorted_inject:
             fluence.append(np.mean(s.fluence))
             det_frac.append(sum(s.detected) / len(s.detected))
             detected_amplitudes.append(s.det_amp[s.detected])
             detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
+            all_detected_amplitudes.append(s.det_amp)
+            detected_pulses.append(s.detected)
+
         fluence = np.array(fluence)
         det_frac = np.array(det_frac)
         detected_amplitudes = np.array(detected_amplitudes)
         detected_amplitudes_mean = np.array(detected_amplitudes_mean)
+        detected_pulses = np.array(detected_pulses)
+        all_detected_amplitudes = np.array(all_detected_amplitudes)
 
         ind = np.argsort(fluence)
         self.det_frac = det_frac[ind]
@@ -734,30 +741,68 @@ class inject_stats:
         nan_ind = ~np.isnan(self.detected_amplitudes_mean)
         self.inj_amp_ratio = self.inj_amp/self.detected_amplitudes_mean
         self.error_correction_log_params = self.fit_logistic(self.inj_amp_ratio[nan_ind],self.detected_amplitudes_mean[nan_ind])
-        fig,axes = plt.subplots(1,1)
-        axes.scatter(self.detected_amplitudes_mean[nan_ind],self.inj_amp_ratio[nan_ind])
-        x = np.linspace(0,0.16,1000)
-        axes.plot(x,logistic(x,self.error_correction_log_params[0],self.error_correction_log_params[1]))
-        plt.show()
-
-        rows = int(np.sqrt(len(self.inj_amp)))+1
-        fig,axes = plt.subplots(rows,rows)
 
 
-        for i in range(len(self.inj_amp)):
-            row = int(i/rows)
-            column = i%rows
-            axes[row,column].hist(self.detected_amplitudes[i],bins="auto",density=1)
-            axes[row,column].axvline(self.inj_amp[i],label="injected amplitude")
-            axes[row,column].axvline(self.detected_amplitudes_mean[i],color='r',label="detected amplitude mean")
-            axes[row,column].legend()
-        plt.show()
+        all_detected_amplitudes = all_detected_amplitudes[ind]
+        detected_pulses = detected_pulses[ind]
+        #remove the really low inj amplitudes because they're likely bad
+        all_detected_amplitudes = all_detected_amplitudes[5:,:]
+        detected_pulses = detected_pulses[5:,:]
+
+
+        all_detected_pulses = all_detected_amplitudes[detected_pulses]
+        all_detected_amplitudes = all_detected_amplitudes.flatten()
+        # set the number of bins and the number of data points per bin
+        num_bins = 45
+        num_points_per_bin = len(all_detected_amplitudes) // num_bins
+
+        # calculate the bin edges based on the percentiles of the data
+        bin_edges = np.quantile(all_detected_amplitudes, np.linspace(0, 1, num_bins+1))
+
+        # use the digitize function to assign data points to bins
+        bin_assignments_all = np.digitize(all_detected_amplitudes, bin_edges)
+        bin_assignments_detected = np.digitize(all_detected_pulses, bin_edges)
+
+        #count the number in each bin
+        hist_all, _ = np.histogram(all_detected_amplitudes, bins=bin_edges)
+        hist_detected, _ = np.histogram(all_detected_pulses, bins=bin_edges)
+        detected_det_frac = hist_detected/hist_all
+        bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+        fig,axes = plt.subplots(1,2)
+        axes[0].scatter(bin_midpoints,detected_det_frac,label="P(Detected|amplitude_detected)")
+        axes[1].scatter(bin_midpoints,hist_detected,label="the detected pulses")
+        axes[1].scatter(bin_midpoints,hist_all,alpha=0.5,label="all the pulses")
+        axes[1].legend()
+        self.detected_bin_midpoints = bin_midpoints
+        self.detected_det_frac = detected_det_frac
+
+
+        # fig,axes = plt.subplots(1,1)
+        # axes.scatter(self.detected_amplitudes_mean[nan_ind],self.inj_amp_ratio[nan_ind])
+        # x = np.linspace(0,0.16,1000)
+        # axes.plot(x,logistic(x,self.error_correction_log_params[0],self.error_correction_log_params[1]))
+        # plt.show()
+
+        # rows = int(np.sqrt(len(self.inj_amp)))+1
+        # fig,axes = plt.subplots(rows,rows)
+
+
+        # for i in range(len(self.inj_amp)):
+        #     row = int(i/rows)
+        #     column = i%rows
+        #     axes[row,column].hist(self.detected_amplitudes[i],bins="auto",density=1)
+        #     axes[row,column].axvline(self.inj_amp[i],label="injected amplitude")
+        #     axes[row,column].axvline(self.detected_amplitudes_mean[i],color='r',label="detected amplitude mean")
+        #     axes[row,column].legend()
+        # plt.show()
         # sort fluence
                 #fit a logistic function
-        predict_x_array = np.linspace(0,10,10000)
+        predict_x_array = np.linspace(0,0.2,10000)
         # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
-        self.fit_poly()
-        self.predict_poly(predict_x_array,plot=True)
+        self.fit_poly(x=bin_midpoints,p=detected_det_frac)
+        self.predict_poly(predict_x_array,x=bin_midpoints,p=detected_det_frac,plot=True)
+
 
     def return_detected(self):
         fluence = []
@@ -803,9 +848,7 @@ class inject_stats:
         axes.legend()
         plt.show()
 
-    def predict_poly(self,predict_x,plot=False):
-        x = self.inj_amp
-        p = self.det_frac
+    def predict_poly(self,predict_x,x,p,plot=False):
         ind_1 = np.argwhere(p==1)
         ind_0 = np.argwhere(p==0)
         ind_0 = max(ind_0)[0]-1
@@ -819,6 +862,10 @@ class inject_stats:
         p_pred = predict(predict_x)
         p_pred[set_0] = 0
         p_pred[set_1] = 1
+        #make sure 1 and 0 are the limits
+        p_pred[p_pred>1] = 1
+        p_pred[p_pred<0] = 0
+
         if plot:
             fig,axes = plt.subplots(1,1)
             axes.scatter(x,p,label="Raw",c='r')
@@ -829,14 +876,9 @@ class inject_stats:
             axes.set_ylim([-0.5,1.5])
             axes.legend()
             plt.show()
-        #make sure 1 and 0 are the limits
-        p_pred[p_pred>1] = 1
-        p_pred[p_pred<0] = 0
         return p_pred
 
-    def fit_poly(self,plot=False):
-        x = self.inj_amp
-        p = self.det_frac
+    def fit_poly(self,x,p,plot=False):
         ind_1 = np.argwhere(p==1)
         ind_0 = np.argwhere(p==0)
         ind_0 = max(ind_0)[0]-1
@@ -931,7 +973,7 @@ if __name__ == "__main__":
         inj_stats.load_inj_samp()
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
-        inj_stats.calculate_fluence(False)
+        inj_stats.calculate_fluence(True)
         with open("inj_stats.dill", "wb") as of:
             dill.dump(inj_stats, of)
     else:

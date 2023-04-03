@@ -282,14 +282,6 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     mask = get_mask(rfimask, start_bin, nbinsextra)[::-1]
     print("get mask finished")
     masked_chans = mask.all(axis=1)
-    # mask the data but set to the mean of the channel
-    mask_vals = np.median(data, axis=1)
-    # we used to need to mask files, not anymore though pass the data straight through
-    # for i in range(len(mask_vals)):
-    #     _ = data[i, :]
-    #     _m = mask[i, :]
-    #     _[_m] = mask_vals[i]
-    #     data[i, :] = _
     return data, masked_chans
 
 

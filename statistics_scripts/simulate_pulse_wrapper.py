@@ -13,7 +13,6 @@ from scipy.stats import expon
 from scipy.stats import truncnorm
 from statistics import lognorm_dist
 import dill
-from scipy.integrate import quad
 with open("inj_stats_fitted.dill", "rb") as inf:
     inj_stats = dill.load(inf)
 # popt = inj_stats.fit_logistic_amp
@@ -32,58 +31,32 @@ def logistic(x, k, x0):
     detection_fn[snr <= -snr_limit] = 0
     return detection_fn
 
-def convolve(my_f, my_g, t, mu,std,sigma):
-    """
-    Compute the time-varying convolution of two functions.
 
-    Parameters:
-        f (callable): The function to be convolved.
-        g (callable): The kernel function that is changing over time.
-        t (array_like): The array of time values over which to compute the convolution.
-        *args: Additional arguments to be passed to `f` and `g`.
-
-    Returns:
-        array_like: The result of the convolution at each time value.
-    """
-    result = np.zeros_like(t)
-    for i, ti in enumerate(t):
-        integrand = lambda u: my_f(mu,std, u) * my_g(sigma,ti,u)
-
-        result[i], _ = quad(integrand, 0, np.inf)
-    return result
-
-def my_g(sigma,ti,amp_arr):
-    try:
-        shifted_amp_array = amp_arr/logistic(np.array([amp_arr]),inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
-    except:
-        import pdb; pdb.set_trace()
-    return norm.pdf(ti,loc=shifted_amp_array,scale=sigma)
-
-def my_f(mu,std,amp_arr):
-    #this is the function that describes the probability density of the _true_ emission amplitude
-    try:
-        return_val = inj_stats.predict_poly(np.array([amp_arr]))*lognorm_dist(np.array([amp_arr]),mu,std)
-    except:
-        import pdb; pdb.set_trace()
-    return  return_val
-
-def convolve_first(mu_snr,mu,std, sigma_snr=0.4):
-    conv_snr_array = np.linspace(-0.5,0.5,1000)
-    conv = convolve(my_f,my_g,conv_snr_array,mu,std,sigma_snr)
-    #interpolate the values for mu_snr
-    convolve_mu_snr = np.interp(mu_snr,conv_snr_array,conv)
+def convolve_first(amp,mu,std, sigma_snr=0.4):
+    x_len = 10000
+    x_lims = [-1.5,1.5]
+    amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
+    gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
+    p_det = inj_stats.predict_poly(amp,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+    # p_det_giv_param = p_detect(amp_arr)*norm.pdf(amp_arr,mu,std)
+    LN_dist = lognorm_dist(amp_arr,mu,std)
+    #convolve the two arrays
+    conv = np.convolve(LN_dist,gaussian_error)*np.diff(amp_arr)[0]
+    conv_lims = [-3,3]
+    conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
+    #interpolate the values for amp
+    convolve_amp = np.interp(amp,conv_amp_array,conv)
+    likelihood = convolve_amp*p_det
     plt.close()
     plt.figure()
-    plt.plot(conv_snr_array,conv,label="conv",linewidth=5)
-    plt.scatter(mu_snr,convolve_mu_snr,alpha=0.5,label="interp",c='k')
+    plt.plot(conv_amp_array,conv,label="conv",linewidth=5)
+    plt.plot(amp,likelihood,alpha=0.5,label="likelihood")
+
+    plt.plot(amp,p_det,alpha=0.5,label="pdet")
+    plt.scatter(amp,convolve_amp,alpha=0.5,label="interp",c='k')
     plt.legend()
     plt.show()
-    return convolve_mu_snr
-
-
-def norm2(snr_arr,mu=0,sigma_snr=0.4):
-    return norm.pdf(snr_arr,loc=mu,scale=sigma_snr)
-
+    return likelihood
 
 def first_gauss(snr,mu,std,sigma_snr=0.4):
     return convolve_first(snr,mu,std,sigma_snr)
@@ -120,33 +93,34 @@ if __name__=='__main__':
     f = args.f
     dill_file = args.d
     from numpy.random import normal
-    snr = np.linspace(0,0.4,100)
-    det_fn = inj_stats.predict_poly(snr)
+    snr = np.linspace(0,0.4,10000)
+    det_fn = inj_stats.predict_poly(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
     plt.plot(snr,det_fn)
     plt.show()
     print("sigma_snr",sigma_snr)
 
     #save the detection function with the detection error
-
-
+    n = []
     mode = args.mode
     if mode=="Exp":
-        pulses = simulate_pulses_exp(obs_t,p,f,mu)
+        pulses = simulate_pulses_exp(obs_t,p,f,mu,random=False)
     elif mode=="Lognorm":
-        pulses = simulate_pulses(obs_t,p,f,mu,std)
+        pulses = simulate_pulses(obs_t,p,f,mu,std,random=False)
     elif mode=="Gauss":
-        pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std)
+        pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=False)
 
-    # rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
-    # pulses = rv+pulses
-    detected_pulses = n_detect(pulses)
-    #rv is a biased gaussian
-    conv_factor = logistic(detected_pulses,inj_stats.error_correction_log_params[0],inj_stats.error_correction_log_params[1])
-    means = (detected_pulses/conv_factor) - detected_pulses
-    stds = np.zeros(len(means))+sigma_snr
-    rv = normal(loc=means,scale=stds)
-    detected_pulses = rv+detected_pulses
-    print(len(detected_pulses))
+    rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
+
+    pulses = rv+pulses
+    for i in range(10000):
+        # print("len simulated",len(pulses))
+        detected_pulses = n_detect(pulses)
+        #rv is a biased gaussian
+        # print("len detected",len(detected_pulses))
+        n.append(len(detected_pulses))
+    plt.hist(n,bins="auto")
+    plt.show()
+
     import dill
     with open(dill_file,'rb') as inf:
         det_class = dill.load(inf)
@@ -193,7 +167,9 @@ if __name__=='__main__':
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
 
-    snr_array = np.linspace(-0.5,0.5,10000)
+    snr_array = np.linspace(0,0.5,10000)
+    # mu = -3
+    # std = 0.4
     first = first_gauss(snr_array,mu,std,sigma_snr)
     first = first/np.trapz(first,snr_array)
     plt.figure()
