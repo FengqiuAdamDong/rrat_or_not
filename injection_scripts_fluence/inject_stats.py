@@ -609,9 +609,9 @@ class inject_stats:
         det_amp_std = np.array(det_amp_std)
         det_fluence_amp_std = np.array(det_fluence_amp_std)
         p_amp = np.polyfit(det_amp, inj_amp, deg=1)
-        x = np.linspace(0, 0.1)
+        x = np.linspace(0, 0.2)
         poly_amp = np.poly1d(p_amp)
-        p_famp = np.polyfit(det_amp, inj_amp, deg=1)
+        p_famp = np.polyfit(det_amp[6:], inj_amp[6:], deg=1)
         poly_famp = np.poly1d(p_famp)
 
         fig, axes = plt.subplots(1, 3)
@@ -753,8 +753,9 @@ class inject_stats:
         all_detected_pulses = all_detected_amplitudes[detected_pulses]
         all_detected_amplitudes = all_detected_amplitudes.flatten()
         # set the number of bins and the number of data points per bin
-        num_bins = 45
+        num_bins = 80
         num_points_per_bin = len(all_detected_amplitudes) // num_bins
+        print("number of points in each bin ", num_points_per_bin)
 
         # calculate the bin edges based on the percentiles of the data
         bin_edges = np.quantile(all_detected_amplitudes, np.linspace(0, 1, num_bins+1))
@@ -777,31 +778,15 @@ class inject_stats:
         self.detected_bin_midpoints = bin_midpoints
         self.detected_det_frac = detected_det_frac
 
-
-        # fig,axes = plt.subplots(1,1)
-        # axes.scatter(self.detected_amplitudes_mean[nan_ind],self.inj_amp_ratio[nan_ind])
-        # x = np.linspace(0,0.16,1000)
-        # axes.plot(x,logistic(x,self.error_correction_log_params[0],self.error_correction_log_params[1]))
-        # plt.show()
-
-        # rows = int(np.sqrt(len(self.inj_amp)))+1
-        # fig,axes = plt.subplots(rows,rows)
-
-
-        # for i in range(len(self.inj_amp)):
-        #     row = int(i/rows)
-        #     column = i%rows
-        #     axes[row,column].hist(self.detected_amplitudes[i],bins="auto",density=1)
-        #     axes[row,column].axvline(self.inj_amp[i],label="injected amplitude")
-        #     axes[row,column].axvline(self.detected_amplitudes_mean[i],color='r',label="detected amplitude mean")
-        #     axes[row,column].legend()
-        # plt.show()
-        # sort fluence
-                #fit a logistic function
         predict_x_array = np.linspace(0,0.2,10000)
         # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
-        self.fit_poly(x=bin_midpoints,p=detected_det_frac)
+        poly = self.fit_poly(x=bin_midpoints,p=detected_det_frac,deg=7)
+        self.poly_det_fit = poly
         self.predict_poly(predict_x_array,x=bin_midpoints,p=detected_det_frac,plot=True)
+        #fit the detection curve for
+        poly_true = self.fit_poly(x = self.inj_amp,p=self.det_frac,deg=4)
+        self.predict_poly(predict_x_array,self.inj_amp,self.det_frac,poly=poly_true,plot=True)
+        plt.show()
 
 
     def return_detected(self):
@@ -848,12 +833,13 @@ class inject_stats:
         axes.legend()
         plt.show()
 
-    def predict_poly(self,predict_x,x,p,plot=False):
+    def predict_poly(self,predict_x,x,p,poly=-99,plot=False):
+        if isinstance(poly,int):
+            poly = self.poly_det_fit
         ind_1 = np.argwhere(p==1)
         ind_0 = np.argwhere(p==0)
         ind_0 = max(ind_0)[0]-1
         ind_1 = min(ind_1)[0]+1
-        poly = self.poly_det_fit
 
         set_0 = np.argwhere(predict_x<x[ind_0+1])
         set_1 = np.argwhere(predict_x>x[ind_1-1])
@@ -875,17 +861,15 @@ class inject_stats:
             axes.set_title("Polynomial fit")
             axes.set_ylim([-0.5,1.5])
             axes.legend()
-            plt.show()
         return p_pred
 
-    def fit_poly(self,x,p,plot=False):
+    def fit_poly(self,x,p,deg=4,plot=False):
         ind_1 = np.argwhere(p==1)
         ind_0 = np.argwhere(p==0)
         ind_0 = max(ind_0)[0]-1
         ind_1 = min(ind_1)[0]+1
-        poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=4)
-
-        self.poly_det_fit = poly
+        poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
+        return poly
 
     def fit_gen_log(self,p,x):
         x_pad_upper = np.linspace(0,10,1000)+np.max(x)

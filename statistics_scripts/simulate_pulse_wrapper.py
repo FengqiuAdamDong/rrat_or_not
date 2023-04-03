@@ -101,18 +101,19 @@ if __name__=='__main__':
 
     #save the detection function with the detection error
     n = []
+
     mode = args.mode
-    if mode=="Exp":
-        pulses = simulate_pulses_exp(obs_t,p,f,mu,random=False)
-    elif mode=="Lognorm":
-        pulses = simulate_pulses(obs_t,p,f,mu,std,random=False)
-    elif mode=="Gauss":
-        pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=False)
-
-    rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
-
-    pulses = rv+pulses
     for i in range(10000):
+        if mode=="Exp":
+            pulses = simulate_pulses_exp(obs_t,p,f,mu,random=True)
+        elif mode=="Lognorm":
+            pulses = simulate_pulses(obs_t,p,f,mu,std,random=True)
+        elif mode=="Gauss":
+            pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=True)
+
+        rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
+
+        pulses = rv+pulses
         # print("len simulated",len(pulses))
         detected_pulses = n_detect(pulses)
         #rv is a biased gaussian
