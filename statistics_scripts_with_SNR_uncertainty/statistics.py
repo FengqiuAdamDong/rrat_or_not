@@ -74,6 +74,8 @@ def first(amp,mu,std, sigma_snr=0.4):
     # plt.close()
     # plt.hist(amp,density=True)
     # plt.plot(conv_amp_array,likelihood_conv/np.trapz(likelihood_conv,conv_amp_array))
+    # plt.plot(amp_arr,LN_dist,label="ln_dist")
+    # plt.legend()
     # plt.show()
     return np.sum(np.log(likelihood))
 
@@ -123,7 +125,13 @@ def total_p(X):
         raise Exception(" N<n")
     sigma_snr = det_error
     f = first(snr_arr, mu, std, sigma_snr=sigma_snr)
+    if np.isnan(f):
+        print("resetting f")
+        f = -np.inf
     s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
+    if np.isnan(s):
+        print("resetting s")
+        s = -np.inf
     n = len(snr_arr)
     log_NCn = gammaln(N + 1) - gammaln(n + 1) - gammaln(N - n + 1)
     # print(mu,std,N)
@@ -153,7 +161,7 @@ def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
         m = np.array(po.map(total_p, X))
         # m = []
         # for ind,v in enumerate(X):
-        #     m.append(total_p(v))
+            # m.append(total_p(v))
         # m = np.array(m)
 
         for i, mu_i in enumerate(mu_arr):

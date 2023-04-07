@@ -81,6 +81,21 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     return data, masked_chans
 
 
+def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom):
+    # make a copy to plot the waterfall
+    waterfall_dat = copy.deepcopy(data)
+    waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
+    dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
+    dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
+
+    waterfall_dat = waterfall_dat.downsample(ffactor=8)
+    waterfall_dat = waterfall_dat.normalise()
+    waterfall_dat = waterfall_dat[
+        :, int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)
+    ]
+    return waterfall_dat,dat_ts
+
+
 def grab_spectra_manual(
     gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False
 ):
@@ -94,40 +109,49 @@ def grab_spectra_manual(
     nsamps = nsamps - nsamps % downsamp
     ssamps = int(ts / tsamp)
     # sampels to burst
-    nsamps_start_zoom = int(4.1 / tsamp)
-    nsamps_end_zoom = int(5.9 / tsamp)
+    t_start = 4.1
+    t_dur = 1.8
+    nsamps_start_zoom = int(t_start / tsamp)
+    nsamps_end_zoom = int((t_dur+t_start) / tsamp)
     spec = g.read_block(ssamps, nsamps)
     # load mask
     if mask:
         print("masking data")
         data, masked_chans = maskfile(mask_fn, spec, ssamps, nsamps)
-    # data.subband(256,subdm=dm,padval='median')
     data = data.dedisperse(dm)
+    waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
 
-    ts_no_ds = data[:, int(nsamps_start_zoom) : int(nsamps_end_zoom)]
-    ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
-    # make a copy to plot the waterfall
-    waterfall_dat = copy.deepcopy(data)
-    waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
-    dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
-    dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
-
-    waterfall_dat = waterfall_dat.downsample(ffactor=8)
-    waterfall_dat = waterfall_dat.normalise()
-    waterfall_dat = waterfall_dat[
-        :, int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)
-    ]
     if manual:
         # this gives you the location of the peak
         SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
             dat_ts,
             tsamp * downsamp,
             6e-2,
-            nsamps=int(0.9 / tsamp / downsamp),
+            nsamps=int(t_dur/2 / tsamp / downsamp),
             ds_data=waterfall_dat,
             downsamp=downsamp,
         )
-        if (loc>(0.95))|(loc<0.85):
+
+        while amp==-1:
+            #fit has failed, get a larger time window and try again
+            # make a copy to plot the waterfall
+            t_start = t_start - 1
+            t_dur = t_dur + 2
+            if (t_start<0)|((t_start+t_dur)>(te-ts)):
+                break
+            nsamps_start_zoom = int(t_start / tsamp)
+            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
+            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
+            SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
+                dat_ts,
+                tsamp * downsamp,
+                6e-2,
+                nsamps=int(t_dur/2 / tsamp / downsamp),
+                ds_data=waterfall_dat,
+                downsamp=downsamp,
+            )
+
+        if (loc>(0.49*t_dur))|(loc<(t_dur*0.51)):
             #repeat if initial loc guess is wrong
             SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
                 dat_ts,
@@ -137,19 +161,30 @@ def grab_spectra_manual(
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
             )
+
         # std gives you how wide it is, so go to 3sigma
         # nsamp is where the burst is, so use loc
         # query ts no ds _AFTER_ loc is determined!!
-        FLUENCE = fit_FLUENCE(
-            ts_no_ds,
-            tsamp,
-            3 * sigma_width,
-            nsamp=int(loc / tsamp),
-            ds_data=waterfall_dat,
-            plot=False,
-        )
+        if amp!=-1:
+            loc = loc+t_start
+            ts_no_ds_zoom_start = int(loc/tsamp - 0.9/tsamp)
+            ts_no_ds_zoom_end = int(loc/tsamp + 0.9/tsamp)
+            ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
+            ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
+            #scale the ts with the std so everythin is in units of noise
+            FLUENCE = fit_FLUENCE(
+                ts_no_ds/std,
+                tsamp,
+                3 * sigma_width,
+                nsamp=int(loc / tsamp),
+                ds_data=waterfall_dat,
+                plot=False,
+            )
+        else:
+            FLUENCE = -1
     else:
         # fit using downsampled values
+        # this is mostly used for the injections
         SNR, amp, std, loc, sigma_width = autofit_pulse(
             dat_ts,
             tsamp * downsamp,
@@ -159,18 +194,19 @@ def grab_spectra_manual(
             downsamp=downsamp,
             plot=False,
         )
-        # integrate using non downsampled values!!!
-        #         # query ts no ds _AFTER_ loc is determined!!
-
+        # because loc is predetermined set start and end a predifined spot
+        ts_no_ds_zoom_start = int(4.1/tsamp)
+        ts_no_ds_zoom_end = int(5.9/tsamp)
+        ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
+        ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
         FLUENCE = fit_FLUENCE(
-            ts_no_ds,
+            ts_no_ds/std,
             tsamp,
             6e-2,
             nsamp=int(loc / tsamp),
             ds_data=waterfall_dat,
             plot=False,
         )
-
     # recalculate the amplitude given a gaussian pulse shape
     gaussian_amp = FLUENCE / sigma_width / np.sqrt(2 * np.pi)
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)
@@ -210,7 +246,6 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     fitx[1] = abs(fitx[1])
     fitx[2] = abs(fitx[2])
     # residual
-    std = np.std(ts_sub)
     Amplitude = fitx[0]
     loc = fitx[1]
     sigma_width = fitx[2]
@@ -221,7 +256,10 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     if plot:
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].plot(x_std, ts_std)
+        axs[0, 0].plot(x, poly(x))
         axs[0, 0].set_title("burst_removed")
+        axs[0, 1].plot(x_std, ts_std_sub)
+        axs[0, 1].set_title("baseline_removed")
         axs[1, 0].plot(x, ts_sub)
         axs[1, 0].set_title("baseline subtracted")
         axs[1, 0].plot(x, gaussian(xind, fitx[0], fitx[1], fitx[2], fitx[3]))
@@ -316,7 +354,7 @@ def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     ax = plt.subplot(1, 2, 2)
 
     k = plt.plot(xind, ts_sub)
-    (my_plot,) = plt.plot(xind_fit, y_fit, lw=5)
+    (my_plot,) = plt.plot(xind_fit, y_fit, lw=5,alpha=0.7)
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
@@ -393,7 +431,6 @@ def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # plt.figure()
     # plt.plot(ts_sub)
     # plt.show()
-    std = np.std(ts_sub)
     Amplitude = fitx[0]
     loc = fitx[1]
     sigma_width = fitx[2]
@@ -408,8 +445,10 @@ def logistic(x, k, x0):
     L = 1
     return L / (1 + np.exp(-k * (x - x0)))
 
+
 def gen_log(x,A,B,C,M,K,v):
     return A+((K-A)/((C+np.exp(-B*(x-M)))**(1/v)))
+
 
 class inject_obj:
     def __init__(
@@ -425,17 +464,29 @@ class inject_obj:
         self.det_amp = []
         self.det_std = []
         self.fluence_amp = []
+        self.noise_std = []
         self.downsamp = downsamp
 
     def calculate_inj_amplitude(
         self,
     ):
-        self.inj_amp = self.fluence / self.width / np.sqrt(2 * np.pi)
+        try:
+            self.inj_amp = self.fluence / self.width / np.sqrt(2 * np.pi)
+        except:
+            import pdb; pdb.set_trace()
 
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
+        #find where nans are in fluence array
         if ~hasattr(self, "detected"):
             self.detected = np.full(len(self.toas), False)
+
+        ind = np.isnan(self.det_fluence)
+        self.det_amp[ind] = -10
+        self.det_std[ind] = -10
+        self.det_fluence[ind] = -10
+        self.fluence_amp[ind] = -10
+
 
     def calculate_fluence_single(self, mask=True):
         ts = self.toas - 5
@@ -456,6 +507,7 @@ class inject_obj:
         self.det_amp = amp
         self.fluence_amp = gaussian_amp
         self.det_std = sigma_width
+        self.noise_std = std
         print(f"widths {self.det_std}")
         # print(fluence,amp,std,self.filfile)
 
@@ -483,11 +535,13 @@ class inject_obj:
             self.det_amp.append(amp)
             self.det_std.append(sigma_width)
             self.fluence_amp.append(gaussian_amp)
+            self.noise_std.append(std)
 
         self.det_fluence = np.array(self.det_fluence)
         self.det_amp = np.array(self.det_amp)
         self.det_std = np.array(self.det_std)
         self.fluence_amp = np.array(self.fluence_amp)
+        self.noise_std = np.array(self.noise_std)
 
     def return_detected(self):
         # returns the detected fluences
@@ -650,7 +704,6 @@ class inject_stats:
             det_fluence.append(np.mean(s.det_fluence))
             det_fluence_std.append(np.std(s.det_fluence))
             inj_fluence.append(np.mean(s.fluence))
-
         det_fluence = np.array(det_fluence)
         inj_fluence = np.array(inj_fluence)
         det_fluence_std = np.array(det_fluence_std)
@@ -720,12 +773,16 @@ class inject_stats:
         all_detected_amplitudes = []
         detected_pulses = []
         for s in self.sorted_inject:
-            fluence.append(np.mean(s.fluence))
-            det_frac.append(sum(s.detected) / len(s.detected))
-            detected_amplitudes.append(s.det_amp[s.detected])
-            detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
-            all_detected_amplitudes.append(s.det_amp)
-            detected_pulses.append(s.detected)
+            try:
+                fluence.append(np.mean(s.fluence))
+                det_frac.append(sum(s.detected) / len(s.detected))
+                detected_amplitudes.append(s.det_amp[s.detected])
+                detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
+                all_detected_amplitudes.append(s.det_amp)
+                detected_pulses.append(s.detected)
+            except:
+                import traceback; print(traceback.format_exc())
+                import pdb; pdb.set_trace()
 
         fluence = np.array(fluence)
         det_frac = np.array(det_frac)
@@ -738,9 +795,6 @@ class inject_stats:
         self.det_frac = det_frac[ind]
         self.detected_amplitudes = detected_amplitudes[ind]
         self.detected_amplitudes_mean = detected_amplitudes_mean[ind]
-        nan_ind = ~np.isnan(self.detected_amplitudes_mean)
-        self.inj_amp_ratio = self.inj_amp/self.detected_amplitudes_mean
-        self.error_correction_log_params = self.fit_logistic(self.inj_amp_ratio[nan_ind],self.detected_amplitudes_mean[nan_ind])
 
 
         all_detected_amplitudes = all_detected_amplitudes[ind]
@@ -752,6 +806,12 @@ class inject_stats:
 
         all_detected_pulses = all_detected_amplitudes[detected_pulses]
         all_detected_amplitudes = all_detected_amplitudes.flatten()
+        #take on the lower and upper 2 percentiles
+        ada_percentile = np.percentile(all_detected_amplitudes, [2,98])
+        #clip based on percentile
+        all_detected_pulses = np.clip(all_detected_pulses, ada_percentile[0], ada_percentile[1])
+        all_detected_amplitudes = np.clip(all_detected_amplitudes, ada_percentile[0], ada_percentile[1])
+
         # set the number of bins and the number of data points per bin
         num_bins = 80
         num_points_per_bin = len(all_detected_amplitudes) // num_bins
@@ -769,6 +829,12 @@ class inject_stats:
         hist_detected, _ = np.histogram(all_detected_pulses, bins=bin_edges)
         detected_det_frac = hist_detected/hist_all
         bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+        #remove nans in detected_det_frac
+        bin_midpoints = bin_midpoints[~np.isnan(detected_det_frac)]
+        hist_all = hist_all[~np.isnan(detected_det_frac)]
+        hist_detected = hist_detected[~np.isnan(detected_det_frac)]
+        detected_det_frac = detected_det_frac[~np.isnan(detected_det_frac)]
 
         fig,axes = plt.subplots(1,2)
         axes[0].scatter(bin_midpoints,detected_det_frac,label="P(Detected|amplitude_detected)")
@@ -836,8 +902,8 @@ class inject_stats:
     def predict_poly(self,predict_x,x,p,poly=-99,plot=False):
         if isinstance(poly,int):
             poly = self.poly_det_fit
-        ind_1 = np.argwhere(p==1)
-        ind_0 = np.argwhere(p==0)
+        ind_1 = np.argwhere(p==max(p))
+        ind_0 = np.argwhere(p==min(p))
         ind_0 = max(ind_0)[0]-1
         ind_1 = min(ind_1)[0]+1
 
@@ -846,12 +912,13 @@ class inject_stats:
 
         predict = np.poly1d(poly)
         p_pred = predict(predict_x)
-        p_pred[set_0] = 0
-        p_pred[set_1] = 1
+        p_pred[set_0] = np.min(p)
+        p_pred[set_1] = np.max(p)
         #make sure 1 and 0 are the limits
-        p_pred[p_pred>1] = 1
-        p_pred[p_pred<0] = 0
-
+        p_pred[p_pred>1] = np.max(p)
+        p_pred[p_pred<0] = np.min(p)
+        #lowess smoothing
+        # p_pred = sm.nonparametric.lowess(p_pred, predict_x, frac = 0.10)[:,1]
         if plot:
             fig,axes = plt.subplots(1,1)
             axes.scatter(x,p,label="Raw",c='r')
@@ -861,11 +928,13 @@ class inject_stats:
             axes.set_title("Polynomial fit")
             axes.set_ylim([-0.5,1.5])
             axes.legend()
+            plt.show()
+
         return p_pred
 
     def fit_poly(self,x,p,deg=4,plot=False):
-        ind_1 = np.argwhere(p==1)
-        ind_0 = np.argwhere(p==0)
+        ind_1 = np.argwhere(p==max(p))
+        ind_0 = np.argwhere(p==min(p))
         ind_0 = max(ind_0)[0]-1
         ind_1 = min(ind_1)[0]+1
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
@@ -957,7 +1026,7 @@ if __name__ == "__main__":
         inj_stats.load_inj_samp()
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
-        inj_stats.calculate_fluence(True)
+        inj_stats.calculate_fluence(False)
         with open("inj_stats.dill", "wb") as of:
             dill.dump(inj_stats, of)
     else:

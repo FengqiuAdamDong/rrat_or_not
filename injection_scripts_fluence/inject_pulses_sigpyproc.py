@@ -15,17 +15,17 @@ from multiprocessing import Pool
 import sigpyproc
 from sigpyproc import utils as u
 import sys
-
+from inject_stats import autofit_pulse
 # define the random number generator
 # np.random.seed(12345)
 
-# TRIAL_FLUENCE = [10]
+# TRIAL_SNR = [10]
 # 0.8,
 # ]  # total S/N of pulse
-# TRIAL_FLUENCE = np.linspace(0.1,4,30)
-# TRIAL_FLUENCE=[2,3,4,5,6,7,8,9,10]
-# TRIAL_FLUENCE = [0.003]
-TRIAL_FLUENCE = np.linspace(0.1e-3, 5e-3, 50)
+# TRIAL_SNR = np.linspace(0.1,4,30)
+TRIAL_SNR=[1,2,3,4,5,6]
+# TRIAL_SNR = [0.003]
+# TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
 pulse_width = [12.41e-3]  # 10ms pulse width
 
 TRIAL_DMS = [
@@ -43,21 +43,6 @@ def dm_delay(dm, f1, f2):
 def time_to_bin(t, sample_rate):
     """Return time as a bin number provided a sampling time"""
     return np.round(t / sample_rate).astype(int)
-
-
-def scale_to_uint8(a):
-    """
-    Rescale an array to fit within the dynamic range
-    available to uint8. Shifts most negative value to 0.
-    """
-    mn = a.min()
-    mx = a.max()
-
-    mx -= mn
-
-    a = ((a - mn) / mx) * 255
-    return a.astype(np.uint8)
-
 
 def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
     """
@@ -82,14 +67,14 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
                 sys.exit(1)
             if len(toas) == 1:
                 break
-    # get the cartesian product so that we have a generator of TOA x FLUENCE x DM
+    # get the cartesian product so that we have a generator of TOA x SNR x DM
     grid_coords = np.array(
-        [*itertools.product(toas, TRIAL_FLUENCE, TRIAL_DMS, pulse_width)]
+        [*itertools.product(toas, TRIAL_SNR, TRIAL_DMS, pulse_width)]
     )
 
     # save the injection sample to a numpy file
     print("saving injection sample to: sample_injections.npy")
-    downsamp = 1
+    downsamp = 3
     stats_window = 1
     np.savez(
         "sample_injections",
@@ -101,7 +86,7 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
     return (
         grid_coords,
         npulses,
-        len(TRIAL_FLUENCE),
+        len(TRIAL_SNR),
         len(TRIAL_DMS),
         downsamp,
         stats_window,
@@ -131,10 +116,9 @@ def inject_pulses(
     statistics = []
     # data[:,:] = 0
     # data_copy = copy.deepcopy(data)
-    print(pulse_attrs)
     # 10s stats window
     for i, p in enumerate(pulse_attrs):
-        p_toa, p_fluence, p_dm, p_width = p
+        p_toa, p_SNR, p_dm, p_width = p
         print("computing toas per channel")
         # start the pulse 100 samples after the first simulated time step
         toa_bin_top = 500
@@ -154,13 +138,8 @@ def inject_pulses(
         if p_toa < stats_window:
             stats_window = p_toa
 
-        stats_start, stats_end = (
-            time_to_bin(p_toa - stats_window, tsamp * downsamp),
-            time_to_bin(p_toa + stats_window, tsamp * downsamp),
-        )
-        stats_nsamp = stats_end - stats_start
-        print(f"injection TOA:{p_toa}")
-
+        SNR, amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
+        print(f"stats std: {stats_std}")
         # calculate off pulse mean
         print("calculating expected S/N per channel")
         # convert S/N into actual power value
@@ -169,7 +148,7 @@ def inject_pulses(
         # to the total S/N
 
         width_bins = time_to_bin(p_width, tsamp)
-        total_inj_pow = p_fluence / (width_bins * tsamp) / np.sqrt(2 * np.pi)
+        total_inj_pow = p_SNR * stats_std
         print(f"total power:{total_inj_pow}")
 
         pulse_wf = np.exp(
@@ -178,7 +157,7 @@ def inject_pulses(
         print("rescaling pulses to correct amplitude")
         pulse_wf /= pulse_wf.max(axis=1)[:, np.newaxis]
         pulse_wf *= total_inj_pow
-        x = np.linspace(0, pulse_wf.shape[1], pulse_wf.shape[1]) * tsamp
+        # x = np.linspace(0, pulse_wf.shape[1], pulse_wf.shape[1]) * tsamp
         # plt.plot(np.trapz(pulse_wf,x))
         # plt.show()
 
@@ -197,80 +176,37 @@ def inject_pulses(
     # np.savez('data',data = data,masked_chans = masked_chans)
     # for i, p in enumerate(pulse_attrs):
     # downsamp=1
-    # statistics.append(calculate_FLUENCE_wrapper([p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans]))
+        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans))
     # for i, p in enumerate(pulse_attrs):
     # downsamp=1
-    # statistics.append(calculate_FLUENCE_wrapper([p,stats_window,tsamp,downsamp,data_copy,masked_chans]))
+    # statistics.append(calculate_SNR_wrapper([p,stats_window,tsamp,downsamp,data_copy,masked_chans]))
 
     return data, statistics
 
 
-def calculate_FLUENCE_wrapper(X):
-    p = X[0]
-    stats_window = X[1]
-    tsamp = X[2]
-    downsamp = X[3]
-    data = X[4]
-    masked_chans = X[5]
-    p_toa, p_fluence, p_dm = p
-    plot_bin = time_to_bin(stats_window, tsamp)
-    pulse_bin = time_to_bin(p_toa, tsamp)
-    # plotting
-    print(sum(masked_chans))
-    new_d = copy.deepcopy(data)
-    new_d = new_d.dedisperse(dm=p_dm)
-    d = new_d[:, pulse_bin - plot_bin : pulse_bin + plot_bin]
-    print(pulse_bin, plot_bin)
-    # reshape for downsampling
-    end = d.shape[1] - d.shape[1] % int(downsamp)
-    d = d[:, 0:end]
-    # dedisperse and downsample
-    d = d.downsample(tfactor=downsamp, ffactor=1)
-    d = d[~masked_chans, :]
-    # plt.figure()
-    # plt.imshow(d.normalise(),aspect="auto")
-    ts = d.mean(axis=0)
-    print("calculating fluence")
-    d_fluence = calculate_FLUENCE(
-        [ts, tsamp * downsamp, 6e-2, int(plot_bin / downsamp)]
+def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
+    p_toa, p_SNR, p_dm, p_width = p
+    stats_start, stats_end = (
+        time_to_bin(p_toa - stats_window, tsamp * downsamp),
+        time_to_bin(p_toa + stats_window, tsamp * downsamp),
     )
-    print(f"Inj fluence:{p_fluence} Det fluence: {d_fluence}")
-    return d_fluence, p_toa, p_fluence, p_dm
+    stats_data = copy.deepcopy(data)
+    #dedisperse stats data
+    stats_data = stats_data.dedisperse(p_dm)
+    #downsample stats_data to the downsample that I will use for detection
+    print(f"downmsampling with {downsamp}")
+    stats_data = stats_data.downsample(tfactor=downsamp)
+    stats_data = stats_data[~masked_chans,:]
+    #get the window
+    stats_data = stats_data[:, stats_start:stats_end]
 
-
-def calculate_FLUENCE(X):
-    # calculates the FLUENCE given a timeseries
-    ts = X[0]
-    tsamp = X[1]
-    width = X[2]
-    nsamp = X[3]
-    w_bin = int(width / tsamp)
-    x = np.linspace(0, tsamp * len(ts), len(ts))
-    ts_std = np.delete(ts, range(int(nsamp - w_bin), int(nsamp + w_bin)))
-    x_std = np.delete(x, range(int(nsamp - w_bin), int(nsamp + w_bin)))
-    plt.plot(x, ts)
-    plt.show()
-    # fit a polynomial
-    coeffs = np.polyfit(x_std, ts_std, 10)
-    poly = np.poly1d(coeffs)
-    # subtract the mean
-    ts_sub = ts - poly(x)
-    ts_start = ts[: int(nsamp - w_bin)]
-    x_start = x[: int(nsamp - w_bin)]
-    ts_start = ts_start - poly(x_start)
-    ts_end = ts[int(nsamp + w_bin) :]
-    x_end = x[int(nsamp + w_bin) :]
-    ts_end = ts_end - poly(x_end)
-
-    fluence_noise = np.trapz(ts_start, x_start) + np.trapz(ts_end, x_end)
-    # grab just the window
-    ts_fluence = ts_sub[nsamp - w_bin : nsamp + w_bin]
-    x_fluence = x[nsamp - w_bin : nsamp + w_bin]
-    fluence = np.trapz(ts_fluence, x_fluence)
-    fluence = np.trapz(ts_sub, x)
-    plt.plot(x, ts_sub)
-    plt.show()
-    return fluence
+    #fit a polynomial to the window
+    #get the mean of the window
+    stats_mean = np.mean(stats_data, axis=0)
+    SNR,amp,std,loc,sigma_width =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp)
+                                                    ,data,downsamp,plot=plot)
+    print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width}")
+    return SNR, amp, std,loc,sigma_width
 
 
 def maskfile(maskfn, data, start_bin, nbinsextra):
@@ -310,41 +246,76 @@ def get_mask(rfimask, startsamp, N):
     return mask.T
 
 
-def get_filterbank_data_window(fn, maskfn, duration=20, masked_data=1):
+def get_pazi_mask(pazi_fn):
+    import psrchive
+    arch = psrchive.Archive_load(pazi_fn)
+    #lets get the mask
+    total_subint = arch.get_nsubint()
+    total_chans = arch.get_nchan()
+    total_bins = arch.get_nbin()
+    mask_array = np.zeros((total_subint,1,total_chans,total_bins))
+    for i,integration in enumerate(arch):
+        for j in range(integration.get_nchan()):
+            mask_array[i,0,j,:] = integration.get_weight(j)
+    masks = np.mean(np.mean(np.mean(mask_array,axis=2),axis=1),axis=1)
+    return masks
+
+
+def get_filterbank_data_window(fn, maskfn, duration=20):
     """
     Open the filterbank file, extract the spectra around
     the middle (+/- duration / 2) and return that data as a
     2D array.
     """
     from sigpyproc import readers as r
-
+    from sigpyproc.block import FilterbankBlock as fbb
+    #find the archive filename
+    pazi_fn = fn.replace(".fil", "") + "_1000.00ms_Cand.pfd.pazi"
+    #load the archive
+    pazi_mask = get_pazi_mask(pazi_fn)
+    #load the weights
     print("getting filterbank data")
     filf = r.FilReader(fn)
     hdr = filf.header
     tsamp = hdr.tsamp
+    chunk_size = hdr.nsamples//len(pazi_mask)
+    chunk_dur = chunk_size * tsamp
+    #get required chunks
+    reuired_chunks = duration/chunk_dur
     fil_dur = hdr.nsamples * tsamp
     # start in the middle of the data
-    start = fil_dur / 2 - duration / 2
-    stop = start + duration
-    print("start stop bins", start, stop)
-    start_bin = int(np.round(start / tsamp))
-    stop_bin = int(np.round(stop / tsamp))
-    nsamp = stop_bin - start_bin
-    # get the data
-    _ = filf.read_block(start_bin, nsamp)
-    # read the block
-    if masked_data == None:
-        print("removing masked_channels")
-        masked_data, masked_chans = maskfile(maskfn, copy.deepcopy(_), start_bin, nsamp)
-        masked_data = masked_data[~masked_chans, :]
-
-    else:
-        masked_data, masked_chans = maskfile(maskfn, copy.deepcopy(_), start_bin, nsamp)
+    start_chunk = int(len(pazi_mask)//2 - reuired_chunks//2)
+    #recursively get the data and throw away if chunk is masked
+    acquired_chunks = 0
+    current_chunk = int(start_chunk)
+    channel_mask = np.zeros(hdr.nchans,dtype=bool)
+    while acquired_chunks < reuired_chunks:
+        #check if chunk is masked
+        if pazi_mask[current_chunk] == 0:
+            current_chunk += 1
+            continue
+        #get the data for this chunk
+        start_bin = current_chunk * chunk_size
+        _ = filf.read_block(start_bin, chunk_size)
+        masked_data, masked_chans = maskfile(maskfn, copy.deepcopy(_), start_bin, chunk_size)
+        #update the channel mask
+        channel_mask = np.logical_or(channel_mask,masked_chans)
+        #update the chunk counter
+        if acquired_chunks>0:
+            data = np.append(data,_,axis=1)
+        else:
+            data = _
+        acquired_chunks += 1
+        current_chunk += 1
     # update the header so that it represents the windowed data
     presto_header = FilterbankFile(fn).header
-    hdr.tstart += (start_bin * tsamp) / 86400.0  # add in MJD
-    hdr.nsamples = masked_data.shape[1]  # total number of data samples (nchan * nspec)
-    return _, masked_data, masked_chans, presto_header
+    hdr.tstart += (start_chunk * chunk_size * tsamp) / 86400.0  # add in MJD
+    hdr.nsamples = data.shape[1]  # total number of data samples (nchan * nspec)
+    hdr.nsamples_files = [data.shape[1]]
+    hdr.tstart_files = [hdr.tstart]
+    data = fbb(data, hdr)
+    #don't bother updating the presto header
+    return data, channel_mask, presto_header
 
 
 def multiprocess(arr):
@@ -357,10 +328,10 @@ def multiprocess(arr):
         injection_sample,
         stats_window,
         downsamp,
-        single_fluence_dm,
+        single_SNR_dm,
     ) = arr
-    rawdata, masked_data, masked_chans, presto_header = get_filterbank_data_window(
-        ifn, duration=duration, maskfn=maskfn, masked_data=None
+    rawdata, masked_chans, presto_header = get_filterbank_data_window(
+        ifn, duration=duration, maskfn=maskfn
     )
     p_arr = (
         dm,
@@ -370,40 +341,38 @@ def multiprocess(arr):
         maskfn,
         injection_sample,
         rawdata,
-        masked_data,
         masked_chans,
         presto_header,
         downsamp,
         stats_window,
-        single_fluence_dm,
+        single_SNR_dm,
     )
     process(p_arr)
 
 
 def process(pool_arr):
-    # this FLUENCE field is only for the filename purposes, so you can pass a string into here
+    # this SNR field is only for the filename purposes, so you can pass a string into here
     (
         dm,
-        fluence,
+        SNR,
         ifn,
         duration,
         maskfn,
         injection_sample,
         rawdata_,
-        masked_data_,
         masked_chans_,
         presto_header,
         downsamp,
         stats_window,
-        single_fluence_dm,
+        single_SNR_dm,
     ) = pool_arr
     rawdata = copy.deepcopy(rawdata_)
     masked_chans = copy.deepcopy(masked_chans_)
-    print(f"dm={dm} fluence={fluence} ds={downsamp} stats_window={stats_window}")
+    print(f"dm={dm} SNR={SNR} ds={downsamp} stats_window={stats_window}")
     # figure out what pulses to add
-    if single_fluence_dm:
+    if single_SNR_dm:
         add_mask = np.logical_and(
-            injection_sample[:, 2] == dm, injection_sample[:, 1] == fluence
+            injection_sample[:, 2] == dm, injection_sample[:, 1] == SNR
         )
 
         pulses_to_add = injection_sample[add_mask]
@@ -416,8 +385,8 @@ def process(pool_arr):
         rawdata, masked_chans, header, freqs, pulses_to_add, downsamp, stats_window
     )
     s = np.array(statistics)
-    fluence_4 = str(np.around(fluence, 4)).zfill(6)
-    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_fluence{fluence_4}.fil")
+    SNR_4 = str(np.around(SNR, 4)).zfill(6)
+    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_SNR{SNR_4}.fil")
     print(f"creating output file: {ofn}")
     presto_header["nbits"] = 8
     create_filterbank_file(
@@ -461,12 +430,12 @@ if __name__ == "__main__":
         injection_sample = np.load(args.injection_file)
         npul = len(injection_sample)
         ndm = len(set(injection_sample[:, 2]))
-        nfluence = len(set(injection_sample[:, 1]))
+        nSNR = len(set(injection_sample[:, 1]))
     else:
         (
             injection_sample,
             npul,
-            nfluence,
+            nSNR,
             ndm,
             downsamp,
             stats_window,
@@ -474,16 +443,16 @@ if __name__ == "__main__":
     print(f"total number of injections: {len(injection_sample)}")
 
     print(f"number of injection DMs: {ndm}")
-    print(f"number of injection FLUENCEs: {nfluence}")
+    print(f"number of injection SNRs: {nSNR}")
 
     # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
     print(f"getting data cutout from: {ifn}")
     # add the pulses
-    multiprocessing = False
+    multiprocessing = True
     if multiprocessing:
         for dm in TRIAL_DMS:
             pool_arr = []
-            for s in TRIAL_FLUENCE:
+            for s in TRIAL_SNR:
                 pool_arr.append(
                     (
                         dm,
@@ -500,12 +469,12 @@ if __name__ == "__main__":
             with Pool(10) as p:
                 p.map(multiprocess, pool_arr)
     else:
-        rawdata, masked_data, masked_chans, presto_header = get_filterbank_data_window(
-            ifn, duration=duration, maskfn=maskfn, masked_data=None
+        rawdata, masked_chans, presto_header = get_filterbank_data_window(
+            ifn, duration=duration, maskfn=maskfn
         )
         for dm in TRIAL_DMS:
             pool_arr = []
-            for s in TRIAL_FLUENCE:
+            for s in TRIAL_SNR:
                 pool_arr.append(
                     (
                         dm,
@@ -515,7 +484,6 @@ if __name__ == "__main__":
                         maskfn,
                         injection_sample,
                         rawdata,
-                        masked_data,
                         masked_chans,
                         presto_header,
                         downsamp,

@@ -39,7 +39,8 @@ def convolve_first(amp,mu,std, sigma_snr=0.4):
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
     p_det = inj_stats.predict_poly(amp,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
     # p_det_giv_param = p_detect(amp_arr)*norm.pdf(amp_arr,mu,std)
-    LN_dist = lognorm_dist(amp_arr,mu,std)
+    # LN_dist = lognorm_dist(amp_arr,mu,std)
+    LN_dist = expon.pdf(amp_arr,scale=1/mu)
     #convolve the two arrays
     conv = np.convolve(LN_dist,gaussian_error)*np.diff(amp_arr)[0]
     conv_lims = [-3,3]
@@ -103,9 +104,9 @@ if __name__=='__main__':
     n = []
 
     mode = args.mode
-    for i in range(10000):
+    for i in range(10):
         if mode=="Exp":
-            pulses = simulate_pulses_exp(obs_t,p,f,mu,random=True)
+            pulses = simulate_pulses_exp(obs_t,p,f,mu,random=False)
         elif mode=="Lognorm":
             pulses = simulate_pulses(obs_t,p,f,mu,std,random=True)
         elif mode=="Gauss":
@@ -121,7 +122,7 @@ if __name__=='__main__':
         n.append(len(detected_pulses))
     plt.hist(n,bins="auto")
     plt.show()
-
+    print(len(detected_pulses))
     import dill
     with open(dill_file,'rb') as inf:
         det_class = dill.load(inf)
@@ -168,7 +169,7 @@ if __name__=='__main__':
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
 
-    snr_array = np.linspace(0,0.5,10000)
+    snr_array = np.linspace(0,1,10000)
     # mu = -3
     # std = 0.4
     first = first_gauss(snr_array,mu,std,sigma_snr)
