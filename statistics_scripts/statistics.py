@@ -10,7 +10,7 @@ import dill
 with open("inj_stats_fitted.dill", "rb") as inf:
     inj_stats = dill.load(inf)
 # popt = inj_stats.fit_logistic_amp
-det_error = inj_stats.detect_error_amp
+det_error = inj_stats.detect_error_snr
 
 def lognorm_dist(x, mu, sigma):
     pdf = np.zeros(x.shape)

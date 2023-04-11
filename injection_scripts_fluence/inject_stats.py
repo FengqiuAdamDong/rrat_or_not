@@ -103,27 +103,46 @@ def grab_spectra_manual(
     g = r.FilReader(gf)
     if ts < 0:
         ts = 0
-    print("start and end times", ts, te)
     tsamp = float(g.header.tsamp)
+    total_time = float(g.header.nsamples) * tsamp
+    t_start = 4.1
+    t_dur = 1.8
+    if te>total_time:
+        te = total_time
+        #change t_dur to be the time from 4.1s to end
+        t_right = te - ts - t_start
+        if t_right<t_dur:
+            t_dur = t_right
+    if ts<0:
+        #shift t_start back by however much time you need
+        t_start = t_start + ts*tsamp
+        ts = 0
+
+
+    print("start and end times", ts, te)
     nsamps = int((te - ts) / tsamp)
     nsamps = nsamps - nsamps % downsamp
     ssamps = int(ts / tsamp)
     # sampels to burst
-    t_start = 4.1
-    t_dur = 1.8
     nsamps_start_zoom = int(t_start / tsamp)
     nsamps_end_zoom = int((t_dur+t_start) / tsamp)
-    spec = g.read_block(ssamps, nsamps)
+    try:
+        spec = g.read_block(ssamps, nsamps)
+    except Exception as e:
+        print(e)
+        import pdb; pdb.set_trace()
+
     # load mask
     if mask:
         print("masking data")
         data, masked_chans = maskfile(mask_fn, spec, ssamps, nsamps)
+        print(sum(masked_chans))
     data = data.dedisperse(dm)
     waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
 
     if manual:
         # this gives you the location of the peak
-        SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
+        amp, std, loc, sigma_width = fit_SNR_manual(
             dat_ts,
             tsamp * downsamp,
             6e-2,
@@ -142,29 +161,27 @@ def grab_spectra_manual(
             nsamps_start_zoom = int(t_start / tsamp)
             nsamps_end_zoom = int((t_dur+t_start) / tsamp)
             waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
-            SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
+            amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
                 tsamp * downsamp,
-                6e-2,
+                10e-2,
                 nsamps=int(t_dur/2 / tsamp / downsamp),
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
             )
-
-        if (loc>(0.49*t_dur))|(loc<(t_dur*0.51)):
+        if (loc<(0.48*t_dur))|(loc>(t_dur*0.52)):
             #repeat if initial loc guess is wrong
-            SNR, amp, std, loc, sigma_width = fit_FLUENCE_manual(
+            amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
                 tsamp * downsamp,
-                6e-2,
+                10e-2,
                 nsamps=int(loc / tsamp / downsamp),
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
             )
-
-        # std gives you how wide it is, so go to 3sigma
-        # nsamp is where the burst is, so use loc
-        # query ts no ds _AFTER_ loc is determined!!
+        #scale the noise by the number of channels that are not masked
+        std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
+        SNR = amp / std
         if amp!=-1:
             loc = loc+t_start
             ts_no_ds_zoom_start = int(loc/tsamp - 0.9/tsamp)
@@ -185,15 +202,18 @@ def grab_spectra_manual(
     else:
         # fit using downsampled values
         # this is mostly used for the injections
-        SNR, amp, std, loc, sigma_width = autofit_pulse(
+        amp, std, loc, sigma_width = autofit_pulse(
             dat_ts,
             tsamp * downsamp,
-            6e-2,
+            10e-2,
             nsamps=int(0.9 / tsamp / downsamp),
             ds_data=waterfall_dat,
             downsamp=downsamp,
             plot=False,
         )
+        #scale std by the sqrt of non masked chans
+        std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
+        SNR = amp / std
         # because loc is predetermined set start and end a predifined spot
         ts_no_ds_zoom_start = int(4.1/tsamp)
         ts_no_ds_zoom_end = int(5.9/tsamp)
@@ -202,7 +222,7 @@ def grab_spectra_manual(
         FLUENCE = fit_FLUENCE(
             ts_no_ds/std,
             tsamp,
-            6e-2,
+            10e-2,
             nsamp=int(loc / tsamp),
             ds_data=waterfall_dat,
             plot=False,
@@ -210,12 +230,11 @@ def grab_spectra_manual(
     # recalculate the amplitude given a gaussian pulse shape
     gaussian_amp = FLUENCE / sigma_width / np.sqrt(2 * np.pi)
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)
-    print(f"Gaussian amp: {gaussian_amp} measured amp: {amp} width: {sigma_width}")
-    return FLUENCE, std, amp, gaussian_amp, sigma_width
+    return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR
 
 
 def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
-    # calculates the FLUENCE given a timeseries
+    # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
     ts_std = np.delete(ts, range(int(ind_max - w_bin), int(ind_max + w_bin)))
@@ -268,7 +287,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
         axs[1, 1].set_title("OG time series")
         plt.show()
 
-    return SNR, Amplitude, std, loc, sigma_width
+    return Amplitude, std, loc, sigma_width
 
 
 def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
@@ -314,8 +333,8 @@ def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
     return fluence
 
 
-def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
-    # calculates the FLUENCE given a timeseries
+def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
+    # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
     ts_std = np.delete(ts, range(int(ind_max - w_bin), int(ind_max + w_bin)))
@@ -414,7 +433,7 @@ def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     plt.show()
     if skip.skip:
         print("skipping")
-        return -1, -1, -1, -1, -1
+        return -1, -1, -1, -1
 
     if x_new != [-1, -1, -1, -1]:
         fitx = x_new
@@ -426,11 +445,6 @@ def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
     fitx[2] = abs(fitx[2])
-    # residual
-    ts_sub = ts_sub - gaussian(xind, fitx[0], fitx[1], fitx[2], fitx[3])
-    # plt.figure()
-    # plt.plot(ts_sub)
-    # plt.show()
     Amplitude = fitx[0]
     loc = fitx[1]
     sigma_width = fitx[2]
@@ -438,7 +452,7 @@ def fit_FLUENCE_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     SNR = Amplitude / std
     # once we have calculated the location
     print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width}")
-    return SNR, Amplitude, std, loc, sigma_width
+    return Amplitude, std, loc, sigma_width
 
 
 def logistic(x, k, x0):
@@ -452,28 +466,21 @@ def gen_log(x,A,B,C,M,K,v):
 
 class inject_obj:
     def __init__(
-        self, fluence=1, width=1, toas=1, dm=1, downsamp=8, filfile="", mask=""
+        self, snr=1, width=1, toas=1, dm=1, downsamp=8, filfile="", mask=""
     ):
-        self.fluence = fluence
+        self.snr = snr
         self.width = width
         self.toas = toas
         self.dm = dm
         self.filfile = filfile
         self.mask = mask
+        self.downsamp = downsamp
         self.det_fluence = []
         self.det_amp = []
         self.det_std = []
         self.fluence_amp = []
         self.noise_std = []
-        self.downsamp = downsamp
-
-    def calculate_inj_amplitude(
-        self,
-    ):
-        try:
-            self.inj_amp = self.fluence / self.width / np.sqrt(2 * np.pi)
-        except:
-            import pdb; pdb.set_trace()
+        self.det_snr = []
 
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -491,7 +498,7 @@ class inject_obj:
     def calculate_fluence_single(self, mask=True):
         ts = self.toas - 5
         te = self.toas + 5
-        fluence, std, amp, gaussian_amp, sigma_width = grab_spectra_manual(
+        fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,
             te=te,
@@ -503,21 +510,22 @@ class inject_obj:
             manual=True,
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
+        self.det_snr = det_snr
         self.det_fluence = fluence
         self.det_amp = amp
         self.fluence_amp = gaussian_amp
         self.det_std = sigma_width
         self.noise_std = std
-        print(f"widths {self.det_std}")
+        print(
+            f"fitted_snr {det_snr} std {std} amp {amp}"
+        )
         # print(fluence,amp,std,self.filfile)
 
     def calculate_fluence(self):
-
-        self.calculate_inj_amplitude()
-        for t, dm, inj_amp in zip(self.toas, self.dm, self.inj_amp):
+        for t, dm, snr in zip(self.toas, self.dm, self.snr):
             ts = t - 5
             te = t + 5
-            fluence, std, amp, gaussian_amp, sigma_width = grab_spectra_manual(
+            fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
                 gf=self.filfile,
                 ts=ts,
                 te=te,
@@ -528,7 +536,7 @@ class inject_obj:
                 downsamp=self.downsamp,
             )
             print(
-                f"injected amplitude {inj_amp} fitted amplitude {amp} fluence amplitude {gaussian_amp}"
+                f"inj_snr {snr} fitted_snr {det_snr} std {std} amp {amp}"
             )
             # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
             self.det_fluence.append(fluence)
@@ -536,17 +544,15 @@ class inject_obj:
             self.det_std.append(sigma_width)
             self.fluence_amp.append(gaussian_amp)
             self.noise_std.append(std)
+            self.det_snr.append(det_snr)
 
         self.det_fluence = np.array(self.det_fluence)
         self.det_amp = np.array(self.det_amp)
         self.det_std = np.array(self.det_std)
         self.fluence_amp = np.array(self.fluence_amp)
         self.noise_std = np.array(self.noise_std)
+        self.det_snr = np.array(self.det_snr)
 
-    def return_detected(self):
-        # returns the detected fluences
-        return self.det_fluence[self.detected]
-        # pass
 
 
 class inject_stats:
@@ -582,30 +588,30 @@ class inject_stats:
 
     def load_inj_samp(self):
         inj_data = np.load(self.inj_samp)["grid"]
-        # first column time stamp, second is fluence, third column is dm last column is injected width
+        # first column time stamp, second is snr, third column is dm last column is injected width
         self.toa_arr = inj_data[:, 0]
-        self.fluence_arr = inj_data[:, 1]
+        self.snr_arr = inj_data[:, 1]
         self.dm_arr = inj_data[:, 2]
         self.width_arr = inj_data[:, 3]
 
     def match_inj(
         self,
     ):
-        # match fluence,toa,dm with certain fil file
+        # match snr,toa,dm with certain fil file
         self.sorted_inject = []
         for f, m in zip(self.filfiles, self.mask_fn):
             sp_ = f.split("_")
-            fluence_str = sp_[-1]
-            fluence_str = fluence_str.strip(".fil").strip("fluence")
-            fluence = np.round(float(fluence_str), 4)
-            fluence_ind = np.round(self.fluence_arr, 4) == fluence
-            cur_fluence = self.fluence_arr[fluence_ind]
-            cur_toa = self.toa_arr[fluence_ind]
-            cur_dm = self.dm_arr[fluence_ind]
-            cur_width = self.width_arr[fluence_ind]
+            snr_str = sp_[-1]
+            snr_str = snr_str.strip(".fil").strip("SNR")
+            snr = np.round(float(snr_str), 4)
+            snr_ind = np.round(self.snr_arr, 4) == snr
+            cur_snr = self.snr_arr[snr_ind]
+            cur_toa = self.toa_arr[snr_ind]
+            cur_dm = self.dm_arr[snr_ind]
+            cur_width = self.width_arr[snr_ind]
             self.sorted_inject.append(
                 inject_obj(
-                    fluence=cur_fluence,
+                    snr=cur_snr,
                     width=cur_width,
                     toas=cur_toa,
                     dm=cur_dm,
@@ -616,7 +622,7 @@ class inject_stats:
             )
         self.sorted_inject = np.array(self.sorted_inject)
 
-    def calculate_fluence(self, multiprocessing=False):
+    def calculate_snr(self, multiprocessing=False):
         import copy
 
         if multiprocessing:
@@ -635,66 +641,49 @@ class inject_stats:
                 s.calculate_fluence()
 
     def amplitude_statistics(self):
+        det_snr = []
+        inj_snr = []
+        det_snr_std = []
+        noise_std = []
         det_amp = []
-        det_fluence_amp = []
-        det_fluence_amp_std = []
         det_amp_std = []
-        inj_amp = []
         for s in self.sorted_inject:
-            s.calculate_inj_amplitude()
-            fluence_amp_a = s.fluence_amp
-            det_amp_a = s.det_amp
-            # get rid of outliers
-            f_amp_percentile = np.percentile(fluence_amp_a, [5, 95])
-            d_amp_percentile = np.percentile(det_amp_a, [5, 95])
-            fluence_amp = fluence_amp_a[fluence_amp_a < f_amp_percentile[1]]
-            fluence_amp = fluence_amp_a[fluence_amp_a > f_amp_percentile[0]]
-            det_amp_a = det_amp_a[det_amp_a < d_amp_percentile[1]]
-            det_amp_a = det_amp_a[det_amp_a > d_amp_percentile[0]]
-            det_amp.append(np.mean(det_amp_a))
-            det_fluence_amp.append(np.mean(fluence_amp_a))
-            det_amp_std.append(np.std(det_amp_a))
-            det_fluence_amp_std.append(np.std(fluence_amp_a))
-            # calculate amplitude from the fluence
-            inj_amp.append(np.mean(s.inj_amp))
+            det_snr.append(np.mean(s.det_snr))
+            det_snr_std.append(np.std(s.det_snr))
+            inj_snr.append(np.mean(s.snr))
+            noise_std.append(np.mean(s.noise_std))
+            det_amp.append(np.mean(s.det_amp))
+            det_amp_std.append(np.std(s.det_amp))
 
-        det_amp = np.array(det_amp)
-        inj_amp = np.array(inj_amp)
-        det_amp_std = np.array(det_amp_std)
-        det_fluence_amp_std = np.array(det_fluence_amp_std)
-        p_amp = np.polyfit(det_amp, inj_amp, deg=1)
-        x = np.linspace(0, 0.2)
-        poly_amp = np.poly1d(p_amp)
-        p_famp = np.polyfit(det_amp[6:], inj_amp[6:], deg=1)
-        poly_famp = np.poly1d(p_famp)
+        noise_std = np.array(noise_std)
+        det_snr = np.array(det_snr)
+        inj_snr = np.array(inj_snr)
+        det_snr_std = np.array(det_snr_std)
+        try:
+            p_snr = np.polyfit(det_snr[1:], inj_snr[1:], deg=1)
+        except:
+            p_snr = np.polyfit(det_snr, inj_snr, deg=1)
+        poly_snr = np.poly1d(p_snr)
+
 
         fig, axes = plt.subplots(1, 3)
-        axes[0].plot(x, poly_amp(x))
-        axes[0].errorbar(det_amp, inj_amp, xerr=np.array(det_amp_std), fmt=".")
-        axes[0].set_ylabel("Injected AMP")
-        axes[0].set_xlabel("Detected AMP")
-        axes[1].scatter(det_amp, det_fluence_amp)
-        axes[1].set_xlabel("detected amplitude fit")
-        axes[1].set_ylabel("detected amplitude fluence")
-        axes[2].errorbar(
-            det_fluence_amp,
-            inj_amp,
-            xerr=det_fluence_amp_std,
-            fmt=".",
-            label="Fluence amp",
-        )
-        axes[2].plot(det_fluence_amp, poly_famp(det_fluence_amp), label="Fit")
-        axes[2].set_xlabel("Detected fluence amp")
-        axes[2].set_ylabel("injected amp")
-        axes[2].set_title("Det amp vs injected amp")
+        x = np.linspace(0,10)
+        axes[0].plot(x, poly_snr(x))
+        axes[0].errorbar(det_snr, inj_snr, xerr=np.array(det_snr_std), fmt=".")
+        axes[0].set_ylabel("Injected SNR")
+        axes[0].set_xlabel("Detected SNR")
+        axes[1].scatter(inj_snr,noise_std)
+        axes[1].set_xlabel("Injected SNR")
+        axes[1].set_ylabel("Detected noise")
+        axes[2].errorbar(inj_snr, det_amp, yerr=np.array(det_amp_std), fmt=".")
         plt.show()
-        ind = np.argsort(inj_amp)
-        self.det_amp = det_amp[ind]
-        self.det_amp_std = det_amp_std[ind]
-        self.inj_amp = inj_amp[ind]
-        self.poly_amp = p_amp
+        ind = np.argsort(inj_snr)
+        self.det_snr = det_snr[ind]
+        self.det_snr_std = det_snr_std[ind]
+        self.inj_snr = inj_snr[ind]
+        self.poly_snr = p_snr
         # take the average of the last 3 for the error
-        self.detect_error_amp = np.mean(self.det_amp_std[-3:])
+        self.detect_error_snr = np.mean(self.det_snr_std[-3:])
 
     def calculate_fluence_statistics(self):
         det_fluence = []
@@ -737,16 +726,16 @@ class inject_stats:
         matched = np.zeros(len(self.dm_arr))
         time_tol = 0.5
         dm_tol = 10
-        fluence_tol = 1e-4
+        snr_tol = 1e-3
         for csv in fn:
             (
                 dm,
                 burst_time,
-                boxcar_det_fluence,
-                inj_fluence,
+                boxcar_det_snr,
+                inj_snr,
                 MJD,
             ) = read_positive_burst_inj(csv)
-            for t, d, inj_s in zip(burst_time, dm, inj_fluence):
+            for t, d, inj_s in zip(burst_time, dm, inj_snr):
                 # here we gotta match the values
                 t_low = t - time_tol
                 t_hi = t + time_tol
@@ -755,10 +744,10 @@ class inject_stats:
                 # print(t_low,t_hi,dm_low,dm_hi)
                 for si in self.sorted_inject:
 
-                    t_fluence = (np.mean(si.fluence) > (inj_s - fluence_tol)) & (
-                        np.mean(si.fluence) < (inj_s + fluence_tol)
+                    t_snr = (np.mean(si.snr) > (inj_s - snr_tol)) & (
+                        np.mean(si.snr) < (inj_s + snr_tol)
                     )
-                    if t_fluence:
+                    if t_snr:
                         dm_arr = si.dm
                         t_arr = si.toas
                         truth_dm = (dm_arr < dm_hi) & (dm_arr > dm_low)
@@ -766,67 +755,81 @@ class inject_stats:
                         total_truth = truth_dm & truth_t
                         self.detected_truth(si, total_truth)
         # get lists to plot
-        fluence = []
+        snr = []
+        det_snr = []
         det_frac = []
         detected_amplitudes = []
         detected_amplitudes_mean = []
-        all_detected_amplitudes = []
         detected_pulses = []
         for s in self.sorted_inject:
             try:
-                fluence.append(np.mean(s.fluence))
+                snr.append(np.mean(s.snr))
+                det_snr.append(s.det_snr)
                 det_frac.append(sum(s.detected) / len(s.detected))
                 detected_amplitudes.append(s.det_amp[s.detected])
                 detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
-                all_detected_amplitudes.append(s.det_amp)
                 detected_pulses.append(s.detected)
+
             except:
                 import traceback; print(traceback.format_exc())
                 import pdb; pdb.set_trace()
 
-        fluence = np.array(fluence)
+        snr = np.array(snr)
+        det_snr = np.array(det_snr)
         det_frac = np.array(det_frac)
-        detected_amplitudes = np.array(detected_amplitudes)
+        #
+
+        detected_amplitudes = np.array(detected_amplitudes,dtype=object)
         detected_amplitudes_mean = np.array(detected_amplitudes_mean)
         detected_pulses = np.array(detected_pulses)
-        all_detected_amplitudes = np.array(all_detected_amplitudes)
 
-        ind = np.argsort(fluence)
+        ind = np.argsort(snr)
         self.det_frac = det_frac[ind]
+        self.snr = snr[ind]
         self.detected_amplitudes = detected_amplitudes[ind]
         self.detected_amplitudes_mean = detected_amplitudes_mean[ind]
+        self.det_snr = det_snr[ind]
+        self.detected_pulses = detected_pulses[ind]
+        #only take values of det_snr above snr of 1
+        self.det_snr = self.det_snr[self.snr > 1,:]
+        self.detected_pulses = self.detected_pulses[self.snr > 1,:]
+        #get an array of all detected snrs
+        detected_snr = self.det_snr[self.detected_pulses]
+        all_det_snr = self.det_snr.flatten()
 
-
-        all_detected_amplitudes = all_detected_amplitudes[ind]
-        detected_pulses = detected_pulses[ind]
-        #remove the really low inj amplitudes because they're likely bad
-        all_detected_amplitudes = all_detected_amplitudes[5:,:]
-        detected_pulses = detected_pulses[5:,:]
-
-
-        all_detected_pulses = all_detected_amplitudes[detected_pulses]
-        all_detected_amplitudes = all_detected_amplitudes.flatten()
-        #take on the lower and upper 2 percentiles
-        ada_percentile = np.percentile(all_detected_amplitudes, [2,98])
-        #clip based on percentile
-        all_detected_pulses = np.clip(all_detected_pulses, ada_percentile[0], ada_percentile[1])
-        all_detected_amplitudes = np.clip(all_detected_amplitudes, ada_percentile[0], ada_percentile[1])
 
         # set the number of bins and the number of data points per bin
-        num_bins = 80
-        num_points_per_bin = len(all_detected_amplitudes) // num_bins
+        num_bins = 30
+        num_points_per_bin = len(all_det_snr) // num_bins
+        print("number of points in each bin ", num_points_per_bin)
+        self.bin_detections(all_det_snr,detected_snr,num_bins)
+
+
+        predict_x_array = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
+        # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
+        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=7)
+        self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True)
+        inj_fit_x = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
+        inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
+        self.predict_poly(inj_fit_x,x=self.snr,p=self.det_frac,poly=inj_snr_fit,plot=True)
+        plt.show()
+
+    def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20):
+        # set the number of data points per bin
+        num_points_per_bin = len(all_det_vals) // num_bins
         print("number of points in each bin ", num_points_per_bin)
 
         # calculate the bin edges based on the percentiles of the data
-        bin_edges = np.quantile(all_detected_amplitudes, np.linspace(0, 1, num_bins+1))
+        bin_edges = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
 
         # use the digitize function to assign data points to bins
-        bin_assignments_all = np.digitize(all_detected_amplitudes, bin_edges)
-        bin_assignments_detected = np.digitize(all_detected_pulses, bin_edges)
+        bin_assignments_all = np.digitize(all_det_vals, bin_edges)
+        bin_assignments_detected = np.digitize(detected_det_vals, bin_edges)
 
         #count the number in each bin
-        hist_all, _ = np.histogram(all_detected_amplitudes, bins=bin_edges)
-        hist_detected, _ = np.histogram(all_detected_pulses, bins=bin_edges)
+        hist_all, _ = np.histogram(all_det_vals, bins=bin_edges)
+        hist_detected, _ = np.histogram(detected_det_vals, bins=bin_edges)
+
         detected_det_frac = hist_detected/hist_all
         bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
 
@@ -843,61 +846,6 @@ class inject_stats:
         axes[1].legend()
         self.detected_bin_midpoints = bin_midpoints
         self.detected_det_frac = detected_det_frac
-
-        predict_x_array = np.linspace(0,0.2,10000)
-        # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
-        poly = self.fit_poly(x=bin_midpoints,p=detected_det_frac,deg=7)
-        self.poly_det_fit = poly
-        self.predict_poly(predict_x_array,x=bin_midpoints,p=detected_det_frac,plot=True)
-        #fit the detection curve for
-        poly_true = self.fit_poly(x = self.inj_amp,p=self.det_frac,deg=4)
-        self.predict_poly(predict_x_array,self.inj_amp,self.det_frac,poly=poly_true,plot=True)
-        plt.show()
-
-
-    def return_detected(self):
-        fluence = []
-        det = []
-        tot = []
-        for s in self.sorted_inject:
-            fluence.append(s.fluence)
-            det.append(sum(s.detected))
-            tot.append(len(s.detected))
-        return fluence, det, tot
-
-
-
-
-
-
-
-
-
-    #these functions are for fitting the detection function. not all of them are used, but could be if required
-    def interpolate(self,predict_x_array,p,x):
-        from scipy.interpolate import CubicSpline
-        x_pad_upper = np.linspace(1e-3,100,1000)+np.max(x)
-        x_pad_lower = np.linspace(-1e-3,-100,1000)+np.min(x)
-        p_pad_upper = np.zeros(len(x_pad_upper))+1
-        p_pad_lower = np.zeros(len(x_pad_lower))
-
-        p_train = np.append(p,p_pad_lower)
-        p_train = np.append(p_train,p_pad_upper)
-        x_train = np.append(x,x_pad_lower)
-        x_train = np.append(x_train,x_pad_upper)
-
-        ind = np.argsort(x_train)
-        x_train = x_train[ind]
-        p_train = p_train[ind]
-        cs = CubicSpline(x_train,p_train)
-        fig,axes = plt.subplots(1,1)
-        axes.scatter(x,p,label="Raw",c='r')
-        axes.plot(predict_x_array,cs(predict_x_array),label="interp")
-        axes.set_xlabel("Amplitude")
-        axes.set_ylabel("Det Frac")
-        axes.set_title("interp fit")
-        axes.legend()
-        plt.show()
 
     def predict_poly(self,predict_x,x,p,poly=-99,plot=False):
         if isinstance(poly,int):
@@ -928,7 +876,6 @@ class inject_stats:
             axes.set_title("Polynomial fit")
             axes.set_ylim([-0.5,1.5])
             axes.legend()
-            plt.show()
 
         return p_pred
 
@@ -937,6 +884,10 @@ class inject_stats:
         ind_0 = np.argwhere(p==min(p))
         ind_0 = max(ind_0)[0]-1
         ind_1 = min(ind_1)[0]+1
+        if ind_0<0:
+            ind_0 = 0
+        if ind_1>(len(x)-1):
+            ind_1 = len(x)-1
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
         return poly
 
@@ -961,44 +912,6 @@ class inject_stats:
         axes.set_title("Gaussian Process fit")
         axes.legend()
         plt.show()
-    def gaussian_process_fit(self,p,x):
-        #fit the detection function using a gaussian process
-        from sklearn.gaussian_process import GaussianProcessRegressor
-        from sklearn.gaussian_process.kernels import RBF, WhiteKernel
-        kernel = 1.0 * RBF(length_scale=0.1, length_scale_bounds=(1e-4, 1e3)) + WhiteKernel(
-            noise_level=1, noise_level_bounds=(1e-5, 1e1)
-        )
-        gpr = GaussianProcessRegressor(kernel=kernel, alpha=0.0)
-        #pad the training data at the edges
-        x_pad_upper = np.linspace(0,100,1000)+np.max(x)
-        x_pad_lower = np.linspace(0,-100,1000)+np.min(x)
-        p_pad_upper = np.zeros(len(x_pad_upper))+1
-        p_pad_lower = np.zeros(len(x_pad_lower))
-
-        p_train = np.append(p,p_pad_lower)
-        p_train = np.append(p_train,p_pad_upper)
-        x_train = np.append(x,x_pad_lower)
-        x_train = np.append(x_train,x_pad_upper)
-        x_train = x_train.reshape(-1,1)
-
-        #train
-        gpr.fit(x_train, p_train)
-        #test
-        x_test = np.linspace(-10,10,1000).reshape(-1,1)
-        y_mean, y_std = gpr.predict(x_test, return_std=True)
-
-        fig,axes = plt.subplots(1,1)
-        axes.scatter(x_train,p_train,label="Raw",c='r')
-        axes.errorbar(x_test,y_mean,yerr=y_std,label="gp_fit")
-        axes.set_xlabel("Amplitude")
-        axes.set_ylabel("Det Frac")
-        axes.set_title("Gaussian Process fit")
-        axes.legend()
-        plt.show()
-
-    def fit_logistic(self, p, fluence):
-        popt, pcov = opt.curve_fit(logistic, fluence, p, [2, 0.040], maxfev=int(1e6))
-        return popt
 
 
 if __name__ == "__main__":
@@ -1015,6 +928,12 @@ if __name__ == "__main__":
         help="list of filterbank files or positive burst csv files",
         required=True,
     )
+    parser.add_argument(
+        "-multi",
+        help="enable multiprocessing with 10 cores",
+        action="store_true",
+    )
+
     args = parser.parse_args()
     do_fluence_calc = args.d
     downsamp = args.ds
@@ -1026,7 +945,7 @@ if __name__ == "__main__":
         inj_stats.load_inj_samp()
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
-        inj_stats.calculate_fluence(False)
+        inj_stats.calculate_snr(args.multi)
         with open("inj_stats.dill", "wb") as of:
             dill.dump(inj_stats, of)
     else:
@@ -1035,10 +954,7 @@ if __name__ == "__main__":
         fns = args.l
         inj_stats = inject_stats(**inj_stats.__dict__)
         inj_stats.repopulate_io()
-        inj_stats.calculate_fluence_statistics()
         inj_stats.amplitude_statistics()
         inj_stats.compare(fns)
-
-        np.save("det_fun_params", inj_stats)
         with open("inj_stats_fitted.dill", "wb") as of:
             dill.dump(inj_stats, of)

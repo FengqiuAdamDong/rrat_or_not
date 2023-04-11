@@ -13,9 +13,9 @@ from scipy.integrate import quad
 with open("inj_stats_fitted.dill", "rb") as inf:
     inj_stats = dill.load(inf)
 # popt = inj_stats.fit_logistic_amp
-det_error = inj_stats.detect_error_amp
+det_error = inj_stats.detect_error_snr
 
-snr_arr = np.linspace(-2, 2, 1000)
+snr_arr = np.linspace(0, 5, 1000)
 print("det error", det_error)
 
 
@@ -40,8 +40,7 @@ def logistic(x, k, x0):
     return detection_fn
 
 def p_detect(snr):
-    return inj_stats.predict_poly(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
-
+    return inj_stats.predict_poly(snr,x=inj_stats.detected_bin_midpoints,p=inj_stats.detected_det_frac)
 detfn = p_detect(snr_arr)
 plt.plot(snr_arr, detfn)
 
@@ -57,7 +56,7 @@ def n_detect(snr_emit):
 
 def first(amp,mu,std, sigma_snr=0.4):
     x_len = 10000
-    xlim=2
+    xlim=15
     x_lims = [-xlim,xlim]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
@@ -82,7 +81,7 @@ def first(amp,mu,std, sigma_snr=0.4):
 def second(n, mu, std, N, sigma_snr):
 
     x_len = 10000
-    xlim=2
+    xlim=15
     x_lims = [-xlim,xlim]
     amp = np.linspace(-xlim / 2, xlim / 2, 10000)
 

@@ -33,12 +33,12 @@ class det_stats:
         temp = []
         for f, m, t, d in zip(self.filfiles, self.mask_fn, self.toas, self.dms):
             t = det_obj(
-                fluence=1, toas=t, dm=d, downsamp=self.downsamp, filfile=f, mask=m
+                snr=1, toas=t, dm=d, downsamp=self.downsamp, filfile=f, mask=m
             )
             temp.append(t)
         self.sorted_pulses = temp
 
-    def calculate_fluence(self, multiprocessing=False):
+    def calculate_snr(self, multiprocessing=False):
         import copy
 
         if multiprocessing:
@@ -78,9 +78,9 @@ def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
 
 
 if __name__ == "__main__":
-    # fn = 'real_pulses/positive_bursts_edit_fluence.csv'
-    # fn1 = 'real_pulses/positive_bursts_1_edit_fluence.csv'
-    # fn2 = 'real_pulses/positive_bursts_short_edit_fluence.csv'
+    # fn = 'real_pulses/positive_bursts_edit_snr.csv'
+    # fn1 = 'real_pulses/positive_bursts_1_edit_snr.csv'
+    # fn2 = 'real_pulses/positive_bursts_short_edit_snr.csv'
     # fn = 'real_pulses/positive_burst_test.csv'
     # fn1 = fn
     # fn2 = fn
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("-p", nargs="+", help="TOA files")
     parser.add_argument(
-        "-ds", type=int, help="The downsample when getting det_fluence", required=True
+        "-ds", type=int, help="The downsample when getting det_snr", required=True
     )
     args = parser.parse_args()
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     from read_positive_burst import read_positive_burst
 
     for p in positive_fl:
-        dm_temp, toa_temp, boxcar_det_fluence, MJD, fil_temp = read_positive_burst(p)
+        dm_temp, toa_temp, boxcar_det_snr, MJD, fil_temp = read_positive_burst(p)
         # fil_temp,dm_temp,toa_temp = read_positive_file(p)
         if len(fil1) == 0:
             fil1, dm1, toa1 = (fil_temp, dm_temp, toa_temp)
@@ -139,6 +139,6 @@ if __name__ == "__main__":
         "downsamp": downsamp,
     }
     inject_stats = det_stats(**init_obj)
-    inject_stats.calculate_fluence()
+    inject_stats.calculate_snr()
     with open(f"{args.o}.dill", "wb") as of:
         dill.dump(inject_stats, of)

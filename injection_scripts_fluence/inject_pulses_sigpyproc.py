@@ -22,8 +22,8 @@ from inject_stats import autofit_pulse
 # TRIAL_SNR = [10]
 # 0.8,
 # ]  # total S/N of pulse
-# TRIAL_SNR = np.linspace(0.1,4,30)
-TRIAL_SNR=[1,2,3,4,5,6]
+TRIAL_SNR = np.linspace(0.1,4,20)
+# TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
 pulse_width = [12.41e-3]  # 10ms pulse width
@@ -75,7 +75,7 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
     # save the injection sample to a numpy file
     print("saving injection sample to: sample_injections.npy")
     downsamp = 3
-    stats_window = 1
+    stats_window = 0.9
     np.savez(
         "sample_injections",
         grid=grid_coords,
@@ -104,11 +104,95 @@ def adjusted_peak(desired_a, tsamp, sigma, ds):
     new_amplitude = desired_a / new_peak
     return new_amplitude
 
+def add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top):
+    """
+    Add a simulated pulse to a given data array at the specified time of arrival.
+
+    Args:
+        data (ndarray): The data array to which the pulse will be added.
+        p_toa (float): The time of arrival of the pulse.
+        nbins_to_sim (int): The number of bins to simulate.
+        per_chan_toa_bins (ndarray): An array containing the time of arrival for each channel.
+        width_bins (float): The width of the pulse in bins.
+        total_inj_pow (float): The total injection power of the pulse.
+        tsamp (float): The time resolution of the data.
+        toa_bin_top (int): The top bin of the pulse window.
+
+    Returns:
+        ndarray: The data array with the simulated pulse added.
+
+    Raises:
+        None
+
+    Examples:
+        # Define input parameters
+        data = np.zeros((1024, 1024))
+        p_toa = 10.0
+        nbins_to_sim = 1024
+        per_chan_toa_bins = np.linspace(0, 1024, 32)
+        width_bins = 10.0
+        total_inj_pow = 100.0
+        tsamp = 0.1
+        toa_bin_top = 512
+
+        # Call the function
+        data_with_pulse = add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top)
+    """
+    x = np.linspace(0, nbins_to_sim, nbins_to_sim)
+    pulse_wf = np.exp(
+        -((x - per_chan_toa_bins[:, np.newaxis]) ** 2) / (2 * width_bins**2)
+    )
+    # print("rescaling pulses to correct amplitude")
+    pulse_wf /= pulse_wf.max(axis=1)[:, np.newaxis]
+    pulse_wf *= total_inj_pow
+    # x = np.linspace(0, pulse_wf.shape[1], pulse_wf.shape[1]) * tsamp
+    # plt.plot(np.trapz(pulse_wf,x))
+    # plt.show()
+
+    # ensure that everything is shifted correctly when changes to uint8
+    # just run on 32 bit data, whatever
+    pulse_wf += np.random.rand(pulse_wf.shape[0], pulse_wf.shape[1]) - 0.5
+    pulse_wf[pulse_wf < 0] = 0
+    pulse_wf = np.around(pulse_wf)
+    # combining the pulse with data
+    # print("combining simulated pulse with data")
+    true_start_bin = time_to_bin(p_toa, tsamp) - toa_bin_top
+    true_end_bin = true_start_bin + pulse_wf.shape[1]
+    # print(f"start bin = {true_start_bin}  end bin = {true_end_bin}")
+    data[:, true_start_bin:true_end_bin] += pulse_wf
+    return data
 
 def inject_pulses(
     data, masked_chans, header, freqs, pulse_attrs, downsamp, stats_window, plot=False
 ):
-    """For a given set of pulses, inject them into sample data"""
+    """Injects a set of pulses into sample data.
+
+    Parameters:
+    -----------
+    data : numpy.ndarray
+        A 2D array of sample data with shape (nchan, nsamp).
+    masked_chans : list
+        A list of channel indices to be masked during pulse injection.
+    header : object
+        An object containing the header information of the data.
+    freqs : numpy.ndarray
+        A 1D array of frequencies in MHz.
+    pulse_attrs : list
+        A list of tuples containing pulse attributes: (toa, SNR, dm, width).
+    downsamp : int
+        Downsampling factor for the data.
+    stats_window : float
+        Length of time window (in seconds) used to estimate pulse statistics.
+    plot : bool, optional
+        Whether to plot the data before and after pulse injection.
+
+    Returns:
+    --------
+    data : numpy.ndarray
+        The input data array with the injected pulses added.
+    statistics : list
+        A list of statistics for each injected pulse.
+    """
     # get the noise level in each channel
     # print("estimating initial noise values pre-injection")
     # per_chan_noise = np.std(data, axis=1)
@@ -119,16 +203,14 @@ def inject_pulses(
     # 10s stats window
     for i, p in enumerate(pulse_attrs):
         p_toa, p_SNR, p_dm, p_width = p
-        print("computing toas per channel")
         # start the pulse 100 samples after the first simulated time step
         toa_bin_top = 500
         # assume TOA is arrival time at top of band
         max_dm_delay = dm_delay(p_dm, max(freqs), min(freqs))
-        print(f"max dm delay {max_dm_delay}")
+        # print(f"max dm delay {max_dm_delay}")
         max_dm_delay_bins = time_to_bin(max_dm_delay, tsamp)
-        print(f"dm delay across band = {max_dm_delay} s = {max_dm_delay_bins} bins")
+        # print(f"dm delay across band = {max_dm_delay} s = {max_dm_delay_bins} bins")
         nbins_to_sim = max_dm_delay_bins + 2 * toa_bin_top
-        x = np.linspace(0, nbins_to_sim, nbins_to_sim)
 
         # pulse peak time at each frequency
         dm_delays = dm_delay(p_dm, freqs[0], freqs)
@@ -138,75 +220,81 @@ def inject_pulses(
         if p_toa < stats_window:
             stats_window = p_toa
 
-        SNR, amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
+        SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
+        #scale stats std by the sqrt of number of masked channel and the number of channels
         print(f"stats std: {stats_std}")
-        # calculate off pulse mean
-        print("calculating expected S/N per channel")
-        # convert S/N into actual power value
-        # simulate the pulse as a Gaussian, normalise such that the
-        # peak corresponds to the per-channel power level corresponding
-        # to the total S/N
 
         width_bins = time_to_bin(p_width, tsamp)
         total_inj_pow = p_SNR * stats_std
         print(f"total power:{total_inj_pow}")
-
-        pulse_wf = np.exp(
-            -((x - per_chan_toa_bins[:, np.newaxis]) ** 2) / (2 * width_bins**2)
-        )
-        print("rescaling pulses to correct amplitude")
-        pulse_wf /= pulse_wf.max(axis=1)[:, np.newaxis]
-        pulse_wf *= total_inj_pow
-        # x = np.linspace(0, pulse_wf.shape[1], pulse_wf.shape[1]) * tsamp
-        # plt.plot(np.trapz(pulse_wf,x))
-        # plt.show()
-
-        # ensure that everything is shifted correctly when changes to uint8
-        # just run on 32 bit data, whatever
-        pulse_wf += np.random.rand(pulse_wf.shape[0], pulse_wf.shape[1]) - 0.5
-        pulse_wf[pulse_wf < 0] = 0
-        pulse_wf = np.around(pulse_wf)
-        # combining the pulse with data
-        print("combining simulated pulse with data")
-        true_start_bin = time_to_bin(p_toa, tsamp) - toa_bin_top
-        true_end_bin = true_start_bin + pulse_wf.shape[1]
-        print(f"start bin = {true_start_bin}  end bin = {true_end_bin}")
-        data[:, true_start_bin:true_end_bin] += pulse_wf
+        data = add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top)
     # data = data.astype("uint8")
     # np.savez('data',data = data,masked_chans = masked_chans)
     # for i, p in enumerate(pulse_attrs):
-    # downsamp=1
-        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans))
-    # for i, p in enumerate(pulse_attrs):
-    # downsamp=1
-    # statistics.append(calculate_SNR_wrapper([p,stats_window,tsamp,downsamp,data_copy,masked_chans]))
+        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
 
     return data, statistics
 
 
 def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
+    """
+    Calculates the signal-to-noise ratio (SNR) of a given pulsar signal using the provided parameters.
+
+    Args:
+    - p (tuple): a tuple containing the following parameters of the pulsar signal:
+        - p_toa (float): the time of arrival (TOA) of the pulsar signal
+        - p_SNR (float): the expected signal-to-noise ratio (SNR) of the pulsar signal
+        - p_dm (float): the dispersion measure (DM) of the pulsar signal
+        - p_width (float): the expected width of the pulsar signal
+    - stats_window (float): the length of the time window to use for statistical analysis (in seconds)
+    - tsamp (float): the sampling time of the data (in seconds)
+    - downsamp (int): the downsampling factor to use for detection
+    - data (np.ndarray): a 2D numpy array containing the data to analyze
+    - masked_chans (np.ndarray): a 1D numpy array containing the masked channels (i.e. channels to exclude from analysis)
+    - plot (bool): whether or not to plot the results of the analysis
+
+    Returns:
+    - SNR (float): the signal-to-noise ratio (SNR) of the pulsar signal
+    - amp (float): the amplitude of the pulsar signal
+    - std (float): the standard deviation of the data (i.e. noise)
+    - loc (float): the location of the pulsar signal
+    - sigma_width (float): the width of the pulsar signal
+    """
     p_toa, p_SNR, p_dm, p_width = p
     stats_start, stats_end = (
-        time_to_bin(p_toa - stats_window, tsamp * downsamp),
-        time_to_bin(p_toa + stats_window, tsamp * downsamp),
+        time_to_bin(p_toa - stats_window, tsamp),
+        time_to_bin(p_toa + stats_window, tsamp),
     )
-    stats_data = copy.deepcopy(data)
+    #add 10 seconds extra time to the stats window
+    extra_time_bins = time_to_bin(5,tsamp)
+    stats_start -= extra_time_bins
+    stats_end += extra_time_bins
+    #adjust so it's a multiple of downsamp
+    stats_len = stats_end - stats_start
+    stats_len = stats_len - stats_len%downsamp
+    stats_end = stats_start + stats_len
+
+    stats_data = copy.deepcopy(data[:,stats_start:stats_end])
     #dedisperse stats data
     stats_data = stats_data.dedisperse(p_dm)
     #downsample stats_data to the downsample that I will use for detection
     print(f"downmsampling with {downsamp}")
+
     stats_data = stats_data.downsample(tfactor=downsamp)
     stats_data = stats_data[~masked_chans,:]
     #get the window
-    stats_data = stats_data[:, stats_start:stats_end]
-
+    focused_stats_start = time_to_bin(5,tsamp*downsamp)
+    focused_stats_end = time_to_bin(5+2*stats_window,tsamp*downsamp)
+    stats_data = stats_data[:, focused_stats_start:focused_stats_end]
     #fit a polynomial to the window
     #get the mean of the window
     stats_mean = np.mean(stats_data, axis=0)
-    SNR,amp,std,loc,sigma_width =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp)
+    amp,std,loc,sigma_width =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp)
                                                     ,data,downsamp,plot=plot)
-    print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width}")
-    return SNR, amp, std,loc,sigma_width
+    std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
+    SNR = amp/std
+    print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width} inj amp: {p_SNR*std}")
+    return SNR, amp, std, loc, sigma_width
 
 
 def maskfile(maskfn, data, start_bin, nbinsextra):
@@ -247,6 +335,20 @@ def get_mask(rfimask, startsamp, N):
 
 
 def get_pazi_mask(pazi_fn):
+    """
+    Loads a PAZI file using psrchive and returns a mask array that represents
+    the frequency and time bins that are not flagged in the data.
+
+    Args:
+    - pazi_fn: str, the filename of the PAZI file to load
+
+    Returns:
+    - masks: numpy.ndarray with shape (total_bins,), a 1D array that represents
+    the average mask across all subintegrations and channels in the PAZI file.
+    The values of the array are between 0 and 1, where 1 indicates that the
+    corresponding bin is not flagged (i.e., it should be included in data analysis),
+    and 0 indicates that the bin is flagged (i.e., it should be excluded).
+    """
     import psrchive
     arch = psrchive.Archive_load(pazi_fn)
     #lets get the mask
@@ -262,10 +364,32 @@ def get_pazi_mask(pazi_fn):
 
 
 def get_filterbank_data_window(fn, maskfn, duration=20):
-    """
-    Open the filterbank file, extract the spectra around
-    the middle (+/- duration / 2) and return that data as a
-    2D array.
+    """Load a window of filterbank data from a .fil file, after applying a mask to discard some of the data.
+
+    Parameters
+    ----------
+    fn : str
+        The filename of the .fil file containing the filterbank data to load.
+    maskfn : str
+        The filename of the mask file to apply to the filterbank data, in order to discard some of the data.
+    duration : float, optional
+        The duration of the desired window of filterbank data, in seconds. The default is 20 seconds.
+
+    Returns
+    -------
+    tuple
+        A tuple containing the following elements:
+        - data: a FilterbankBlock object containing the loaded filterbank data
+        - channel_mask: a boolean numpy array indicating which channels were discarded by the mask
+        - presto_header: a header object describing the loaded filterbank data
+
+    Notes
+    -----
+    This function uses the sigpyproc library to read and process filterbank data from a .fil file, and applies a mask
+    to discard some of the data based on a separate mask file. The resulting window of filterbank data is returned as a
+    FilterbankBlock object, along with a boolean numpy array indicating which channels were discarded by the mask. The
+    function also updates the header object of the filterbank data to represent the loaded window, and returns it as
+    part of the output tuple.
     """
     from sigpyproc import readers as r
     from sigpyproc.block import FilterbankBlock as fbb
@@ -420,7 +544,11 @@ if __name__ == "__main__":
         type=str,
         default=None,
     )
-
+    parser.add_argument(
+        "--multi",
+        help="enable multiprocessing with 10 cores",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     duration = args.d
@@ -448,7 +576,7 @@ if __name__ == "__main__":
     # header, freqs, rawdata,masked_data = get_filterbank_data_window(ifn, duration=duration,maskfn=maskfn)
     print(f"getting data cutout from: {ifn}")
     # add the pulses
-    multiprocessing = True
+    multiprocessing = args.multi
     if multiprocessing:
         for dm in TRIAL_DMS:
             pool_arr = []
@@ -466,7 +594,7 @@ if __name__ == "__main__":
                         True,
                     )
                 )
-            with Pool(10) as p:
+            with Pool(5) as p:
                 p.map(multiprocess, pool_arr)
     else:
         rawdata, masked_chans, presto_header = get_filterbank_data_window(

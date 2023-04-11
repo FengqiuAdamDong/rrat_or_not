@@ -553,7 +553,7 @@ if __name__ == "__main__":
         inj_stats.load_inj_samp()
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
-        inj_stats.calculate_snr(False)
+        inj_stats.calculate_snr(True)
         with open("inj_stats.dill", "wb") as of:
             dill.dump(inj_stats, of)
     else:

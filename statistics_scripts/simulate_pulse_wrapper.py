@@ -16,7 +16,7 @@ import dill
 with open("inj_stats_fitted.dill", "rb") as inf:
     inj_stats = dill.load(inf)
 # popt = inj_stats.fit_logistic_amp
-det_error = inj_stats.detect_error_amp
+det_error = inj_stats.detect_error_snr
 sigma_snr=det_error
 
 def logistic(x, k, x0):
@@ -34,16 +34,16 @@ def logistic(x, k, x0):
 
 def convolve_first(amp,mu,std, sigma_snr=0.4):
     x_len = 10000
-    x_lims = [-1.5,1.5]
+    x_lims = [-10,10]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
     p_det = inj_stats.predict_poly(amp,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
     # p_det_giv_param = p_detect(amp_arr)*norm.pdf(amp_arr,mu,std)
-    # LN_dist = lognorm_dist(amp_arr,mu,std)
-    LN_dist = expon.pdf(amp_arr,scale=1/mu)
+    LN_dist = lognorm_dist(amp_arr,mu,std)
+    # LN_dist = expon.pdf(amp_arr,scale=1/mu)
     #convolve the two arrays
     conv = np.convolve(LN_dist,gaussian_error)*np.diff(amp_arr)[0]
-    conv_lims = [-3,3]
+    conv_lims = [-20,20]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
     #interpolate the values for amp
     convolve_amp = np.interp(amp,conv_amp_array,conv)
@@ -94,7 +94,7 @@ if __name__=='__main__':
     f = args.f
     dill_file = args.d
     from numpy.random import normal
-    snr = np.linspace(0,0.4,10000)
+    snr = np.linspace(0,5,10000)
     det_fn = inj_stats.predict_poly(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
     plt.plot(snr,det_fn)
     plt.show()
@@ -104,23 +104,27 @@ if __name__=='__main__':
     n = []
 
     mode = args.mode
-    for i in range(10):
-        if mode=="Exp":
-            pulses = simulate_pulses_exp(obs_t,p,f,mu,random=False)
-        elif mode=="Lognorm":
-            pulses = simulate_pulses(obs_t,p,f,mu,std,random=True)
-        elif mode=="Gauss":
-            pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=True)
+    if mode=="Exp":
+        pulses = simulate_pulses_exp(obs_t,p,f,mu,random=False)
+    elif mode=="Lognorm":
+        pulses = simulate_pulses(obs_t,p,f,mu,std,random=False)
+    elif mode=="Gauss":
+        pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=True)
+
+    for i in range(10000):
 
         rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
 
-        pulses = rv+pulses
+        d_pulses = rv+pulses
         # print("len simulated",len(pulses))
-        detected_pulses = n_detect(pulses)
+        detected_pulses = n_detect(d_pulses)
         #rv is a biased gaussian
         # print("len detected",len(detected_pulses))
         n.append(len(detected_pulses))
+
+    print("generated",len(pulses))
     plt.hist(n,bins="auto")
+    plt.xlabel("Number of pulses detected")
     plt.show()
     print(len(detected_pulses))
     import dill
@@ -153,6 +157,7 @@ if __name__=='__main__':
         temp.det_amp = snr
         temp.fluence_amp = snr
         temp.det_std = snr
+        temp.noise_std = snr
         inject_obj_arr.append(temp)
     inj_obj_arr = np.array(inject_obj_arr)
     det_class.filfiles = filfiles
@@ -169,7 +174,7 @@ if __name__=='__main__':
             #-1 means that the snr could not be measured well
             det_snr.append(pulse_obj.det_snr)
 
-    snr_array = np.linspace(0,1,10000)
+    snr_array = np.linspace(0,20,10000)
     # mu = -3
     # std = 0.4
     first = first_gauss(snr_array,mu,std,sigma_snr)
