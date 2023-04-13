@@ -35,12 +35,13 @@ fi
 cp $fil $SLURM_TMPDIR
 #we should be in the CHIPSPIPE run folder
 cp -r *rfifind* $SLURM_TMPDIR
+cp *.pazi $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
 python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 50 --n 2 $fil
 #come back
 cd -
-cp $SLURM_TMPDIR/*snr*.fil .
+cp $SLURM_TMPDIR/*SNR*.fil .
 cp $SLURM_TMPDIR/sample_injections.npz .
 # rm $fil
