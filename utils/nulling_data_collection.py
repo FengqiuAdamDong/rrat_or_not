@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nulling_mcmc
 import copy
-def calculate_on_off_intensities(data,mask,on_range,off_range):
+def calculate_on_off_intensities(data,on_range,off_range):
     #data is subint x phase
     phase = np.linspace(0,1,data.shape[1])
     on_ind = (phase>on_range[0])&(phase<on_range[1])
@@ -16,14 +16,13 @@ def calculate_on_off_intensities(data,mask,on_range,off_range):
     on_i = []
     off_i = []
     for i in range(data.shape[0]):
-        mask_profile = mask[i,:]
         profile = data[i,:]
-        #check if this subint is completely masked
-        if np.sum(mask_profile)==0:
-            print("skipping subint")
-            continue
         on_intensity = np.trapz(profile[on_ind],phase[on_ind])
         off_intensity = np.trapz(profile[off_ind],phase[off_ind])
+        if off_intensity==0:
+            continue
+        elif on_intensity==0:
+            continue
         on_i.append(on_intensity)
         off_i.append(off_intensity)
     return np.array(on_i),np.array(off_i)
@@ -45,7 +44,7 @@ def process_archive(fn,keep_subints):
 
     max_phase = arch.find_max_phase()
     #rorate to set max phase to 0.8
-    while np.abs(max_phase-0.8)>0.1:
+    while np.abs(max_phase-0.7)>0.1:
         print(max_phase)
         arch.rotate(max_phase-0.8)
         max_phase = arch.find_max_phase()
@@ -61,37 +60,55 @@ def process_archive(fn,keep_subints):
     for i in range(profiles.shape[2]):
         profiles_np[:,i] = profiles[:,0,i]
         mask_np[:,i] = masks[:,0,i]
+    #1 is is the subints to keep and 0 are the subints to mask
+    mask_subints = np.mean(mask_np,axis=1)!=0
     #go ahead and subtract the baseline for each subint by fitting a 6th order polynomial
     off_ind_array = []
+    profiles_np = profiles_np[int(profiles_np.shape[0]*(1-keep_subints)/2):int(profiles_np.shape[0]*(1+keep_subints)/2),:]
+    mask_subints = mask_subints[int(mask_subints.shape[0]*(1-keep_subints)/2):int(mask_subints.shape[0]*(1+keep_subints)/2)]
+    profiles_tmp = []
+    for i in range(profiles_np.shape[0]):
+        if mask_subints[i]==1:
+            profiles_tmp.append(profiles_np[i,:])
+    profiles_np = np.array(profiles_tmp)
+    phase = np.linspace(0,1,profiles_np.shape[1])
+    plt.plot(phase,profiles_np.mean(axis=0))
+    plt.show()
+    on_phase_edges = [-1,-1]
+    on_phase_edges[0] = float(input("on start"))
+    on_phase_edges[1] = float(input("on end"))
+
     for i in range(profiles_np.shape[0]):
         profile = copy.deepcopy(profiles_np[i,:])
         phase = np.linspace(0,1,profile.shape[0])
         #remove the on pulse from the profiles before fitting
-        on_phase_edges = [0.6,0.9]
+
         on_ind = (phase>on_phase_edges[0])&(phase<on_phase_edges[1])
         fit = np.polyfit(phase[~on_ind],profile[~on_ind],1)
         baseline = np.polyval(fit,phase)
         #plot the fit
         profiles_np[i,:] = profile - baseline
-        # plt.scatter(phase,profile,c='k')
-        # plt.plot(phase,baseline)
-        # plt.scatter(phase,profiles_np[i,:],c='r',alpha=0.5)
+
+        # plt.scatter(phase,profile,c='k',label='original profile')
+        # plt.plot(phase,baseline,label='baseline fit')
+        # plt.scatter(phase,profiles_np[i,:],c='r',alpha=0.5,label='baseline subtracted')
+        # plt.legend()
         # plt.figure()
-        # plt.scatter(phase[~on_ind],profile[~on_ind],c='k')
-        # plt.scatter(phase,baseline,c='r',alpha=0.5)
+        # plt.scatter(phase[~on_ind],profile[~on_ind],c='k',label='pulse removed')
+        # plt.scatter(phase,baseline,c='r',alpha=0.5,label='fit')
+        # plt.legend()
         # plt.show()
 
         #now scale the observation by the off pulse std
         off_phase_edges = [0.05,0.55]
         off_ind = (phase>off_phase_edges[0])&(phase<off_phase_edges[1])
         off_ind_array.append(profiles_np[i,off_ind])
+
     off_ind_array = np.array(off_ind_array)
     off_std = np.std(off_ind_array)
     profiles_np = profiles_np/off_std
     #keep on the keep subints portion of the data in the middle of profiles_np
-    profiles_np = profiles_np[int(profiles_np.shape[0]*(1-keep_subints)/2):int(profiles_np.shape[0]*(1+keep_subints)/2),:]
     folded_profile = np.mean(profiles_np,axis = 0)
-    phase = np.linspace(0,1,profiles_np.shape[1])
     plt.imshow(profiles_np,aspect="auto")
     plt.xlabel("phase bin")
     plt.ylabel("subint")
@@ -100,7 +117,7 @@ def process_archive(fn,keep_subints):
     plt.xlabel("phase")
     plt.ylabel("intensity")
     plt.show()
-    return profiles_np,mask_np
+    return profiles_np
 
 def maximise_fn(nf,on_bins,off_bins):
     return np.abs(np.sum(on_bins-nf*off_bins))
@@ -108,7 +125,7 @@ def maximise_fn(nf,on_bins,off_bins):
 def ritchings1976(on,off):
     #histogram the on and off pulse intensities
     # Define the bin edges
-    bin_edges = np.linspace(-0.4,0,5)
+    bin_edges = np.linspace(-0.2,0,20)
 
     # Create histograms for both arrays
     on_hist, _ = np.histogram(on, bins=bin_edges)
@@ -133,30 +150,33 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('filenames', metavar='N', type=str, nargs='+')
-    parser.add_argument('--on_phase_edges',type=float,nargs=2,default=[0.6,1])
+    parser.add_argument('--on_phase_edges',type=float,nargs=2,default=[0.5,1])
     parser.add_argument('--off_phase_edges',type=float,nargs=2,default=[0.1,0.5])
     parser.add_argument('--ks',type=float,help="give the value as decimal between 0 and 1 for the percentage of subints to keep",default=0.5)
     args = parser.parse_args()
     on_i = np.array([])
     off_i = np.array([])
     for fn in args.filenames:
-        profiles_np,mask_np = process_archive(fn,args.ks)
-        on_temp,off_temp = calculate_on_off_intensities(profiles_np,mask_np,args.on_phase_edges,args.off_phase_edges)
+        profiles_np = process_archive(fn,args.ks)
+        on_temp,off_temp = calculate_on_off_intensities(profiles_np,args.on_phase_edges,args.off_phase_edges)
+
         on_i = np.concatenate((on_i,on_temp))
         off_i = np.concatenate((off_i,off_temp))
 
-
+    print(on_i)
+    print(off_i)
     rit = ritchings1976(on_i,off_i)
     on_i_thresh = 0.13
     plt.figure()
-    plt.hist(on_i,bins="auto",label="on",density=True)
-    plt.hist(off_i,bins="auto",alpha=0.5,label="off",density=True)
+    plt.hist(on_i,bins=100,label="on",density=True)
+    plt.hist(off_i,bins=100,alpha=0.5,label="off",density=True)
     plt.axvline(on_i_thresh,color="k",linestyle="--")
     plt.legend()
 
     plt.title("on and off fluence bins")
+    plt.show()
     NP=nulling_mcmc.NullingPulsar(on_i, off_i, 2)
-    means_fit, means_err, stds_fit, stds_err, weights_fit, weights_err, samples, lnprobs=NP.fit_mcmc(nwalkers=40,niter=200,ninit=50,nthreads=25)
+    means_fit, means_err, stds_fit, stds_err, weights_fit, weights_err, samples, lnprobs=NP.fit_mcmc(nwalkers=40,niter=2000,ninit=50,nthreads=25)
     import corner
     labels = ["mu_null","mu_emit","sigma_null","sigma_emit","NF"]
     corner.corner(samples,labels=labels)

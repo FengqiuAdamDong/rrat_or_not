@@ -18,9 +18,11 @@ import inject_stats
 import argparse
 
 parser = argparse.ArgumentParser(description="Simulate some pulses")
-parser.add_argument("-o", type=float, default=500, help="mean")
-parser.add_argument("-p", type=float, default=1, help="standard deviation")
+parser.add_argument("-o", type=float, default=500, help="observed time")
+parser.add_argument("-p", type=float, default=1, help="period")
 parser.add_argument("-i", type=str, default="fake_data.dill", help="data")
+#add an argument for config file
+parser.add_argument("-c", type=str, default="config.yaml", help="config file that tells you about the mu ranges, the N ranges and the k ranges")
 
 args = parser.parse_args()
 obs_t = args.o
@@ -31,7 +33,7 @@ real_det = args.i
 # warnings.filterwarnings("ignore")
 def N_to_pfrac(x):
     total = obs_t / p
-    return x / total
+    return (1-(x / total))
 
 
 def pfrac_to_N(x):
@@ -39,37 +41,29 @@ def pfrac_to_N(x):
     return total * x
 
 
-def plot_mat_exp(mat, N_arr, k_arr, snrs, dets):
-    true_k = 0
+def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     max_likelihood_exp = np.max(mat)
-    mat = np.exp(mat - np.max(mat))  # *np.exp(max_likelihood_exp)
-    fig1, ax1 = plt.subplots()
-    posterior = np.trapz(mat, k_arr, axis=0)
-    ax1.plot(N_arr, posterior)
-    secax1 = ax1.secondary_xaxis("top", functions=(N_to_pfrac, N_to_pfrac))
-    secax1.set_xlabel("Pulsing Fraction")
-    ax1.set_xlabel("N")
-    ax1.set_title(f"# of det pulses:{len(dets)}")
-
-    plt.figure()
-    posterior = np.trapz(mat, N_arr, axis=1)
-    plt.plot(k_arr, posterior)
-    plt.xlabel("K")
-    plt.title(f"# of det pulses:{len(dets)}")
-
-    fig3, ax3 = plt.subplots()
-    # marginalise over std
-    plt.pcolormesh(k_arr, N_arr, mat.T)
-    secax3 = ax3.secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
-    secax3.set_ylabel("Pulsing Fraction")
-    ax3.set_xlabel("k")
-    ax3.set_ylabel("N")
-    ax3.set_title(f"# of det pulses:{len(dets)}")
+    mat = np.exp(mat - np.max(mat))
+    fig, axes = plt.subplots(2, 2)
+    posterior_N = np.trapz(mat, k_arr, axis=0)
+    posterior_k = np.trapz(mat, N_arr, axis=1)
+    axes[0, 0].plot(k_arr, posterior_k)
+    axes[1, 0].pcolormesh(k_arr, N_arr, mat.T)
+    axes[1, 0].set_xlabel("k")
+    axes[1, 0].set_ylabel("N")
+    axes[1, 1].plot(N_arr, posterior_N)
+    axes[1, 1].set_xlabel("N")
+    N_frac1 = axes[1, 1].secondary_xaxis("top", functions=(N_to_pfrac, N_to_pfrac))
+    N_frac2 = axes[1, 0].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
+    N_frac1.set_xlabel("Nulling Fraction")
+    N_frac2.set_ylabel("Nulling Fraction")
+    fig.delaxes(axes[0, 1])
+    plt.tight_layout()
     plt.show()
 
 
 def plot_mat_ln(
-    mat, N_arr, mu_arr, std_arr, snrs, dets, true_mu, true_std, title="plot"
+    mat, N_arr, mu_arr, std_arr, fluences, dets, true_mu, true_std, title="plot"
 ):
     # plot corner plot
     max_likelihood_ln = np.max(mat)
@@ -96,9 +90,9 @@ def plot_mat_ln(
 
     N_frac1 = ax[2, 0].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
     N_frac2 = ax[2, 1].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac2.set_ylabel("Pulsing Fraction")
+    N_frac2.set_ylabel("Nulling Fraction")
     N_frac3 = ax[2, 2].secondary_xaxis("top", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac3.set_xlabel("Pulsing Fraction")
+    N_frac3.set_xlabel("Nulling Fraction")
 
     fig.delaxes(ax[0, 1])
     fig.delaxes(ax[0, 2])
@@ -114,60 +108,114 @@ if __name__ == "__main__":
     # obs_t = 1088
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
-    det_snr = []
+    det_fluence = []
     det_width = []
+    det_snr = []
+    noise_std = []
     for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_snr != -1:
-            # -1 means that the snr could not be measured well
-            det_snr.append(pulse_obj.det_snr)
+        if pulse_obj.det_amp != -1:
+            # -1 means that the fluence could not be measured well
+            det_fluence.append(pulse_obj.det_fluence)
             det_width.append(pulse_obj.det_std)
-    # lets filter the det_SNRs too
-    det_snr = np.array(det_snr)
+            det_snr.append(pulse_obj.det_snr)
+            noise_std.append(pulse_obj.noise_std)
+    # lets filter the det_FLUENCEs too
+    det_fluence = np.array(det_fluence)
+    # apply offset to det fluence
+    import dill
+
+    with open("inj_stats_fitted.dill", "rb") as inf:
+        inj_stats = dill.load(inf)
+    poly_params = inj_stats.poly_snr
+
+    poly_fun = np.poly1d(poly_params)
+
+    det_snr_altered = np.array(poly_fun(det_snr))
+    det_fluence = np.array(det_fluence)
     det_width = np.array(det_width)
-    print(np.mean(det_width))
-    fig, axs = plt.subplots(1, 2)
-    axs[0].set_title("Widths")
-    axs[0].hist(det_width, bins=50)
-
-    axs[1].set_title("Histogram of detected pulses")
-    axs[1].hist(det_snr, bins="auto", density=True)
-    axs[1].set_xlabel("SNR")
-    plt.show()
     det_snr = np.array(det_snr)
+    det_snr = np.array(det_snr)
+    noise_std = np.array(noise_std)
+    print("mean width", np.mean(det_width))
+    fig, axs = plt.subplots(2, 2)
+    axs[0, 0].set_title("Widths")
+    axs[0, 0].hist(det_width, bins=50)
 
-    gauss_mesh_size = 20
-    mesh_size = 20
-    exp_mesh_size = 150
+    axs[1, 0].set_title("Histogram of detected pulses")
+    axs[1, 0].hist(det_fluence, bins="auto", density=True)
+    axs[1, 0].set_xlabel("FLUENCE")
+    axs[1, 1].hist(det_snr, bins="auto", label="snr")
+    axs[1, 1].set_title("detected snr")
+    axs[1, 1].set_xlabel("snr")
+    axs[1, 1].legend()
+    axs[0, 1].hist(det_snr_altered, bins="auto", label="poly")
+    axs[0, 1].hist(det_snr, alpha=0.5, bins="auto", label="fit")
+    axs[0, 1].set_title("detected snrlitudes")
+    axs[0, 1].set_xlabel("snr")
+    axs[0, 1].legend()
+    plt.show()
+    #load the config yaml file
+    import yaml
+    with open(args.c, "r") as inf:
+        config = yaml.safe_load(inf)
+    logn_N_range = config["logn_N_range"]
+    logn_mu_range = config["logn_mu_range"]
+    logn_std_range = config["logn_std_range"]
+    logn_mesh_size = config["logn_mesh_size"]
+
+    exp_N_range = config["exp_N_range"]
+    exp_k_range = config["exp_k_range"]
+    exp_mesh_size = config["exp_mesh_size"]
+
+    snr_thresh = 1.18
+    print("deleting:",sum(det_snr<snr_thresh),"points")
+    det_snr = det_snr[det_snr>snr_thresh]
+
+    # plt.show()
+    # det_snr = det_snr_altered
+
 
     # gaussian fit
-    # mu_arr_gauss = np.linspace(1,3,gauss_mesh_size)
-    # std_arr_gauss = np.linspace(0.3,1.5,gauss_mesh_size+1)
-    # N_arr_gauss = np.linspace(50,200,gauss_mesh_size+2)
-    # mat_gauss = statistics_gaus.likelihood_gauss(mu_arr_gauss,std_arr_gauss,N_arr_gauss,det_snr,mesh_size=gauss_mesh_size)
-    # plot_mat_ln(mat_gauss,N_arr_gauss,mu_arr_gauss,std_arr_gauss,det_snr,det_snr,0,0,title=f"gaussian num det={len(det_snr)}")
+    # mu_arr_gauss = np.linspace(-0.7, -0.6, gauss_mesh_size)
+    # std_arr_gauss = np.linspace(0.1, 0.3, gauss_mesh_size + 1)
+    # N_arr_gauss = np.linspace(len(det_snr), obs_t/p, gauss_mesh_size + 2)
+    # N_arr_gauss = np.linspace(19000, 20100, gauss_mesh_size + 2)
 
-    # res = o.minimize(statistics.negative_loglike,[0.5,0.2,len(det_snr)],(det_snr),
-    #             method='Nelder-Mead',bounds=[(0.001,2),(0.1,2),(len(det_snr),100000)])
+    # mat_gauss = statistics_gaus.likelihood_gauss(
+        # mu_arr_gauss, std_arr_gauss, N_arr_gauss, det_snr, mesh_size=gauss_mesh_size
+    # )
+    # plot_mat_ln(
+    #     mat_gauss,
+    #     N_arr_gauss,
+    #     mu_arr_gauss,
+    #     std_arr_gauss,
+    #     det_snr,
+    #     det_snr,
+    #     0,
+    #     0,
+    #     title=f"gaussian num det={len(det_snr)}",
+    # )
+
+
+    # res = o.minimize(statistics.negative_loglike,[-3,0.2,obs_t/p],(det_snr),
+    # method='Nelder-Mead',bounds=[(-5,5),(0.01,5),(len(det_snr),obs_t/p)])
     # mu_min = res.x[0]
     # std_min = res.x[1]
     # N_min = res.x[2]
-    # snr_s = np.linspace(1e-2,25,1000)
-    # y = statistics.lognorm_dist(snr_s,mu_min,std_min)*statistics.p_detect(snr_s)
-    # y_scale = np.trapz(y,snr_s)
-    # y = y/y_scale
-
-    # plt.plot(snr_s,y)
-    # plt.show()
-
-    # print(mu_min,std_min,N_min)
-
+    # print(res.x)
     # log normal original distribution
-    mu_arr = np.linspace(0.45, 0.55, mesh_size)
-    std_arr = np.linspace(0.08, 0.12, mesh_size + 1)
-    N_arr = np.linspace(9000, 11000, mesh_size + 2)
+    #if logn_n_range is -1 then set to obs/p and num pulses
+    if logn_N_range == -1:
+        logn_N_range = [len(det_snr), obs_t / p]
+    mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
+    std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
+    N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
+    # N_arr = np.linspace(200, obs_t/p , logn_mesh_size + 2)
+
+    # N_arr = np.linspace(470, 1000, mesh_size + 2)
 
     mat = statistics.likelihood_lognorm(
-        mu_arr, std_arr, N_arr, det_snr, mesh_size=mesh_size
+        mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
     )
     plot_mat_ln(
         mat,
@@ -181,44 +229,58 @@ if __name__ == "__main__":
         title=f"Lnorm num det:{len(det_snr)}",
     )
 
+
     # Exponential distributions start here#####################
-    # find the minimum for the exp
-    res = o.minimize(
-        statistics_exp.negative_loglike,
-        [1, len(det_snr)],
-        (det_snr),
-        method="Nelder-Mead",
-        bounds=[(0, 10), (len(det_snr), 4 * obs_t / p)],
-    )
-    print(res.x)
-    plt.title("Histogram of detected pulses")
-    n, bins, patches = plt.hist(det_snr, bins="auto", density=True)
-    plt.xlabel("SNR")
-    plt.ylabel("count")
-
+    # res = o.minimize(
+    # statistics_exp.negative_loglike,
+    # [1, len(det_snr)],
+    # (det_snr),
+    # method="Nelder-Mead",
+    # bounds=[(0, 100), (len(det_snr), obs_t / p)],
+    # )
+    # print(res.x)
     # create an array for k
-    min_k = res.x[0]
-    min_N = res.x[1]
-    y = np.exp(statistics_exp.log_snr_distribution_exp(snr_s, min_k))
-    scale = n[0] / np.exp(
-        statistics_exp.log_snr_distribution_exp(bins[0] + np.diff(bins)[0], min_k)
-    )
-    y = y * scale
-    plt.plot(snr_s, y)
-    plt.show()
-
-    k_arr = np.linspace(1.5, 2.5, exp_mesh_size)
-    N_arr_exp = np.linspace(len(det_snr), obs_t / p, exp_mesh_size * 3)
+    if exp_N_range == -1:
+        exp_N_range = [len(det_snr), obs_t/p]
+    k_arr = np.linspace(exp_k_range[0], exp_k_range[1], exp_mesh_size)
+    N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
     mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
+
     plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
     # lets calculate bayes factor
     range_N = max(N_arr) - min(N_arr)
+
+    # Log norm range
     range_mu = max(mu_arr) - min(mu_arr)
     range_std = max(std_arr) - min(std_arr)
+    # k range
+    range_k = max(k_arr) - min(k_arr)
+    # gauss range
+    # range_mu_gauss = max(mu_arr_gauss) - min(mu_arr_gauss)
+    # range_std_gauss = max(std_arr_gauss) - min(std_arr_gauss)
     # using uniform priors
+    # max_likelihood_gauss = np.max(mat_gauss)
     max_likelihood_ln = np.max(mat)
     max_likelihood_exp = np.max(mat_exp)
-    bayes_numerator = (
+    # bayes_gauss = (
+    #     np.log(
+    #         np.trapz(
+    #             np.trapz(
+    #                 np.trapz(
+    #                     np.exp(mat_gauss - max_likelihood_gauss), mu_arr_gauss, axis=0
+    #                 ),
+    #                 std_arr_gauss,
+    #                 axis=0,
+    #             ),
+    #             N_arr_gauss,
+    #             axis=0,
+    #         )
+    #     )
+    #     + max_likelihood_gauss
+    #     # - np.log(range_N * range_mu_gauss * range_std_gauss)
+    # )
+
+    bayes_ln = (
         np.log(
             np.trapz(
                 np.trapz(
@@ -231,9 +293,9 @@ if __name__ == "__main__":
             )
         )
         + max_likelihood_ln
-        - np.log(1 / (range_N * range_mu * range_std))
+        # - np.log(range_N * range_mu * range_std)
     )
-    bayes_denominator = (
+    bayes_exp = (
         np.log(
             np.trapz(
                 np.trapz(np.exp(mat_exp - max_likelihood_exp), k_arr, axis=0),
@@ -242,9 +304,11 @@ if __name__ == "__main__":
             )
         )
         + max_likelihood_exp
-        - np.log(1 / (range_N * range_mu))
+        # - np.log(range_N * range_k)
     )
-    OR = bayes_numerator - bayes_denominator
+    # print(bayes_gauss, bayes_ln, bayes_exp)
+    print(bayes_ln,bayes_exp)
+    # OR = bayes_numerator - bayes_denominator
     # if OR<0:
     #     print(f"OR less than 0 {fn}")
     #     plot_mat_ln(mat,N_arr,mu_arr,std_arr,pulse_snrs,det_snr,true_mu,true_std)
@@ -260,4 +324,4 @@ if __name__ == "__main__":
         N_arr_exp=N_arr_exp,
         mat_exp=mat_exp,
     )
-    print("log Odds Ratio in favour of LN model", OR)
+    # print("log Odds Ratio in favour of LN model", OR)
