@@ -26,7 +26,7 @@ TRIAL_SNR = np.linspace(0.1,4.5,20)
 # TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
-pulse_width = [12.41e-3]  # 10ms pulse width
+pulse_width = [0.02029]  # 10ms pulse width
 
 TRIAL_DMS = [
     100,

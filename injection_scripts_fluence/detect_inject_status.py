@@ -4,12 +4,11 @@ import sys
 import glob
 import os
 
-
 def check_injection_status(sample):
     grid = sample["grid"]
     snrs = grid[:, 1]
     unique_snrs = np.array(list(set(snrs)))
-    unique_snrs = np.array(list(np.round(s, 2) for s in unique_snrs))
+    unique_snrs = np.array(list(str(np.around(s, 4)).zfill(6) for s in unique_snrs))
     # check file existance
     fil_files = glob.glob("*SNR*.fil")
     # check all the unique snrs are in there
