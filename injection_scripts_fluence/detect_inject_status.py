@@ -11,12 +11,12 @@ def check_injection_status(sample):
     unique_snrs = np.array(list(set(snrs)))
     unique_snrs = np.array(list(np.round(s, 2) for s in unique_snrs))
     # check file existance
-    fil_files = glob.glob("*snr*.fil")
+    fil_files = glob.glob("*SNR*.fil")
     # check all the unique snrs are in there
     all_injected = np.zeros(len(unique_snrs), dtype=bool)
     for f in fil_files:
         for j, s in enumerate(unique_snrs):
-            if f"snr{s}.fil" in f:
+            if f"SNR{s}.fil" in f:
                 all_injected[j] = True
     if sum(all_injected) == len(all_injected):
         return True
