@@ -38,7 +38,7 @@ cp *SNR*.fil $SLURM_TMPDIR
 #copy all the rfifind stuff so that we can find/use the masks
 cp */*rfifind* $SLURM_TMPDIR
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_stats.py -multi -l *SNR*.fil
+python "$SCRIPT_DIR"/inject_stats.py -l *SNR*.fil
 #come back
 cd -
 cp $SLURM_TMPDIR/inj_stats.dill .
