@@ -8,11 +8,12 @@ import dill
 from inject_stats import inject_stats
 
 
-class inject_stats_collection:
+class inject_stats_collection(inject_stats):
     def __init__(self):
         self.inj_stats = []
         self.folder = []
-
+        self.det_snr = []
+        self.detected_pulses = []
     def calculate_detection_curve(self, csvs="1"):
         # build statistics
         snrs = []
@@ -22,49 +23,30 @@ class inject_stats_collection:
             if csvs != "all":
                 # only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
+                inst.get_base_fn()
+                inst.amplitude_statistics()
                 inst.compare([csv], title=f)
-                snr, det, tot = inst.return_detected()
-                for s, d, t in zip(snr, det, tot):
-                    if s in snrs:
-                        i = np.argwhere(np.array(snrs) == s)[0][0]
-                        detecteds[i] = detecteds[i] + d
-                        totals[i] = totals[i] + t
-                    else:
-                        snrs.append(s)
-                        detecteds.append(d)
-                        totals.append(t)
-        detecteds = np.array(detecteds)
-        totals = np.array(totals)
-        snrs = np.array(snrs)
-        det_frac = detecteds / totals
-        plt.scatter(snrs, det_frac)
-        fit_det(det_frac, snrs)
-        plt.savefig("overall_selection.png")
-
-
-def logistic(x, k, x0):
-    L = 1
-    return L / (1 + np.exp(-k * (x - x0)))
-
-
-def fit_det(p, snr, plot=True):
-    import scipy.optimize as opt
-
-    popt, pcov = opt.curve_fit(logistic, snr, p, [9.6, 2.07], maxfev=int(1e6))
-    logisitic_params = popt
-    np.save("det_fun_params", popt)
-    if plot:
-        plt.plot(snr, logistic(snr, popt[0], popt[1]))
-        plt.xlabel("SNR")
-        plt.ylabel("Detection percentage")
-
+                self.det_snr.append(inst.det_snr)
+                self.detected_pulses.append(inst.detected_pulses)
+        self.det_snr = np.array(self.det_snr)
+        self.detected_pulses = np.array(self.detected_pulses)
+        all_det_snr = self.det_snr.flatten()
+        detected_snr = self.det_snr[self.detected_pulses]
+        self.bin_detections(all_det_snr, detected_snr, num_bins=30)
+        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=10)
+        predict_x_array = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
+        self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title="overall detection curve")
+        detect_errors = list(inj_stats.detect_error_snr for inj_stats in self.inj_stats)
+        self.detect_error_snr = np.mean(detect_errors)
+        plt.savefig("overall_detection_curve.png")
+        plt.close()
 
 def combine_images():
     import os
     import glob
     from PIL import Image
 
-    image_array = glob.glob("*detection_curve.png")
+    image_array = glob.glob("*fit_snr.png")
     images = [Image.open(x) for x in image_array]
     widths, heights = zip(*(i.size for i in images))
     row_len = 10
@@ -106,4 +88,9 @@ if __name__ == "__main__":
             continue
 
     inj_collection.calculate_detection_curve()
+
+    import dill
+    with open("inj_stats_combine_fitted.dill", "wb") as of:
+        dill.dump(inj_collection, of)
+
     combine_images()

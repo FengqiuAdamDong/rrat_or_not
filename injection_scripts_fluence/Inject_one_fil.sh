@@ -46,4 +46,6 @@ python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 400 --n 50 $fil
 cd -
 cp $SLURM_TMPDIR/*SNR*.fil .
 cp $SLURM_TMPDIR/sample_injections.npz .
+#clean up tmpdir
+rm -r $SLURM_TMPDIR
 # rm $fil
