@@ -3,7 +3,7 @@
 #SBATCH --export=NONE
 #SBATCH --time=10:00:00
 #SBATCH --mem=8GB
-#SBATCH --cpus-per-task=5
+#SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections_det
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
