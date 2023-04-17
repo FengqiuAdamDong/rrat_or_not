@@ -582,6 +582,10 @@ class inject_stats:
                 temp.append(t)
             self.sorted_inject = np.array(temp)
 
+    def get_base_fn(self):
+        #gets the base filename from the filename structure of filfiles
+        self.base_fn = self.filfiles[0].split("_")[0]+"_"+self.filfiles[0].split("_")[1]
+
     def get_mask_fn(self):
         # get the filenames of all the masks
         self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
@@ -676,7 +680,11 @@ class inject_stats:
         axes[1].set_xlabel("Injected SNR")
         axes[1].set_ylabel("Detected noise")
         axes[2].errorbar(inj_snr, det_amp, yerr=np.array(det_amp_std), fmt=".")
-        plt.show()
+        if hasattr(self, "base_fn"):
+            plt.savefig(self.base_fn + "_amp.png")
+        else:
+            plt.show()
+        plt.close()
         ind = np.argsort(inj_snr)
         self.det_snr = det_snr[ind]
         self.det_snr_std = det_snr_std[ind]
@@ -800,21 +808,28 @@ class inject_stats:
 
         # set the number of bins and the number of data points per bin
         num_bins = 30
-        num_points_per_bin = len(all_det_snr) // num_bins
-        print("number of points in each bin ", num_points_per_bin)
         self.bin_detections(all_det_snr,detected_snr,num_bins)
 
 
         predict_x_array = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
         # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
         self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=7)
-        self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True)
+        self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title=title)
+        if hasattr(self, "base_fn"):
+            plt.savefig(self.base_fn + "_fit_snr.png")
+        else:
+            plt.show()
+        plt.close()
         inj_fit_x = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
         inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
-        self.predict_poly(inj_fit_x,x=self.snr,p=self.det_frac,poly=inj_snr_fit,plot=True)
-        plt.show()
+        self.predict_poly(inj_fit_x,x=self.snr,p=self.det_frac,poly=inj_snr_fit,plot=True,title=title)
+        if hasattr(self, "base_fn"):
+            plt.savefig(self.base_fn + "_inj_snr.png")
+        else:
+            plt.show()
+        plt.close()
 
-    def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20):
+    def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
         # set the number of data points per bin
         num_points_per_bin = len(all_det_vals) // num_bins
         print("number of points in each bin ", num_points_per_bin)
@@ -838,16 +853,16 @@ class inject_stats:
         hist_all = hist_all[~np.isnan(detected_det_frac)]
         hist_detected = hist_detected[~np.isnan(detected_det_frac)]
         detected_det_frac = detected_det_frac[~np.isnan(detected_det_frac)]
-
-        fig,axes = plt.subplots(1,2)
-        axes[0].scatter(bin_midpoints,detected_det_frac,label="P(Detected|amplitude_detected)")
-        axes[1].scatter(bin_midpoints,hist_detected,label="the detected pulses")
-        axes[1].scatter(bin_midpoints,hist_all,alpha=0.5,label="all the pulses")
-        axes[1].legend()
+        if plot:
+            fig,axes = plt.subplots(1,2)
+            axes[0].scatter(bin_midpoints,detected_det_frac,label="P(Detected|amplitude_detected)")
+            axes[1].scatter(bin_midpoints,hist_detected,label="the detected pulses")
+            axes[1].scatter(bin_midpoints,hist_all,alpha=0.5,label="all the pulses")
+            axes[1].legend()
         self.detected_bin_midpoints = bin_midpoints
         self.detected_det_frac = detected_det_frac
 
-    def predict_poly(self,predict_x,x,p,poly=-99,plot=False):
+    def predict_poly(self,predict_x,x,p,poly=-99,plot=False,title="polynomial fit"):
         if isinstance(poly,int):
             poly = self.poly_det_fit
         ind_1 = np.argwhere(p==max(p))
@@ -873,7 +888,7 @@ class inject_stats:
             axes.plot(predict_x,p_pred,label="poly_fit")
             axes.set_xlabel("Amplitude")
             axes.set_ylabel("Det Frac")
-            axes.set_title("Polynomial fit")
+            axes.set_title(title)
             axes.set_ylim([-0.5,1.5])
             axes.legend()
 

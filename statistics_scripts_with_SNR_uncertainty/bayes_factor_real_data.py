@@ -126,8 +126,11 @@ if __name__ == "__main__":
 
     with open("inj_stats_fitted.dill", "rb") as inf:
         inj_stats = dill.load(inf)
-    poly_params = inj_stats.poly_snr
-
+    try:
+        poly_params = inj_stats.poly_snr
+    except:
+        #there isn't poly params, so just set to 1,0
+        poly_params = [1,0]
     poly_fun = np.poly1d(poly_params)
 
     det_snr_altered = np.array(poly_fun(det_snr))
@@ -167,7 +170,7 @@ if __name__ == "__main__":
     exp_k_range = config["exp_k_range"]
     exp_mesh_size = config["exp_mesh_size"]
 
-    snr_thresh = 1.18
+    snr_thresh = 1.3
     print("deleting:",sum(det_snr<snr_thresh),"points")
     det_snr = det_snr[det_snr>snr_thresh]
 

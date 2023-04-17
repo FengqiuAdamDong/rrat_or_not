@@ -41,6 +41,7 @@ def logistic(x, k, x0):
 
 def p_detect(snr):
     return inj_stats.predict_poly(snr,x=inj_stats.detected_bin_midpoints,p=inj_stats.detected_det_frac)
+
 detfn = p_detect(snr_arr)
 plt.plot(snr_arr, detfn)
 
