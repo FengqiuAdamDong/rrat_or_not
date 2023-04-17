@@ -16,6 +16,13 @@ do
     #get the maskfile
     echo $FOL
     cd $FOL
+    #check if inj_stats already exists
+    if [ -f "inj_stats.dill" ]; then
+        echo "inj_stats.dill already exists, skipping"
+        cd ..
+        continue
+    fi
+
     #copy the filterbank file back in
     if [ "$LOCAL" != true ]; then
         sbatch $SOURCEDIR/detect_one_fil.sh -i $FOL -a $SOURCEDIR
