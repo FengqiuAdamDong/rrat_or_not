@@ -820,6 +820,7 @@ class inject_stats:
         else:
             plt.show()
         plt.close()
+        import pdb; pdb.set_trace()
         inj_fit_x = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
         inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
         self.predict_poly(inj_fit_x,x=self.snr,p=self.det_frac,poly=inj_snr_fit,plot=True,title=title)
