@@ -24,7 +24,7 @@ if [ "$LOCAL" != true ]; then
     module use /project/6004902/modulefiles
     module load presto
     module load chime-psr
-    source /home/adamdong/injections/bin/activate
+    source ~/projects/rrg-istairs-ad/Your/bin/activate
 else
     SLURM_TMPDIR='/media/adam/d0fdb915-c69f-4fba-9759-ed1844c4685b/tmpdir/'$PULSAR
     echo $SLURM_TMPDIR
