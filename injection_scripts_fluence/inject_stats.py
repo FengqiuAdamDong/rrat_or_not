@@ -904,6 +904,8 @@ class inject_stats:
             ind_0 = 0
         if ind_1>(len(x)-1):
             ind_1 = len(x)-1
+        print("ind0",ind_0)
+        print("ind1",ind_1)
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
         return poly
 
