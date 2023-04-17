@@ -2,7 +2,7 @@
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
 #SBATCH --time=3:00:00
-#SBATCH --mem=12G
+#SBATCH --mem=24G
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
@@ -26,6 +26,8 @@ if [ "$LOCAL" != true ]; then
     module use /project/6004902/modulefiles
     module load presto
     module load chime-psr
+    module load psrchive
+    source ~/projects/rrg-istairs-ad/Your/bin/activate
 else
     SLURM_TMPDIR='/media/adam/d0fdb915-c69f-4fba-9759-ed1844c4685b/tmpdir/'$PULSAR
     echo $SLURM_TMPDIR
@@ -39,7 +41,7 @@ cp *.pazi $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 50 --n 2 $fil
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 400 --n 50 $fil
 #come back
 cd -
 cp $SLURM_TMPDIR/*SNR*.fil .
