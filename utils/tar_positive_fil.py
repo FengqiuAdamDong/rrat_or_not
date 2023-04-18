@@ -2,6 +2,7 @@ import numpy as np
 from read_positive_burst import read_positive_burst
 from extract_snr import combine_positives
 import argparse
+import glob
 if __name__ == "__main__":
     # fn = 'real_pulses/positive_bursts_edit_snr.csv'
     # fn1 = 'real_pulses/positive_bursts_1_edit_snr.csv'
@@ -41,14 +42,18 @@ if __name__ == "__main__":
     for f in fil1:
         if ".fil" in f:
             filfiles.append(f)
-            maskedfn = f.strip(".fil") + "_rfifind.mask"
-            maskfiles.append(maskedfn)
+            maskedfn = glob.glob(f"{f.strip('.fil')}*rfifind*")
+            print(maskedfn)
+            maskfiles += maskedfn
     #fil1 has the list of files
     #maskfiles has the list of mask files
     #construct the tar command
     tarcommand = f"tar -cvf {args.o}.tar"
-    for f,m in zip(filfiles,maskfiles):
-        tarcommand += f" {f} {m}"
+    for f in filfiles:
+        tarcommand += f" {f}"
+    for f in maskfiles:
+        tarcommand += f" {f}"
+
     #run the tar command
     import subprocess
     print(f"tarring {len(filfiles)} fil files and {len(maskfiles)} mask files")
