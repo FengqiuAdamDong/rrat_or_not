@@ -26,7 +26,7 @@ do
         module use /project/6004902/modulefiles
         module load presto
         module load chime-psr
-        source ~/projects/rrg-istairs-ad/Your/bin/activate
+        source ~/extract_snr/bin/activate
     fi
     status=$(python $SOURCEDIR/detect_inject_status.py sample_injections.npz)
     if [ "$status" != 0 ]; then
