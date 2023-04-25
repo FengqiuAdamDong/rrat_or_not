@@ -28,4 +28,4 @@ if __name__=='__main__':
         #basename
         basename = active_file.split(".")[0]+'/'
         #symbolic link the base folder
-        os.symlink(os.path.join(pwd,basename), os.path.join(pwd,path)
+        os.symlink(os.path.join(pwd,basename), os.path.join(pwd,path))
