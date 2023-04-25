@@ -10,14 +10,19 @@ import scipy.optimize as opt
 import dill
 from scipy.integrate import quad
 
-with open("inj_stats_fitted.dill", "rb") as inf:
-    inj_stats = dill.load(inf)
-# popt = inj_stats.fit_logistic_amp
-det_error = inj_stats.detect_error_snr
 
-snr_arr = np.linspace(0, 5, 1000)
-print("det error", det_error)
 
+def load_detection_fn(detection_curve):
+
+    global inj_stats
+    with open("inj_stats_combine_fitted.dill", "rb") as inf:
+        inj_stats = dill.load(inf)
+    global det_error
+    det_error = inj_stats.detect_error_snr
+    snr_arr = np.linspace(0, 5, 1000)
+    print("det error", det_error)
+    detfn = p_detect(snr_arr)
+    plt.plot(snr_arr, detfn)
 
 def lognorm_dist(x, mu, sigma):
     pdf = np.zeros(x.shape)
@@ -42,8 +47,6 @@ def logistic(x, k, x0):
 def p_detect(snr):
     return inj_stats.predict_poly(snr,x=inj_stats.detected_bin_midpoints,p=inj_stats.detected_det_frac)
 
-detfn = p_detect(snr_arr)
-plt.plot(snr_arr, detfn)
 
 
 def n_detect(snr_emit):

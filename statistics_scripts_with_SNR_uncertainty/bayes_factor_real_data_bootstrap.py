@@ -34,6 +34,8 @@ statistics.load_detection_fn(detection_curve)
 
 import statistics_exp
 import statistics_gaus
+
+
 # warnings.filterwarnings("ignore")
 def N_to_pfrac(x):
     total = obs_t / p
@@ -51,20 +53,7 @@ def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     fig, axes = plt.subplots(2, 2)
     posterior_N = np.trapz(mat, k_arr, axis=0)
     posterior_k = np.trapz(mat, N_arr, axis=1)
-    axes[0, 0].plot(k_arr, posterior_k)
-    axes[1, 0].pcolormesh(k_arr, N_arr, mat.T)
-    axes[1, 0].set_xlabel("k")
-    axes[1, 0].set_ylabel("N")
-    axes[1, 1].plot(N_arr, posterior_N)
-    axes[1, 1].set_xlabel("N")
-    N_frac1 = axes[1, 1].secondary_xaxis("top", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac2 = axes[1, 0].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac1.set_xlabel("Nulling Fraction")
-    N_frac2.set_ylabel("Nulling Fraction")
-    fig.delaxes(axes[0, 1])
-    plt.tight_layout()
-    plt.show()
-
+    return posterior_N, posterior_k
 
 def plot_mat_ln(
     mat, N_arr, mu_arr, std_arr, fluences, dets, true_mu, true_std, title="plot"
@@ -78,39 +67,7 @@ def plot_mat_ln(
     d_pos_mu_N = np.trapz(mat, std_arr, axis=1)
     d_pos_std_N = np.trapz(mat, mu_arr, axis=0)
     d_pos_mu_std = np.trapz(mat, N_arr, axis=-1)
-    fig, ax = plt.subplots(3, 3)
-    fig.suptitle(title)
-    ax[0, 0].plot(mu_arr, posterior_mu)
-    # ax[0, 0].plot(posterior_mu)
-
-    ax[1, 0].pcolormesh(mu_arr, std_arr, d_pos_mu_std.T)
-    # ax[1, 0].imshow(d_pos_mu_std.T, aspect="auto")
-    ax[1, 1].plot(std_arr, posterior_std)
-    # ax[1, 1].plot(posterior_std)
-
-    ax[2, 0].pcolormesh(mu_arr, N_arr, d_pos_mu_N.T)
-    # ax[2, 0].imshow(d_pos_mu_N.T, aspect="auto")
-    ax[2, 1].pcolormesh(std_arr, N_arr, d_pos_std_N.T)
-    # ax[2, 1].imshow(d_pos_std_N.T, aspect="auto")
-    ax[2, 2].plot(N_arr, posterior_N)
-    ax[2, 0].set_xlabel("mu")
-    ax[2, 0].set_ylabel("N")
-    ax[1, 0].set_ylabel("std")
-    ax[2, 1].set_xlabel("std")
-    ax[2, 2].set_xlabel("N")
-
-    N_frac1 = ax[2, 0].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac2 = ax[2, 1].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac2.set_ylabel("Nulling Fraction")
-    N_frac3 = ax[2, 2].secondary_xaxis("top", functions=(N_to_pfrac, N_to_pfrac))
-    N_frac3.set_xlabel("Nulling Fraction")
-
-    fig.delaxes(ax[0, 1])
-    fig.delaxes(ax[0, 2])
-    fig.delaxes(ax[1, 2])
-    plt.tight_layout()
-    plt.show()
-
+    return posterior_N, posterior_mu, posterior_std
 
 if __name__ == "__main__":
     import sys
@@ -133,10 +90,9 @@ if __name__ == "__main__":
     # lets filter the det_FLUENCEs too
     det_fluence = np.array(det_fluence)
     # apply offset to det fluence
-
+    #load the config yaml file
     import dill
-
-    with open(detection_curve,"rb") as inf:
+    with open("inj_stats_combine_fitted.dill", "rb") as inf:
         inj_stats = dill.load(inf)
     try:
         poly_params = inj_stats.poly_snr
@@ -169,7 +125,7 @@ if __name__ == "__main__":
     axs[0, 1].set_xlabel("snr")
     axs[0, 1].legend()
     plt.show()
-    #load the config yaml file
+
     logn_N_range = config["logn_N_range"]
     logn_mu_range = config["logn_mu_range"]
     logn_std_range = config["logn_std_range"]
@@ -217,28 +173,56 @@ if __name__ == "__main__":
     # print(res.x)
     # log normal original distribution
     #if logn_n_range is -1 then set to obs/p and num pulses
-    if logn_N_range == -1:
-        logn_N_range = [len(det_snr), obs_t / p]
-    mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
-    std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
-    N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
-    # N_arr = np.linspace(200, obs_t/p , logn_mesh_size + 2)
+    max_N = []
+    max_mu = []
+    max_std = []
+    for i in range(50):
+        #pick a random subset of the data of 40 points
+        rand_inds = np.random.choice(len(det_snr),60,replace=False)
+        det_snr_sub = det_snr[rand_inds]
+        if logn_N_range == -1:
+            logn_N_range = [len(det_snr_sub), obs_t / p]
+        mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
+        std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
+        N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
+        # N_arr = np.linspace(200, obs_t/p , logn_mesh_size + 2)
 
-    # N_arr = np.linspace(470, 1000, mesh_size + 2)
-    mat = statistics.likelihood_lognorm(
-        mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
-    )
-    plot_mat_ln(
-        mat,
-        N_arr,
-        mu_arr,
-        std_arr,
-        det_snr,
-        det_snr,
-        0,
-        0,
-        title=f"Lnorm num det:{len(det_snr)}",
-    )
+        # N_arr = np.linspace(470, 1000, mesh_size + 2)
+        mat = statistics.likelihood_lognorm(
+            mu_arr, std_arr, N_arr, det_snr_sub, mesh_size=logn_mesh_size
+        )
+        posterior_N, posterior_mu, posterior_std = plot_mat_ln(
+            mat,
+            N_arr,
+            mu_arr,
+            std_arr,
+            det_snr_sub,
+            det_snr_sub,
+            0,
+            0,
+            title=f"Lnorm num det:{len(det_snr_sub)}",
+        )
+        # fig,axes = plt.subplots(3)
+        # axes[0].plot(N_arr,posterior_N)
+        # axes[0].set_title("N")
+        # axes[1].plot(mu_arr,posterior_mu)
+        # axes[1].set_title("mu")
+        # axes[2].plot(std_arr,posterior_std)
+        # axes[2].set_title("std")
+        # plt.show()
+        max_N.append(N_arr[np.argmax(posterior_N)])
+        max_mu.append(mu_arr[np.argmax(posterior_mu)])
+        max_std.append(std_arr[np.argmax(posterior_std)])
+
+    fig,axes = plt.subplots(3)
+    axes[0].hist(max_N,bins="auto")
+    axes[0].set_title("N")
+    axes[1].hist(max_mu,bins="auto")
+    axes[1].set_title("mu")
+    axes[2].hist(max_std,bins="auto")
+    axes[2].set_title("std")
+    plt.show()
+
 
 
     # Exponential distributions start here#####################
@@ -318,7 +302,7 @@ if __name__ == "__main__":
         # - np.log(range_N * range_k)
     )
     # print(bayes_gauss, bayes_ln, bayes_exp)
-    print('LN:',bayes_ln,'exp:',bayes_exp)
+    print(bayes_ln,bayes_exp)
     # OR = bayes_numerator - bayes_denominator
     # if OR<0:
     #     print(f"OR less than 0 {fn}")
