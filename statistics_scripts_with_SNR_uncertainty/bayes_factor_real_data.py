@@ -318,7 +318,7 @@ if __name__ == "__main__":
         # - np.log(range_N * range_k)
     )
     # print(bayes_gauss, bayes_ln, bayes_exp)
-    print(bayes_ln,bayes_exp)
+    print('LN:',bayes_ln,'exp:',bayes_exp)
     # OR = bayes_numerator - bayes_denominator
     # if OR<0:
     #     print(f"OR less than 0 {fn}")
