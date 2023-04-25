@@ -22,8 +22,10 @@ if __name__=='__main__':
     #symbolic link every gap-th file to path
     for i in range(0,len(files),gap):
         active_file = files[i]
-        os.symlink(active_file, os.path.join(path,active_file))
+        #get pwd
+        pwd = os.getcwd()
+        os.symlink(os.path.join(pwd,active_file), os.path.join(pwd,os.path.join(path,active_file)))
         #basename
         basename = active_file.split(".")[0]+'/'
         #symbolic link the base folder
-        os.symlink(basename, os.path.join(path,basename))
+        os.symlink(os.path.join(pwd,basename), os.path.join(pwd,os.path.join(path,basename)))
