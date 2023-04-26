@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --account=rrg-istairs-ad
+#SBATCH --export=NONE
+#SBATCH --time=1:00:00
+#SBATCH --mem=24GB
+#SBATCH --cpus-per-task=1
+#SBATCH --job-name=filterbank_cut
+#SBATCH --output=%x-%j.out
+#SBATCH --error=%x-%j.err
+
+python python ~/rrat_or_not/utils/cut_centre_filterbank.py --samples_percent $1 --input_file $2
