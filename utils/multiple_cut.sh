@@ -10,6 +10,7 @@ do
     then
         echo "File ${file}_cut.fil already exists, skipping"
         continue
+    else
+        sbatch ~/rrat_or_not/utils/cut_single.sh 80 $file
     fi
-    sbatch ~/rrat_or_not/utils/cut_single.sh 80 $file
 done
