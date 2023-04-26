@@ -19,7 +19,7 @@ def load_detection_fn(detection_curve):
         inj_stats = dill.load(inf)
     global det_error
     det_error = inj_stats.detect_error_snr
-    snr_arr = np.linspace(0, 5, 1000)
+    snr_arr = np.linspace(0, 10, 1000)
     print("det error", det_error)
     detfn = p_detect(snr_arr)
     plt.plot(snr_arr, detfn)
@@ -44,7 +44,9 @@ def logistic(x, k, x0):
     detection_fn[snr <= -snr_limit] = 0
     return detection_fn
 
-def p_detect(snr):
+def p_detect(snr,interp=True):
+    if interp:
+        return np.interp(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
     return inj_stats.predict_poly(snr,x=inj_stats.detected_bin_midpoints,p=inj_stats.detected_det_frac)
 
 
@@ -70,8 +72,7 @@ def first(amp,mu,std, sigma_snr=0.4):
     conv_lims = [-xlim*2,xlim*2]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
     #interpolate the values for amp
-    p_det = inj_stats.predict_poly(conv_amp_array,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
-
+    p_det = p_detect(conv_amp_array)
     likelihood_conv = conv*p_det
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     # plt.close()
@@ -91,7 +92,7 @@ def second(n, mu, std, N, sigma_snr):
 
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
-    p_not_det = 1-inj_stats.predict_poly(amp,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+    p_not_det = 1-p_detect(amp)
     # p_det_giv_param = p_detect(amp_arr)*norm.pdf(amp_arr,mu,std)
     LN_dist = lognorm_dist(amp_arr,mu,std)
     # plt.figure()
@@ -102,7 +103,7 @@ def second(n, mu, std, N, sigma_snr):
     conv_lims = [-xlim*2,xlim*2]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
     #interpolate the values for amp
-    p_det = inj_stats.predict_poly(conv_amp_array,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+    p_det = p_detect(conv_amp_array)
     likelihood_conv = conv*(1-p_det)
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
 
