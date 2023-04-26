@@ -8,4 +8,4 @@
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
-python python ~/rrat_or_not/utils/cut_centre_filterbank.py --samples_percent $1 --input_file $2
+python ~/rrat_or_not/utils/cut_centre_filterbank.py --samples_percent $1 --input_file $2
