@@ -33,13 +33,20 @@ class inject_stats_collection(inject_stats):
         all_det_snr = self.det_snr.flatten()
         detected_snr = self.det_snr[self.detected_pulses]
         self.bin_detections(all_det_snr, detected_snr, num_bins=30)
-        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=10)
+        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=50)
         predict_x_array = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
         self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title="overall detection curve")
         detect_errors = list(inj_stats.detect_error_snr for inj_stats in self.inj_stats)
         self.detect_error_snr = np.mean(detect_errors)
         plt.savefig("overall_detection_curve.png")
         plt.close()
+        interp_p = np.interp(predict_x_array, self.detected_bin_midpoints, self.detected_det_frac)
+        plt.plot(predict_x_array, interp_p, label="interpolated")
+        plt.title("overall detection curve interp")
+        plt.legend()
+        plt.savefig("overall_detection_curve_interp.png")
+        plt.close()
+
 
 def combine_images():
     import os
