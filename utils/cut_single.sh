@@ -2,7 +2,7 @@
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
 #SBATCH --time=1:00:00
-#SBATCH --mem=24GB
+#SBATCH --mem=36GB
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=filterbank_cut
 #SBATCH --output=%x-%j.out

@@ -27,6 +27,7 @@ class det_stats:
         self.toas
         self.dms
         self.mask_fn
+        self.period
         self.create_burst()
 
     def create_burst(self):
@@ -53,8 +54,9 @@ class det_stats:
                 self.sorted_pulses = p.map(run_calc, self.sorted_pulses)
 
         else:
-            for s in self.sorted_pulses:
-                s.calculate_fluence_single()
+            for i,s in enumerate(self.sorted_pulses):
+                print(i,"out of ",len(self.sorted_pulses))
+                s.calculate_fluence_single(period = self.period)
 
 
 def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
@@ -99,6 +101,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-ds", type=int, help="The downsample when getting det_snr", required=True
     )
+    parser.add_argument("-period", type=float, help="The period of the pulsar", default=2.0)
     args = parser.parse_args()
 
     dm = float(args.dm)
@@ -106,6 +109,7 @@ if __name__ == "__main__":
     maskfiles = []
     # in the cut out the pulse is always at 3s
     positive_fl = args.p
+    period = args.period
     downsamp = args.ds
     fil1 = []
     dm1 = []
@@ -137,6 +141,7 @@ if __name__ == "__main__":
         "toas": toa1,
         "mask_fn": maskfiles,
         "downsamp": downsamp,
+        "period": period,
     }
     inject_stats = det_stats(**init_obj)
     inject_stats.calculate_snr()

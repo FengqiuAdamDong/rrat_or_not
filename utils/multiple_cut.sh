@@ -8,9 +8,9 @@ do
     #check if the file is already cut
     if [ -f ${file}_cut_80.fil ]
     then
-        echo "File ${file}_cut.fil already exists, skipping"
-        continue
+        echo "File ${file}_cut_80.fil already exists, skipping"
     else
-        sbatch ~/rrat_or_not/utils/cut_single.sh 80 $file
+    	#echo "submitting anyway ${file}.fil"
+        sbatch ~/rrat_or_not/utils/cut_single.sh 80 ${file}.fil
     fi
 done

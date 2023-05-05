@@ -97,7 +97,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
 
 
 def grab_spectra_manual(
-    gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False
+        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 10e-2
 ):
     # load the filterbank file
     g = r.FilReader(gf)
@@ -105,8 +105,6 @@ def grab_spectra_manual(
         ts = 0
     tsamp = float(g.header.tsamp)
     total_time = float(g.header.nsamples) * tsamp
-    t_start = 4.1
-    t_dur = 1.8
     if te>total_time:
         te = total_time
         #change t_dur to be the time from 4.1s to end
@@ -145,7 +143,7 @@ def grab_spectra_manual(
         amp, std, loc, sigma_width = fit_SNR_manual(
             dat_ts,
             tsamp * downsamp,
-            6e-2,
+            fit_del,
             nsamps=int(t_dur/2 / tsamp / downsamp),
             ds_data=waterfall_dat,
             downsamp=downsamp,
@@ -164,17 +162,17 @@ def grab_spectra_manual(
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
                 tsamp * downsamp,
-                10e-2,
+                fit_del,
                 nsamps=int(t_dur/2 / tsamp / downsamp),
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
             )
-        if (loc<(0.48*t_dur))|(loc>(t_dur*0.52)):
+        if (loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
                 tsamp * downsamp,
-                10e-2,
+                fit_del,
                 nsamps=int(loc / tsamp / downsamp),
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
@@ -205,7 +203,7 @@ def grab_spectra_manual(
         amp, std, loc, sigma_width = autofit_pulse(
             dat_ts,
             tsamp * downsamp,
-            10e-2,
+            fit_del,
             nsamps=int(0.9 / tsamp / downsamp),
             ds_data=waterfall_dat,
             downsamp=downsamp,
@@ -222,7 +220,7 @@ def grab_spectra_manual(
         FLUENCE = fit_FLUENCE(
             ts_no_ds/std,
             tsamp,
-            10e-2,
+            fit_del,
             nsamp=int(loc / tsamp),
             ds_data=waterfall_dat,
             plot=False,
@@ -241,7 +239,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 10)
+    coeffs = np.polyfit(x_std, ts_std, 1)
     poly = np.poly1d(coeffs)
     # subtract the mean
     ts_sub = ts - poly(x)
@@ -341,7 +339,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 10)
+    coeffs = np.polyfit(x_std, ts_std, 1)
     poly = np.poly1d(coeffs)
     # subtract the mean
     ts_sub = ts - poly(x)
@@ -354,11 +352,12 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # x axis of the fit
 
     xind = np.array(list(range(len(ts_sub)))) * tsamp
-
+    # print("init values",[mamplitude, max_time, width * 0.1, np.mean(ts_sub)])
     max_l = minimize(
         log_likelihood,
-        [mamplitude, max_time, 0.01, 0],
+        [mamplitude, max_time, width*0.5, np.mean(ts_sub)],
         args=(xind, ts_sub, std),
+        bounds=((1e-4, None), (0, max(x)), (1e-6, None), (-2, 2)),
         method="Nelder-Mead",
     )
     fitx = max_l.x
@@ -379,7 +378,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
     p_ax = plt.axes([0.1, 0.1, 0.78, 0.03], facecolor=axcolor)
     w_ax = plt.axes([0.1, 0.15, 0.78, 0.03], facecolor=axcolor)
-    pl = Slider(pl_ax, "peak loc", 0.0, 3, valinit=fitx[1], valstep=1e-3)
+    pl = Slider(pl_ax, "peak loc", 0.0, np.max(x), valinit=fitx[1], valstep=1e-3)
     p = Slider(p_ax, "peak", 0.0, 1, valinit=fitx[0], valstep=1e-5)
     w = Slider(w_ax, "width", 0.0, 0.05, valinit=fitx[2], valstep=1e-3)
     but_ax = plt.axes([0.1, 0.02, 0.3, 0.03], facecolor=axcolor)
@@ -495,9 +494,17 @@ class inject_obj:
         self.fluence_amp[ind] = -10
 
 
-    def calculate_fluence_single(self, mask=True):
+    def calculate_fluence_single(self, mask=True, period = 2):
         ts = self.toas - 5
         te = self.toas + 5
+        if period > 1.9:
+            t_dur = 1.8
+            t_start = 4.1
+            fit_del = 10e-2
+        else:
+            t_dur = (period-0.1)*2
+            t_start = 5-(t_dur/2)
+            fit_del = t_dur*0.055
         fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,
@@ -508,6 +515,9 @@ class inject_obj:
             mask=True,
             downsamp=self.downsamp,
             manual=True,
+            t_start = t_start,
+            t_dur = t_dur,
+            fit_del = fit_del,
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
         self.det_snr = det_snr
@@ -641,7 +651,8 @@ class inject_stats:
                 self.sorted_inject = p.map(run_calc, self.sorted_inject)
 
         else:
-            for s in self.sorted_inject:
+            for i,s in enumerate(self.sorted_inject):
+                print(i,"out of",len(self.sorted_inject))
                 s.calculate_fluence()
 
     def amplitude_statistics(self):

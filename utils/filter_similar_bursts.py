@@ -34,14 +34,13 @@ for filename in os.listdir(folder_path):
         if tstart_match:
             tstart = float(tstart_match.group(1))
             print(f"tstart: {tstart}")
-            tstart_arr.append(tstart)
-
+            tstart_arr.append(int(tstart))
 #run dbscan on dm_arr tcand_arr and tstart_arr
 from sklearn.cluster import DBSCAN
 import numpy as np
 
 features = np.column_stack((dm_arr, tcand_arr, tstart_arr))
-errors = np.array([5, 0.5, 0.1])
+errors = np.array([20, 0.1, 0.1])
 features = features / errors
 db = DBSCAN(eps=1, min_samples=2).fit(features)
 
@@ -53,6 +52,7 @@ filename_arr = np.array(filename_arr)
 dm_arr = np.array(dm_arr)
 tcand_arr = np.array(tcand_arr)
 tstart_arr = np.array(tstart_arr)
+#include all the ones that are not in a cluster because there's no repeat there
 unique_fn = filename_arr[labels == -1]
 for l in unique_labels:
     print(f"l: {l}")
@@ -62,6 +62,7 @@ for l in unique_labels:
     print(f"indices: {indices}")
     #figure out which file has closest dm to args.dm
     cluster_dm = dm_arr[indices]
+    cluster_tstart = tstart_arr[indices]
     diff_dm = np.abs(cluster_dm - args.dm)
     min_index = np.argmin(diff_dm)
     print(f"min_index: {min_index}")
