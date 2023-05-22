@@ -28,13 +28,14 @@ class inject_stats_collection(inject_stats):
                 inst.compare([csv], title=f)
                 self.det_snr.append(inst.det_snr)
                 self.detected_pulses.append(inst.detected_pulses)
+
         self.det_snr = np.array(self.det_snr)
         self.detected_pulses = np.array(self.detected_pulses)
         all_det_snr = self.det_snr.flatten()
         detected_snr = self.det_snr[self.detected_pulses]
         self.bin_detections(all_det_snr, detected_snr, num_bins=30)
         self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=50)
-        predict_x_array = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
+        predict_x_array = np.linspace(0,10,10000)
         self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title="overall detection curve")
         detect_errors = list(inj_stats.detect_error_snr for inj_stats in self.inj_stats)
         self.detect_error_snr = np.mean(detect_errors)

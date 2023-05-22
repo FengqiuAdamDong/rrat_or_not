@@ -7,7 +7,7 @@ from pathos.pools import ProcessPool
 import dill
 import sys
 import csv
-
+import os
 
 class det_obj(inject_obj):
     # det obj is inherited from injection object....
@@ -55,8 +55,14 @@ class det_stats:
 
         else:
             for i,s in enumerate(self.sorted_pulses):
+                if s.processed:
+                    print("already processed, skipping")
+                    continue
                 print(i,"out of ",len(self.sorted_pulses))
                 s.calculate_fluence_single(period = self.period)
+                with open(f"tmp.dill", "wb") as of:
+                    dill.dump(inject_stats, of)
+
 
 
 def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
@@ -144,6 +150,12 @@ if __name__ == "__main__":
         "period": period,
     }
     inject_stats = det_stats(**init_obj)
+    #check if tmp.dill exists, if so, load it and continue
+    if os.path.exists("tmp.dill"):
+        with open("tmp.dill", "rb") as of:
+            inject_stats = dill.load(of)
     inject_stats.calculate_snr()
     with open(f"{args.o}.dill", "wb") as of:
         dill.dump(inject_stats, of)
+    #remove tmp.dill
+    os.remove("tmp.dill")

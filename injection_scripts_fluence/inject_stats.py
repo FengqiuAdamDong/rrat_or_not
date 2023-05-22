@@ -97,7 +97,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
 
 
 def grab_spectra_manual(
-        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 10e-2
+        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 50e-2
 ):
     # load the filterbank file
     g = r.FilReader(gf)
@@ -339,10 +339,10 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 1)
+    coeffs = np.polyfit(x_std, ts_std, 10)
     poly = np.poly1d(coeffs)
     # subtract the mean
-    ts_sub = ts - poly(x)
+    ts_sub = ts - np.interp(x,x_std,poly(x_std))
     ts_std_sub = ts_std - poly(x_std)
     std = np.std(ts_std_sub)
     # remove rms
@@ -355,24 +355,26 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # print("init values",[mamplitude, max_time, width * 0.1, np.mean(ts_sub)])
     max_l = minimize(
         log_likelihood,
-        [mamplitude, max_time, width*0.5, np.mean(ts_sub)],
+        [mamplitude, max_time, 1e-2, np.mean(ts_sub)],
         args=(xind, ts_sub, std),
-        bounds=((1e-4, None), (0, max(x)), (1e-6, None), (-2, 2)),
+        bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
         method="Nelder-Mead",
     )
     fitx = max_l.x
+    print(fitx)
     # double the resolution
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
-    fig = plt.figure(figsize=(50, 50))
-    # fig=plt.figure(figsize=(5,5))
-    ax1 = plt.subplot(1, 2, 1)
+    fig,axes = plt.subplots(1,3,figsize=(50,50))
     cmap = plt.get_cmap("magma")
-    plt.imshow(ds_data, aspect="auto", cmap=cmap)
-    ax = plt.subplot(1, 2, 2)
+    axes[0].imshow(ds_data, aspect="auto", cmap=cmap)
+    #plot the polyfit
+    axes[2].plot(x, np.interp(x,x_std,poly(x_std)), lw=5, alpha=0.7)
+    axes[2].scatter(x_std,ts_std,alpha=0.5)
+    axes[2].scatter(x,ts,alpha=0.5)
 
-    k = plt.plot(xind, ts_sub)
-    (my_plot,) = plt.plot(xind_fit, y_fit, lw=5,alpha=0.7)
+    k = axes[1].plot(xind, ts_sub)
+    (my_plot,) = axes[1].plot(xind_fit, y_fit, lw=5,alpha=0.7)
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
@@ -401,6 +403,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
         max_l = minimize(
             log_likelihood,
             [peak, peak_loc, sigma, a],
+            bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
             args=(xind, ts_sub, std),
             method="Nelder-Mead",
         )
@@ -414,7 +417,6 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
 
     class skip_class:
         skip = False
-
         def skip_event(self, event):
             self.skip = True
             plt.close()
@@ -480,6 +482,7 @@ class inject_obj:
         self.fluence_amp = []
         self.noise_std = []
         self.det_snr = []
+        self.processed = False
 
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -500,11 +503,12 @@ class inject_obj:
         if period > 1.9:
             t_dur = 1.8
             t_start = 4.1
-            fit_del = 10e-2
+            fit_del = 25e-2
         else:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
+
         fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,
@@ -526,6 +530,7 @@ class inject_obj:
         self.fluence_amp = gaussian_amp
         self.det_std = sigma_width
         self.noise_std = std
+        self.processed = True
         print(
             f"fitted_snr {det_snr} std {std} amp {amp}"
         )
@@ -594,7 +599,10 @@ class inject_stats:
 
     def get_base_fn(self):
         #gets the base filename from the filename structure of filfiles
-        self.base_fn = self.filfiles[0].split("_")[0]+"_"+self.filfiles[0].split("_")[1]
+        splits = self.filfiles[0].split("_")
+        #remove last index
+        splits = splits[:-1]
+        self.base_fn = "_".join(splits)
 
     def get_mask_fn(self):
         # get the filenames of all the masks
@@ -773,6 +781,8 @@ class inject_stats:
                         truth_t = (t_arr < t_hi) & (t_arr > t_low)
                         total_truth = truth_dm & truth_t
                         self.detected_truth(si, total_truth)
+        for si in self.sorted_inject:
+            print(f"snr {np.mean(si.snr)}",'detection frac',sum(si.detected)/len(si.detected))
         # get lists to plot
         snr = []
         det_snr = []
@@ -780,18 +790,17 @@ class inject_stats:
         detected_amplitudes = []
         detected_amplitudes_mean = []
         detected_pulses = []
-        for s in self.sorted_inject:
-            try:
-                snr.append(np.mean(s.snr))
-                det_snr.append(s.det_snr)
-                det_frac.append(sum(s.detected) / len(s.detected))
-                detected_amplitudes.append(s.det_amp[s.detected])
+        for i,s in enumerate(self.sorted_inject):
+            snr.append(np.mean(s.snr))
+            det_snr.append(s.det_snr)
+            det_frac.append(sum(s.detected) / len(s.detected))
+            detected_amplitudes.append(s.det_amp[s.detected])
+            if sum(s.detected)==0:
+                detected_amplitudes_mean.append(0)
+            else:
                 detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
-                detected_pulses.append(s.detected)
+            detected_pulses.append(s.detected)
 
-            except:
-                import traceback; print(traceback.format_exc())
-                import pdb; pdb.set_trace()
 
         snr = np.array(snr)
         det_snr = np.array(det_snr)
@@ -872,6 +881,9 @@ class inject_stats:
             axes[1].legend()
         self.detected_bin_midpoints = bin_midpoints
         self.detected_det_frac = detected_det_frac
+        #remove the last 2 bins
+        self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
+        self.detected_det_frac = self.detected_det_frac[:-2]
 
     def predict_poly(self,predict_x,x,p,poly=-99,plot=False,title="polynomial fit"):
         if isinstance(poly,int):
