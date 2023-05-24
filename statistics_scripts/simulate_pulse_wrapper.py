@@ -111,10 +111,8 @@ if __name__=='__main__':
     elif mode=="Gauss":
         pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=True)
 
-    for i in range(10000):
-
+    for i in range(1):
         rv = normal(loc=0,scale=sigma_snr,size=len(pulses))
-
         d_pulses = rv+pulses
         # print("len simulated",len(pulses))
         detected_pulses = n_detect(d_pulses)
@@ -127,6 +125,7 @@ if __name__=='__main__':
     plt.xlabel("Number of pulses detected")
     plt.show()
     print(len(detected_pulses))
+
     import dill
     with open(dill_file,'rb') as inf:
         det_class = dill.load(inf)

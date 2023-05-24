@@ -51,11 +51,13 @@ def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     fig, axes = plt.subplots(2, 2)
     posterior_N = np.trapz(mat, k_arr, axis=0)
     posterior_k = np.trapz(mat, N_arr, axis=1)
-    axes[0, 0].plot(k_arr, posterior_k)
+    axes[0, 0].plot(k_arr, posterior_k/np.max(posterior_k))
+    max_k = k_arr[np.argmax(posterior_k)]
     axes[1, 0].pcolormesh(k_arr, N_arr, mat.T)
     axes[1, 0].set_xlabel("k")
     axes[1, 0].set_ylabel("N")
-    axes[1, 1].plot(N_arr, posterior_N)
+    axes[1, 1].plot(N_arr, posterior_N/np.max(posterior_N))
+    max_N = N_arr[np.argmax(posterior_N)]
     axes[1, 1].set_xlabel("N")
     N_frac1 = axes[1, 1].secondary_xaxis("top", functions=(N_to_pfrac, N_to_pfrac))
     N_frac2 = axes[1, 0].secondary_yaxis("right", functions=(N_to_pfrac, N_to_pfrac))
@@ -64,6 +66,7 @@ def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     fig.delaxes(axes[0, 1])
     plt.tight_layout()
     plt.show()
+    return max_k, max_N
 
 
 def plot_mat_ln(
@@ -80,19 +83,22 @@ def plot_mat_ln(
     d_pos_mu_std = np.trapz(mat, N_arr, axis=-1)
     fig, ax = plt.subplots(3, 3)
     fig.suptitle(title)
-    ax[0, 0].plot(mu_arr, posterior_mu)
+    ax[0, 0].plot(mu_arr, posterior_mu/np.max(posterior_mu))
+    max_mu = mu_arr[np.argmax(posterior_mu)]
     # ax[0, 0].plot(posterior_mu)
 
     ax[1, 0].pcolormesh(mu_arr, std_arr, d_pos_mu_std.T)
     # ax[1, 0].imshow(d_pos_mu_std.T, aspect="auto")
-    ax[1, 1].plot(std_arr, posterior_std)
+    ax[1, 1].plot(std_arr, posterior_std/np.max(posterior_std))
+    max_std = std_arr[np.argmax(posterior_std)]
     # ax[1, 1].plot(posterior_std)
 
     ax[2, 0].pcolormesh(mu_arr, N_arr, d_pos_mu_N.T)
     # ax[2, 0].imshow(d_pos_mu_N.T, aspect="auto")
     ax[2, 1].pcolormesh(std_arr, N_arr, d_pos_std_N.T)
     # ax[2, 1].imshow(d_pos_std_N.T, aspect="auto")
-    ax[2, 2].plot(N_arr, posterior_N)
+    ax[2, 2].plot(N_arr, posterior_N/np.max(posterior_N))
+    max_N = N_arr[np.argmax(posterior_N)]
     ax[2, 0].set_xlabel("mu")
     ax[2, 0].set_ylabel("N")
     ax[1, 0].set_ylabel("std")
@@ -109,8 +115,28 @@ def plot_mat_ln(
     fig.delaxes(ax[0, 2])
     fig.delaxes(ax[1, 2])
     plt.tight_layout()
-    plt.show()
+    return max_mu, max_std, max_N
 
+def plot_fit_ln(max_mu,max_std,dets,sigma_det):
+    fit_x = np.linspace(1e-9,50,10000)
+    fit_y = statistics.first_plot(fit_x, max_mu, max_std, sigma_det)
+    fit_y = fit_y/np.trapz(fit_y,fit_x)
+    fig, ax = plt.subplots(1, 1)
+    ax.hist(dets, bins='auto', density=True,label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}")
+    ax.plot(fit_x, fit_y, label="fit")
+    ax.set_xlabel("SNR")
+    ax.set_ylabel("Probability")
+    ax.legend()
+
+def plot_fit_exp(max_k,dets,sigma_det):
+    fit_x = np.linspace(1e-9,50,10000)
+    fit_y = statistics_exp.first_exp_plot(fit_x, max_k, sigma_det)
+    fig, ax = plt.subplots(1, 1)
+    ax.hist(dets, bins='auto', density=True,label=f"max_k={max_k:.2f}")
+    ax.plot(fit_x, fit_y, label="fit")
+    ax.set_xlabel("SNR")
+    ax.set_ylabel("Probability")
+    ax.legend()
 
 if __name__ == "__main__":
     import sys
@@ -180,41 +206,10 @@ if __name__ == "__main__":
     exp_mesh_size = config["exp_mesh_size"]
 
     snr_thresh = 1.3
+    print("before deleting:",len(det_snr))
     print("deleting:",sum(det_snr<snr_thresh),"points")
     det_snr = det_snr[det_snr>snr_thresh]
 
-    # plt.show()
-    # det_snr = det_snr_altered
-
-
-    # gaussian fit
-    # mu_arr_gauss = np.linspace(-0.7, -0.6, gauss_mesh_size)
-    # std_arr_gauss = np.linspace(0.1, 0.3, gauss_mesh_size + 1)
-    # N_arr_gauss = np.linspace(len(det_snr), obs_t/p, gauss_mesh_size + 2)
-    # N_arr_gauss = np.linspace(19000, 20100, gauss_mesh_size + 2)
-
-    # mat_gauss = statistics_gaus.likelihood_gauss(
-        # mu_arr_gauss, std_arr_gauss, N_arr_gauss, det_snr, mesh_size=gauss_mesh_size
-    # )
-    # plot_mat_ln(
-    #     mat_gauss,
-    #     N_arr_gauss,
-    #     mu_arr_gauss,
-    #     std_arr_gauss,
-    #     det_snr,
-    #     det_snr,
-    #     0,
-    #     0,
-    #     title=f"gaussian num det={len(det_snr)}",
-    # )
-
-
-    # res = o.minimize(statistics.negative_loglike,[-3,0.2,obs_t/p],(det_snr),
-    # method='Nelder-Mead',bounds=[(-5,5),(0.01,5),(len(det_snr),obs_t/p)])
-    # mu_min = res.x[0]
-    # std_min = res.x[1]
-    # N_min = res.x[2]
-    # print(res.x)
     # log normal original distribution
     #if logn_n_range is -1 then set to obs/p and num pulses
     if logn_N_range == -1:
@@ -222,13 +217,36 @@ if __name__ == "__main__":
     mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
     std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
     N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
-    # N_arr = np.linspace(200, obs_t/p , logn_mesh_size + 2)
 
-    # N_arr = np.linspace(470, 1000, mesh_size + 2)
+
+    debug = False
+    if debug:
+        xlim = np.linspace(1,15,5)
+        xlen = np.linspace(50000,50000,1,dtype=int)
+
+        first_mat = np.zeros((len(xlim),len(xlen)))
+        second_mat = np.zeros((len(xlim),len(xlen)))
+        for xlim_idx in range(len(xlim)):
+            for xlen_idx in range(len(xlen)):
+                first_mat[xlim_idx,xlen_idx]=statistics.first(det_snr,-3,1,statistics.det_error,xlim=xlim[xlim_idx],x_len=xlen[xlen_idx])
+                second_mat[xlim_idx,xlen_idx]=statistics.second(len(det_snr),-3,1,10e6,sigma_snr=statistics.det_error,xlim=xlim[xlim_idx],x_len=xlen[xlen_idx])
+                print(xlim_idx,xlen_idx)
+        plt.figure()
+        plt.imshow(first_mat,extent=[10000,50000,5,40],aspect='auto')
+        plt.title("first")
+        plt.colorbar()
+        plt.figure()
+        plt.imshow(second_mat,extent=[10000,50000,5,40],aspect='auto')
+        plt.title("second")
+        plt.colorbar()
+        plt.show()
+        import pdb; pdb.set_trace()
+
+
     mat = statistics.likelihood_lognorm(
         mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
     )
-    plot_mat_ln(
+    max_mu, max_std, max_N = plot_mat_ln(
         mat,
         N_arr,
         mu_arr,
@@ -239,8 +257,10 @@ if __name__ == "__main__":
         0,
         title=f"Lnorm num det:{len(det_snr)}",
     )
-
-
+    plot_fit_ln(max_mu, max_std, det_snr, statistics.det_error)
+    plot_fit_ln(-3 , 1, det_snr, statistics.det_error)
+    plt.show()
+    import pdb; pdb.set_trace()
     # Exponential distributions start here#####################
     # res = o.minimize(
     # statistics_exp.negative_loglike,
@@ -257,7 +277,8 @@ if __name__ == "__main__":
     N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
     mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
 
-    plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
+    max_k,max_N = plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
+    plot_fit_exp(max_k, det_snr, statistics.det_error)
     # lets calculate bayes factor
     range_N = max(N_arr) - min(N_arr)
 

@@ -4,13 +4,18 @@ import matplotlib.pyplot as plt
 import os
 from scipy.stats import expon
 
-def n_detect(snr_emit):
+
+def n_detect(snr_emit,inj_stats_fn="inj_stats_fitted.dill"):
     import dill
-    with open("inj_stats_fitted.dill", "rb") as inf:
+    with open(inj_stats_fn,"rb") as inf:
         inj_stats = dill.load(inf)
+    def p_detect(snr,interp=True):
+        if interp:
+            return np.interp(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+        return inj_stats.predict_poly(snr,x=inj_stats.detected_bin_midpoints,p=inj_stats.detected_det_frac)
 
     # snr emit is the snr that the emitted pulse has
-    p = inj_stats.predict_poly(snr_emit,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+    p = p_detect(snr_emit)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
