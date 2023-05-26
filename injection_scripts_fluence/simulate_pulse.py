@@ -1,1 +1,1 @@
-../statistics_scripts/simulate_pulse.py
+../statistics_scripts_with_SNR_uncertainty/simulate_pulse.py
