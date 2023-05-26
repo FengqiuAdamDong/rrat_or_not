@@ -72,6 +72,7 @@ def first_exp_cupy(amp,k,xlim=100,x_len=100000):
             wide_enough = True
         else:
             xlim = xlim+20
+
     # print("first xlim",xlim)
     #convolve the two arrays
     conv = cp.convolve(dist,gaussian_error)*cp.diff(amp_arr)[0]
@@ -227,6 +228,7 @@ def likelihood_exp(k_arr, N_arr, det_snr):
         # m = np.array(po.map(total_p_exp, X))
         m = []
         for ind,v in enumerate(X):
+            print(f"{ind}/{len(X)}")
             m.append(total_p_exp(v))
         m = np.array(m)
 
