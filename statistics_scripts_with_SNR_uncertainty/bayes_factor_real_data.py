@@ -1,23 +1,16 @@
 #!/usr/bin/env python3
 # paths
 import sys
-
-sys.path
-sys.path.append("/home/adam/Documents/rrat_or_not/injection_scripts/")
-
 import numpy as np
 import os
-import statistics
 from matplotlib import pyplot as plt
 from scipy import optimize as o
 import dill
 import warnings
 import inject_stats
 import argparse
-
+import statistics_basic
 parser = argparse.ArgumentParser(description="Simulate some pulses")
-parser.add_argument("-o", type=float, default=500, help="observed time")
-parser.add_argument("-p", type=float, default=1, help="period")
 parser.add_argument("-i", type=str, default="fake_data.dill", help="data")
 #add an argument for config file
 parser.add_argument("-c", type=str, default="config.yaml", help="config file that tells you about the mu ranges, the N ranges and the k ranges")
@@ -30,20 +23,21 @@ import yaml
 with open(args.c, "r") as inf:
     config = yaml.safe_load(inf)
 detection_curve = config["detection_curve"]
-statistics.load_detection_fn(detection_curve)
-
+statistics_basic.load_detection_fn(detection_curve)
+obs_t = config["obs_t"]
+p = config["p"]
+import statistics
 import statistics_exp
-import statistics_gaus
-# warnings.filterwarnings("ignore")
+# import statistics_gaus
+##### preamble finished #####
+
 def N_to_pfrac(x):
     total = obs_t / p
     return (1-(x / total))
 
-
 def pfrac_to_N(x):
     total = obs_t / p
     return total * x
-
 
 def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     max_likelihood_exp = np.max(mat)
@@ -67,7 +61,6 @@ def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     plt.tight_layout()
     plt.show()
     return max_k, max_N
-
 
 def plot_mat_ln(
     mat, N_arr, mu_arr, std_arr, fluences, dets, true_mu, true_std, title="plot"
@@ -131,6 +124,7 @@ def plot_fit_ln(max_mu,max_std,dets,sigma_det):
 def plot_fit_exp(max_k,dets,sigma_det):
     fit_x = np.linspace(1e-9,50,10000)
     fit_y = statistics_exp.first_exp_plot(fit_x, max_k, sigma_det)
+    fit_y = fit_y/np.trapz(fit_y,fit_x)
     fig, ax = plt.subplots(1, 1)
     ax.hist(dets, bins='auto', density=True,label=f"max_k={max_k:.2f}")
     ax.plot(fit_x, fit_y, label="fit")
@@ -138,147 +132,77 @@ def plot_fit_exp(max_k,dets,sigma_det):
     ax.set_ylabel("Probability")
     ax.legend()
 
+def calculate_matrices(det_snr):
+    xlim = np.linspace(45, 80, 5)
+    xlen = np.linspace(200000, 1000000, 10, dtype=int)
+
+    first_mat = np.zeros((len(xlim), len(xlen)))
+    second_mat = np.zeros((len(xlim), len(xlen)))
+
+    for xlim_idx in range(len(xlim)):
+        for xlen_idx in range(len(xlen)):
+            first_mat[xlim_idx, xlen_idx] = statistics.first_cupy(cp.array(det_snr), -3, 1.64, xlim=xlim[xlim_idx], x_len=xlen[xlen_idx])
+            second_mat[xlim_idx, xlen_idx] = statistics.second_integral_cupy(len(det_snr), -3, 1.64, 1e5, xlim=xlim[xlim_idx], x_len=xlen[xlen_idx])
+            print(xlim_idx, xlen_idx)
+
+    plt.figure()
+    plt.imshow(first_mat, extent=[10000, 50000, 5, 40], aspect='auto')
+    plt.title("first")
+    plt.colorbar()
+
+    plt.figure()
+    plt.imshow(second_mat, extent=[10000, 50000, 5, 40], aspect='auto')
+    plt.title("second")
+    plt.colorbar()
+
+    plt.show()
+
+    import pdb
+    pdb.set_trace()
 if __name__ == "__main__":
-    import sys
-
-    odds_ratios = []
-    # obs_t = 1088
-    with open(real_det, "rb") as inf:
-        det_class = dill.load(inf)
-    det_fluence = []
-    det_width = []
-    det_snr = []
-    noise_std = []
-    for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_amp != -1:
-            # -1 means that the fluence could not be measured well
-            det_fluence.append(pulse_obj.det_fluence)
-            det_width.append(pulse_obj.det_std)
-            det_snr.append(pulse_obj.det_snr)
-            noise_std.append(pulse_obj.noise_std)
-    # lets filter the det_FLUENCEs too
-    det_fluence = np.array(det_fluence)
-    # apply offset to det fluence
-
-    import dill
-
-    with open(detection_curve,"rb") as inf:
-        inj_stats = dill.load(inf)
-    try:
-        poly_params = inj_stats.poly_snr
-    except:
-        #there isn't poly params, so just set to 1,0
-        poly_params = [1,0]
-    poly_fun = np.poly1d(poly_params)
-
-    det_snr_altered = np.array(poly_fun(det_snr))
-    det_fluence = np.array(det_fluence)
-    det_width = np.array(det_width)
-    det_snr = np.array(det_snr)
-    det_snr = np.array(det_snr)
-    noise_std = np.array(noise_std)
-    print("mean width", np.mean(det_width))
-    fig, axs = plt.subplots(2, 2)
-    axs[0, 0].set_title("Widths")
-    axs[0, 0].hist(det_width, bins=50)
-
-    axs[1, 0].set_title("Histogram of detected pulses")
-    axs[1, 0].hist(det_fluence, bins="auto", density=True)
-    axs[1, 0].set_xlabel("FLUENCE")
-    axs[1, 1].hist(det_snr, bins="auto", label="snr")
-    axs[1, 1].set_title("detected snr")
-    axs[1, 1].set_xlabel("snr")
-    axs[1, 1].legend()
-    axs[0, 1].hist(det_snr_altered, bins="auto", label="poly")
-    axs[0, 1].hist(det_snr, alpha=0.5, bins="auto", label="fit")
-    axs[0, 1].set_title("detected snrlitudes")
-    axs[0, 1].set_xlabel("snr")
-    axs[0, 1].legend()
-    plt.show()
-    #load the config yaml file
-    logn_N_range = config["logn_N_range"]
-    logn_mu_range = config["logn_mu_range"]
-    logn_std_range = config["logn_std_range"]
-    logn_mesh_size = config["logn_mesh_size"]
-
-    exp_N_range = config["exp_N_range"]
-    exp_k_range = config["exp_k_range"]
-    exp_mesh_size = config["exp_mesh_size"]
-
-    snr_thresh = 1.3
-    print("before deleting:",len(det_snr))
-    print("deleting:",sum(det_snr<snr_thresh),"points")
-    det_snr = det_snr[det_snr>snr_thresh]
-
-    # log normal original distribution
-    #if logn_n_range is -1 then set to obs/p and num pulses
-    if logn_N_range == -1:
-        logn_N_range = [len(det_snr), obs_t / p]
-    mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
-    std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
-    N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
+    from bayes_factor_polychord import process_detection_results, plot_detection_results,load_config
+    det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
+    plot_detection_results(det_width, det_fluence, det_snr)
+    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p = load_config(config, det_snr)
 
 
-    debug = False
-    if debug:
-        xlim = np.linspace(1,15,5)
-        xlen = np.linspace(50000,50000,1,dtype=int)
+    #this is for debugging purposes
+    # calculate_matrices(det_snr)
 
-        first_mat = np.zeros((len(xlim),len(xlen)))
-        second_mat = np.zeros((len(xlim),len(xlen)))
-        for xlim_idx in range(len(xlim)):
-            for xlen_idx in range(len(xlen)):
-                first_mat[xlim_idx,xlen_idx]=statistics.first(det_snr,-3,1,statistics.det_error,xlim=xlim[xlim_idx],x_len=xlen[xlen_idx])
-                second_mat[xlim_idx,xlen_idx]=statistics.second(len(det_snr),-3,1,10e6,sigma_snr=statistics.det_error,xlim=xlim[xlim_idx],x_len=xlen[xlen_idx])
-                print(xlim_idx,xlen_idx)
-        plt.figure()
-        plt.imshow(first_mat,extent=[10000,50000,5,40],aspect='auto')
-        plt.title("first")
-        plt.colorbar()
-        plt.figure()
-        plt.imshow(second_mat,extent=[10000,50000,5,40],aspect='auto')
-        plt.title("second")
-        plt.colorbar()
+
+    if calculate_ln:
+        # log normal original distribution
+        mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
+        std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
+        N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
+
+        mat = statistics.likelihood_lognorm(
+            mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
+        )
+        max_mu, max_std, max_N = plot_mat_ln(
+            mat,
+            N_arr,
+            mu_arr,
+            std_arr,
+            det_snr,
+            det_snr,
+            0,
+            0,
+            title=f"Lnorm num det:{len(det_snr)}",
+        )
+        plot_fit_ln(max_mu, max_std, det_snr, statistics.det_error)
         plt.show()
-        import pdb; pdb.set_trace()
 
+    if calculate_exp:
+        # Exponential distributions start here#####################
+        k_arr = np.linspace(exp_k_range[0], exp_k_range[1], exp_mesh_size)
+        N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
+        mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
 
-    mat = statistics.likelihood_lognorm(
-        mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
-    )
-    max_mu, max_std, max_N = plot_mat_ln(
-        mat,
-        N_arr,
-        mu_arr,
-        std_arr,
-        det_snr,
-        det_snr,
-        0,
-        0,
-        title=f"Lnorm num det:{len(det_snr)}",
-    )
-    plot_fit_ln(max_mu, max_std, det_snr, statistics.det_error)
-    plot_fit_ln(-3 , 1, det_snr, statistics.det_error)
-    plt.show()
-    import pdb; pdb.set_trace()
-    # Exponential distributions start here#####################
-    # res = o.minimize(
-    # statistics_exp.negative_loglike,
-    # [1, len(det_snr)],
-    # (det_snr),
-    # method="Nelder-Mead",
-    # bounds=[(0, 100), (len(det_snr), obs_t / p)],
-    # )
-    # print(res.x)
-    # create an array for k
-    if exp_N_range == -1:
-        exp_N_range = [len(det_snr), obs_t/p]
-    k_arr = np.linspace(exp_k_range[0], exp_k_range[1], exp_mesh_size)
-    N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
-    mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
+        max_k,max_N = plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
+        plot_fit_exp(max_k, det_snr, statistics.det_error)
+        plt.show()
 
-    max_k,max_N = plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
-    plot_fit_exp(max_k, det_snr, statistics.det_error)
     # lets calculate bayes factor
     range_N = max(N_arr) - min(N_arr)
 
@@ -287,6 +211,7 @@ if __name__ == "__main__":
     range_std = max(std_arr) - min(std_arr)
     # k range
     range_k = max(k_arr) - min(k_arr)
+
     # gauss range
     # range_mu_gauss = max(mu_arr_gauss) - min(mu_arr_gauss)
     # range_std_gauss = max(std_arr_gauss) - min(std_arr_gauss)
