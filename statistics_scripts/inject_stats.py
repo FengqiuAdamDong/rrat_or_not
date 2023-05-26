@@ -1,1 +1,0 @@
-/home/adam/Documents/rrat_or_not/statistics_scripts/../injection_scripts/inject_stats.py
