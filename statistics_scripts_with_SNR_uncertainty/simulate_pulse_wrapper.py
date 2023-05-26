@@ -41,7 +41,13 @@ dill_file = args.d
 inj_file = args.inj_file
 
 statistics_basic.load_detection_fn(inj_file)
+def mean_var_to_mu_std(mean, var):
+    mu = np.log(mean**2/np.sqrt(var+mean**2))
+    std = np.sqrt(np.log(var/mean**2+1))
+    return mu, std
 
+mu, std = mean_var_to_mu_std(mu,std**2)
+print("mu",mu,"std",std)
 from statistics import lognorm_dist
 
 if __name__=='__main__':
@@ -71,6 +77,7 @@ if __name__=='__main__':
         n.append(len(detected_pulses))
 
     print("generated",len(pulses))
+    print("mean" ,np.mean(pulses),"variance",np.std(pulses)**2)
     plt.hist(n,bins="auto")
     plt.xlabel("Number of pulses detected")
     print(len(detected_pulses))
@@ -123,12 +130,11 @@ if __name__=='__main__':
 
     snr_array = np.linspace(0,20,10000)
     if mode=="Lognorm":
-        p_dist = statistics.first_plot(snr_array,mu,std,sigma_snr)
+        p_dist , p_det, conv_amp_array, conv = statistics.first_plot(snr_array,mu,std,sigma_snr)
     elif mode=="Exp":
         import statistics_exp
         print(statistics_exp.det_error)
-        p_dist = statistics_exp.first_exp_plot(snr_array,mu,sigma_snr)
-
+        p_dist= statistics_exp.first_exp_plot(snr_array,mu,sigma_snr)
     p_dist = p_dist/np.trapz(p_dist,snr_array)
     plt.figure()
     plt.hist(det_snr,bins="auto",density=True,alpha=0.5,label="new fake data")

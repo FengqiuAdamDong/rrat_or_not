@@ -28,17 +28,18 @@ def lognorm_dist_cupy(x, mu, sigma):
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_cupy(n,mu,std,N,xlim=100,x_len=1000000):
+def second_cupy(n,mu,std,N,xlim=100,x_len=5000000):
      #xlim needs to be at least as large as 5 sigma_snrs though
     wide_enough = False
     sigma_snr = det_error
+    maximum_accuracy = 1/(N-n)
     while not wide_enough:
         x_lims = [-sigma_snr*xlim,xlim]
         # x_lims = [-xlim,xlim]
         amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
         LN_dist = lognorm_dist_cupy(amp_arr,mu,std)
         gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-        if (gaussian_error[-1] < 1e-6)&(LN_dist[-1] < 1e-6)&(gaussian_error[0] < 1e-6):
+        if (gaussian_error[-1] < maximum_accuracy)&(LN_dist[-1] < maximum_accuracy)&(gaussian_error[0] < maximum_accuracy):
             wide_enough = True
         else:
             xlim = xlim+100
@@ -59,7 +60,7 @@ def second_cupy(n,mu,std,N,xlim=100,x_len=1000000):
     integral = cp.trapz(likelihood,conv_amp_array)
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=20,x_len=1000000):
+def first_cupy(amp,mu,std,xlim=100,x_len=1000000):
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_snr = det_error
     wide_enough = False
@@ -135,7 +136,7 @@ def first(amp,mu,std, sigma_snr=0.4,xlim=1,x_len=10000,plot=False):
 
 def first_plot(amp,mu,std, sigma_snr=0.4):
     x_len = 10000
-    xlim = 15
+    xlim = 100
     x_lims = [-xlim,xlim]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
@@ -148,7 +149,7 @@ def first_plot(amp,mu,std, sigma_snr=0.4):
     p_det = p_detect(conv_amp_array)
     likelihood_conv = conv*p_det
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
-    return likelihood
+    return likelihood, p_det, conv_amp_array, conv
 
 def second(n, mu, std, N, sigma_snr,xlim=1,x_len=20000):
     #xlim needs to be at least as large as 5 sigma_snrs though
@@ -230,6 +231,11 @@ def negative_loglike(X, det_snr):
     x = {"mu": X[0], "std": X[1], "N": X[2], "snr_arr": det_snr}
     return -1 * total_p(x)
 
+def mean_var_to_mu_std(mean, var):
+    mu = np.log(mean**2/np.sqrt(var+mean**2))
+    std = np.sqrt(np.log(var/mean**2+1))
+    return mu, std
+
 def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
     # # create a mesh grid of N, mu and stds
     mat = np.zeros((mesh_size, mesh_size + 1, mesh_size + 2))
@@ -237,9 +243,11 @@ def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
 
         X = []
         Y = []
-        for i, mu_i in enumerate(mu_arr):
-            for j, std_i in enumerate(std_arr):
+        for i, mean_i in enumerate(mu_arr):
+            for j, sigma_i in enumerate(std_arr):
                 for k, N_i in enumerate(N_arr):
+                    #change the mu to a different definition
+                    mu_i, std_i = mean_var_to_mu_std(mean_i, sigma_i**2)
                     X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr})
                     Y.append([mu_i,std_i,N_i])
         Y = np.array(Y)
@@ -249,9 +257,10 @@ def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
             print(f"{ind}/{len(X)}")
             m.append(total_p(v))
         m = np.array(m)
-        for i, mu_i in enumerate(mu_arr):
-            for j, std_i in enumerate(std_arr):
+        for i, mean_i in enumerate(mu_arr):
+            for j, sigma_i in enumerate(std_arr):
                 for k, N_i in enumerate(N_arr):
+                    mu_i, std_i = mean_var_to_mu_std(mean_i, sigma_i**2)
                     ind = np.sum((Y==[mu_i,std_i,N_i]),axis=1)==3
                     mat[i,j,k] = m[ind]
 

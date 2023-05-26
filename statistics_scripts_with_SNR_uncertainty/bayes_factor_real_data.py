@@ -16,15 +16,13 @@ parser.add_argument("-i", type=str, default="fake_data.dill", help="data")
 parser.add_argument("-c", type=str, default="config.yaml", help="config file that tells you about the mu ranges, the N ranges and the k ranges")
 
 args = parser.parse_args()
-obs_t = args.o
-p = args.p
 real_det = args.i
 import yaml
 with open(args.c, "r") as inf:
     config = yaml.safe_load(inf)
 detection_curve = config["detection_curve"]
 statistics_basic.load_detection_fn(detection_curve)
-obs_t = config["obs_t"]
+obs_t = config["obs_time"]
 p = config["p"]
 import statistics
 import statistics_exp
@@ -111,12 +109,19 @@ def plot_mat_ln(
     return max_mu, max_std, max_N
 
 def plot_fit_ln(max_mu,max_std,dets,sigma_det):
+    def mean_var_to_mu_std(mean, var):
+        mu = np.log(mean**2/np.sqrt(var+mean**2))
+        std = np.sqrt(np.log(var/mean**2+1))
+        return mu, std
+    mu, std = mean_var_to_mu_std(max_mu, max_std**2)
     fit_x = np.linspace(1e-9,50,10000)
-    fit_y = statistics.first_plot(fit_x, max_mu, max_std, sigma_det)
+    fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, sigma_det)
     fit_y = fit_y/np.trapz(fit_y,fit_x)
     fig, ax = plt.subplots(1, 1)
     ax.hist(dets, bins='auto', density=True,label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}")
     ax.plot(fit_x, fit_y, label="fit")
+    ax.plot(conv_amp_array, conv, label="convolution")
+    ax.plot(conv_amp_array, p_det, label="p_det")
     ax.set_xlabel("SNR")
     ax.set_ylabel("Probability")
     ax.legend()
@@ -159,66 +164,16 @@ def calculate_matrices(det_snr):
 
     import pdb
     pdb.set_trace()
-if __name__ == "__main__":
-    from bayes_factor_polychord import process_detection_results, plot_detection_results,load_config
-    det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
-    plot_detection_results(det_width, det_fluence, det_snr)
-    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p = load_config(config, det_snr)
-
-
-    #this is for debugging purposes
-    # calculate_matrices(det_snr)
-
-
-    if calculate_ln:
-        # log normal original distribution
-        mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
-        std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
-        N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
-
-        mat = statistics.likelihood_lognorm(
-            mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
-        )
-        max_mu, max_std, max_N = plot_mat_ln(
-            mat,
-            N_arr,
-            mu_arr,
-            std_arr,
-            det_snr,
-            det_snr,
-            0,
-            0,
-            title=f"Lnorm num det:{len(det_snr)}",
-        )
-        plot_fit_ln(max_mu, max_std, det_snr, statistics.det_error)
-        plt.show()
-
-    if calculate_exp:
-        # Exponential distributions start here#####################
-        k_arr = np.linspace(exp_k_range[0], exp_k_range[1], exp_mesh_size)
-        N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
-        mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
-
-        max_k,max_N = plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
-        plot_fit_exp(max_k, det_snr, statistics.det_error)
-        plt.show()
-
-    # lets calculate bayes factor
+def calculate_bayes_factor(N_arr, mu_arr, std_arr, k_arr, mat, mat_exp):
     range_N = max(N_arr) - min(N_arr)
-
-    # Log norm range
     range_mu = max(mu_arr) - min(mu_arr)
     range_std = max(std_arr) - min(std_arr)
-    # k range
     range_k = max(k_arr) - min(k_arr)
 
-    # gauss range
-    # range_mu_gauss = max(mu_arr_gauss) - min(mu_arr_gauss)
-    # range_std_gauss = max(std_arr_gauss) - min(std_arr_gauss)
-    # using uniform priors
     # max_likelihood_gauss = np.max(mat_gauss)
     max_likelihood_ln = np.max(mat)
     max_likelihood_exp = np.max(mat_exp)
+
     # bayes_gauss = (
     #     np.log(
     #         np.trapz(
@@ -263,13 +218,52 @@ if __name__ == "__main__":
         + max_likelihood_exp
         # - np.log(range_N * range_k)
     )
+
     # print(bayes_gauss, bayes_ln, bayes_exp)
-    print('LN:',bayes_ln,'exp:',bayes_exp)
-    # OR = bayes_numerator - bayes_denominator
-    # if OR<0:
-    #     print(f"OR less than 0 {fn}")
-    #     plot_mat_ln(mat,N_arr,mu_arr,std_arr,pulse_snrs,det_snr,true_mu,true_std)
-    #     plot_mat_exp(mat_exp,N_arr_exp,k_arr,pulse_snrs,det_snr)
+    print('LN:', bayes_ln, 'exp:', bayes_exp)
+if __name__ == "__main__":
+    from bayes_factor_polychord import process_detection_results, plot_detection_results,load_config
+    det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
+    plot_detection_results(det_width, det_fluence, det_snr)
+    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p = load_config(config, det_snr)
+
+
+    #this is for debugging purposes
+    # calculate_matrices(det_snr)
+
+
+    if calculate_ln:
+        # log normal original distribution
+        mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
+        std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
+        N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
+
+        mat = statistics.likelihood_lognorm(
+            mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
+        )
+        max_mu, max_std, max_N = plot_mat_ln(
+            mat,
+            N_arr,
+            mu_arr,
+            std_arr,
+            det_snr,
+            det_snr,
+            0,
+            0,
+            title=f"Lnorm num det:{len(det_snr)}",
+        )
+        plot_fit_ln(max_mu, max_std, det_snr, statistics.det_error)
+        plt.show()
+
+    if calculate_exp:
+        # Exponential distributions start here#####################
+        k_arr = np.linspace(exp_k_range[0], exp_k_range[1], exp_mesh_size)
+        N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
+        mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
+
+        max_k,max_N = plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
+        plot_fit_exp(max_k, det_snr, statistics.det_error)
+        plt.show()
 
     np.savez(
         "bayes_factor_data",
