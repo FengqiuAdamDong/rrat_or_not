@@ -26,7 +26,7 @@ obs_t = config["obs_time"]
 p = config["p"]
 import statistics
 import statistics_exp
-# import statistics_gaus
+import statistics_gaus
 ##### preamble finished #####
 
 def N_to_pfrac(x):
@@ -108,6 +108,18 @@ def plot_mat_ln(
     plt.tight_layout()
     return max_mu, max_std, max_N
 
+def plot_fit_tg(max_mu,max_std,dets):
+    fit_x = np.linspace(1e-9,50,10000)
+    fit_y, p_det, conv_amp_array, conv = statistics_gaus.first_plot(fit_x,max_mu,max_std)
+    fit_y = fit_y/np.trapz(fit_y,fit_x)
+    fig, ax = plt.subplots(1, 1)
+    ax.hist(dets, bins='auto', density=True,label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}")
+    ax.plot(fit_x, fit_y, label="fit")
+    ax.plot(conv_amp_array, conv, label="convolution")
+    ax.plot(conv_amp_array, p_det, label="p_det")
+    ax.set_xlabel("SNR")
+    ax.set_ylabel("Probability")
+    ax.legend()
 def plot_fit_ln(max_mu,max_std,dets,sigma_det):
     def mean_var_to_mu_std(mean, var):
         mu = np.log(mean**2/np.sqrt(var+mean**2))
@@ -225,13 +237,21 @@ if __name__ == "__main__":
     from bayes_factor_polychord import process_detection_results, plot_detection_results,load_config
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     plot_detection_results(det_width, det_fluence, det_snr)
-    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p = load_config(config, det_snr)
+    #get all the things from the config file
+    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p,gauss_N_range, gauss_mu_range, gauss_std_range, gauss_mesh_size,calculate_gauss = load_config(config, det_snr)
 
 
     #this is for debugging purposes
     # calculate_matrices(det_snr)
 
-
+    if calculate_gauss:
+        mu_arr_gauss = np.linspace(gauss_mu_range[0], gauss_mu_range[1], gauss_mesh_size)
+        std_arr_gauss = np.linspace(gauss_std_range[0], gauss_std_range[1], gauss_mesh_size + 1)
+        N_arr_gauss = np.linspace(gauss_N_range[0], gauss_N_range[1], gauss_mesh_size + 2)
+        mat = statistics_gaus.likelihood_gauss(mu_arr_gauss, std_arr_gauss, N_arr_gauss, det_snr, mesh_size=gauss_mesh_size)
+        max_mu_gauss, max_std_gauss, max_N_gauss = plot_mat_ln(mat, N_arr_gauss, mu_arr_gauss, std_arr_gauss, det_snr, det_snr, 0, 0, title=f"Gauss num {p}")
+        plot_fit_tg(max_mu_gauss, max_std_gauss, det_snr)
+        plt.show()
     if calculate_ln:
         # log normal original distribution
         mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
