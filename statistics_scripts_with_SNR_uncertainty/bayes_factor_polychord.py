@@ -117,6 +117,11 @@ def load_config(config, det_snr):
     logn_std_range = config["logn_std_range"]
     logn_mesh_size = config["logn_mesh_size"]
 
+    gauss_N_range = config["gauss_N_range"]
+    gauss_mu_range = config["gauss_mu_range"]
+    gauss_std_range = config["gauss_std_range"]
+    gauss_mesh_size = config["gauss_mesh_size"]
+
     exp_N_range = config["exp_N_range"]
     exp_k_range = config["exp_k_range"]
     exp_mesh_size = config["exp_mesh_size"]
@@ -124,6 +129,7 @@ def load_config(config, det_snr):
 
     calculate_ln = config["calculate_ln"]
     calculate_exp = config["calculate_exp"]
+    calculate_gauss = config["calculate_gauss"]
     snr_thresh = config["snr_thresh"]
     print("deleting:", sum(det_snr < snr_thresh), "points")
     det_snr = det_snr[det_snr > snr_thresh]
@@ -133,8 +139,10 @@ def load_config(config, det_snr):
         logn_N_range = [len(det_snr), obs_t / p]
     if exp_N_range == -1:
         exp_N_range = [len(det_snr), obs_t / p]
+    if gauss_N_range == -1:
+        gauss_N_range = [len(det_snr), obs_t / p]
 
-    return logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p
+    return logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p, gauss_N_range, gauss_mu_range, gauss_std_range, gauss_mesh_size, calculate_gauss
 
 if __name__ == "__main__":
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)

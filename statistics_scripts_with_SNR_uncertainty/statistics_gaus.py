@@ -3,12 +3,11 @@ from scipy.special import gammaln
 from multiprocessing import Pool
 import os
 from simulate_pulse import simulate_pulses_exp
-from statistics import n_detect
-from statistics import p_detect
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.stats import truncnorm
 from scipy.stats import norm
+import scipy
 import dill
 
 from cupyx.scipy.special import gammaln as cupy_gammaln
@@ -82,10 +81,32 @@ def gauss_first_cupy(amp,mu,std,xlim=100,x_len=1000000):
     p_det = p_detect_cupy(conv_amp_array)
     likelihood_conv = conv*p_det
     likelihood = cp.interp(amp,conv_amp_array,likelihood_conv)
-
     return cp.sum(cp.log(likelihood))
 #################CUPY END#####################
 
+def truncated_gaussian(x, mu, sigma,):
+    exp_portion = np.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * np.sqrt(2 * np.pi))
+    constant = (1-scipy.special.erf(-mu/np.sqrt(2)/sigma))/2
+    return exp_portion/constant
+
+def first_plot(amp,mu,std):
+    x_len = 100000
+    xlim = 100
+    import pdb; pdb.set_trace()
+    sigma_snr = det_error
+    x_lims = [-xlim,xlim]
+    amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
+    gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
+    tg_dist = truncated_gaussian(amp_arr,mu,std)
+    #convolve the two arrays
+    conv = np.convolve(tg_dist,gaussian_error)*np.diff(amp_arr)[0]
+    conv_lims = [-xlim*2,xlim*2]
+    conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
+    #interpolate the values for amp
+    p_det = p_detect(conv_amp_array)
+    likelihood_conv = conv*p_det
+    likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
+    return likelihood, p_det, conv_amp_array, conv
 
 
 
@@ -122,7 +143,6 @@ def total_p(X,snr_arr=None):
     # import pdb; pdb.set_trace()
     loglike = f + s + log_NCn
     loglike = np.array(loglike.get())
-    # import pdb; pdb.set_trace()
     return loglike
 
 def negative_loglike(X, det_snr):
