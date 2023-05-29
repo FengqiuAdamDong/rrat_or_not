@@ -20,6 +20,8 @@ parser.add_argument('-mu', type=float, default=0.5,
                     help='mean or the k parameter for an exponential distribution')
 parser.add_argument('-std', type=float, default=0.2,
                     help='standard deviation')
+parser.add_argument('-a', type=float, default=1,
+                    help='standard deviation')
 parser.add_argument('-obs', type=float, default=10000,
                     help='standard deviation')
 parser.add_argument('-p', type=float, default=1,
@@ -37,19 +39,15 @@ std = args.std
 obs_t = args.obs
 p = args.p
 f = args.f
+a = args.a
 dill_file = args.d
 inj_file = args.inj_file
 
 statistics_basic.load_detection_fn(inj_file)
-def mean_var_to_mu_std(mean, var):
-    mu = np.log(mean**2/np.sqrt(var+mean**2))
-    std = np.sqrt(np.log(var/mean**2+1))
-    return mu, std
-
-mu, std = mean_var_to_mu_std(mu,std**2)
 print("mu",mu,"std",std)
 from statistics import lognorm_dist
-
+from statistics import mean_var_to_mu_std
+mu, std = mean_var_to_mu_std(mu,std**2)
 if __name__=='__main__':
 
     from numpy.random import normal

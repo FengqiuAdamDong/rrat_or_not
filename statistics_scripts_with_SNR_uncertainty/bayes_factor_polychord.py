@@ -29,6 +29,7 @@ detection_curve = config["detection_curve"]
 statistics_basic.load_detection_fn(detection_curve)
 
 import statistics
+from statistics import mean_var_to_mu_std
 import statistics_exp
 # import statistics_gaus
 #####preamble finished#####
@@ -147,7 +148,7 @@ def load_config(config, det_snr):
 if __name__ == "__main__":
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     plot_detection_results(det_width, det_fluence, det_snr)
-    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p = load_config(config, det_snr)
+    logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, exp_N_range, exp_k_range, exp_mesh_size, obs_t, calculate_ln, calculate_exp, det_snr, p, gauss_N_range, gauss_mu_range, gauss_std_range, gauss_mesh_size, calculate_gauss = load_config(config, det_snr)
 
     print("logn_N_range", logn_N_range, "logn_mu_range", logn_mu_range, "logn_std_range", logn_std_range)
     print("exp_N_range", exp_N_range, "exp_k_range", exp_k_range)
@@ -163,10 +164,11 @@ if __name__ == "__main__":
             return np.array([ptmu, ptsigma, ptN])
 
         def loglikelihood(theta, det_snr):
+            theta[0],theta[1] = mean_var_to_mu_std(theta[0], theta[1]**2)
             return statistics.total_p(theta, det_snr)
 
         ln_sampler = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
-                                        logl_args=[det_snr], nlive=250)
+                                           logl_args=[det_snr], nlive=10000)
         ln_sampler.run_nested(checkpoint_file=f"{real_det}_logn_checkpoint.h5")
         ln_sresults = ln_sampler.results
 
@@ -188,8 +190,8 @@ if __name__ == "__main__":
             return statistics_exp.total_p_exp(theta, det_snr)
 
         exp_sampler = dynesty.NestedSampler(exp_loglikelihood, pt_Uniform_K, ndim=nDims,
-                                        logl_args=[det_snr], nlive=250)
-        exp_sampler.run_nested(checkpoint_file="{real_det}_exp_checkpoint.h5")
+                                            logl_args=[det_snr], nlive=10000)
+        exp_sampler.run_nested(checkpoint_file=f"{real_det}_exp_checkpoint.h5")
         exp_sresults = exp_sampler.results
         cfig, caxes = dyplot.cornerplot(exp_sresults)
         plt.title("exp")

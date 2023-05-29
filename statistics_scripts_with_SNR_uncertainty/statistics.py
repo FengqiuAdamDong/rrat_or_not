@@ -19,9 +19,10 @@ print("det_error for LN",det_error)
 
 ###############################CUPY FUNCTIONS##################################
 import cupy as cp
-def lognorm_dist_cupy(x, mu, sigma):
+def lognorm_dist_cupy(x, mu, sigma,a=0):
+    #a is the shift parameter
     pdf = cp.zeros(x.shape)
-    pdf[x > 0] = cp.exp(-((cp.log(x[x > 0]) - mu) ** 2) / (2 * sigma**2)) / (
+    pdf[x > 0] = cp.exp(-((cp.log(x[x > 0]-a) - mu) ** 2) / (2 * sigma**2)) / (
         x[x > 0] * sigma * cp.sqrt(2 * cp.pi)
     )
     return pdf
@@ -87,9 +88,10 @@ def first_cupy(amp,mu,std,xlim=100,x_len=1000000):
 #################CUPY END#####################
 
 
-def lognorm_dist(x, mu, sigma):
+def lognorm_dist(x, mu, sigma, a=0):
+    #a is the shift parameter
     pdf = np.zeros(x.shape)
-    pdf[x > 0] = np.exp(-((np.log(x[x > 0]) - mu) ** 2) / (2 * sigma**2)) / (
+    pdf[x > 0] = np.exp(-((np.log(x[x > 0]-a) - mu) ** 2) / (2 * sigma**2)) / (
         x[x > 0] * sigma * np.sqrt(2 * np.pi)
     )
     return pdf
