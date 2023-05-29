@@ -9,7 +9,7 @@ import dill
 import warnings
 import inject_stats
 import argparse
-from multiprocessing import Pool
+from dynesty.pool import Pool
 from dynesty import plotting as dyplot
 import dill
 import dynesty
@@ -107,7 +107,7 @@ def plot_detection_results(det_width, det_fluence, det_snr):
     axs[1, 1].set_xlabel("snr")
     axs[1, 1].legend()
     axs[0, 1].hist(det_snr, alpha=0.5, bins="auto", label="fit")
-    axs[0, 1].set_title("detected snr magnitudes")
+    axs[0, 1].set_title(f"detected snr ,ndet {len(det_snr)}")
     axs[0, 1].set_xlabel("snr")
     axs[0, 1].legend()
     plt.show()
@@ -154,9 +154,9 @@ if __name__ == "__main__":
     print("exp_N_range", exp_N_range, "exp_k_range", exp_k_range)
 
 
-    if calculate_ln:
+    # if calculate_ln:
+    if False:
         nDims = 3
-
         def pt_Uniform_N(x):
             ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
             ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
@@ -167,9 +167,10 @@ if __name__ == "__main__":
             theta[0],theta[1] = mean_var_to_mu_std(theta[0], theta[1]**2)
             return statistics.total_p(theta, det_snr)
 
-        ln_sampler = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
-                                           logl_args=[det_snr], nlive=10000)
-        ln_sampler.run_nested(checkpoint_file=f"{real_det}_logn_checkpoint.h5")
+        with Pool(20, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
+            ln_sampler = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
+                                               nlive=256,pool=pool, queue_size=10)
+            ln_sampler.run_nested(checkpoint_file=f"{real_det}_logn_checkpoint.h5")
         ln_sresults = ln_sampler.results
 
 
@@ -177,6 +178,37 @@ if __name__ == "__main__":
         # Plot the 2-D marginalized posteriors.
         cfig, caxes = dyplot.cornerplot(ln_sresults)
         plt.title("logn")
+
+    if calculate_ln:
+        nDims = 4
+        def pt_Uniform_N(x):
+            ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
+            ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
+            ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
+            pta = (np.mean(det_snr) - 0) * x[3] + 0
+            return np.array([ptmu, ptsigma, ptN, pta])
+
+        def loglikelihood(theta, det_snr):
+            theta[0],theta[1] = mean_var_to_mu_std(theta[0], theta[1]**2)
+            return statistics.total_p(theta, snr_arr = det_snr, use_a=True)
+        import pdb; pdb.set_trace()
+        loglikelihood( [1.14807635e-02, 8.14685618e-01, 2.62606808e+04, 1.41691454e+00],det_snr)
+        with Pool(10, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
+            ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
+                                                 nlive=256,pool=pool, queue_size=pool.njobs)
+            ln_sampler_a.run_nested(checkpoint_file=f"{real_det}_logn_a_checkpoint.h5")
+        # ln_sampler = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
+                                # logl_args=[det_snr], nlive=256,pool=pool,queue_size=20)
+
+        ln_a_sresults = ln_sampler_a.results
+
+
+        # rfig, raxes = dyplot.runplot(sresults)
+        # Plot the 2-D marginalized posteriors.
+        cfig, caxes = dyplot.cornerplot(ln_a_sresults)
+        plt.title("logn_a")
+        plt.show()
+    import pdb; pdb.set_trace()
 
     if calculate_exp:
         nDims = 2

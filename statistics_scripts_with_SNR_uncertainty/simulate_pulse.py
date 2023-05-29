@@ -16,7 +16,7 @@ def n_detect(snr_emit,inj_stats_fn=""):
 
 
 # so in this script we need to simulate N pulses from a pulsar
-def simulate_pulses(obs_t, period, f, mu, std, random=True):
+def simulate_pulses(obs_t, period, f, mu, std, a, random=True):
     # number of pulses
     N = int(obs_t / period)
     # draw N random variables between 0 and 1
@@ -26,11 +26,11 @@ def simulate_pulses(obs_t, period, f, mu, std, random=True):
         pulse_N = np.sum(rands < f)
     else:
         pulse_N = int(N * f)
-    pulse_snr = np.random.lognormal(mu, std, pulse_N)
+    pulse_snr = np.random.lognormal(mu, std, pulse_N)+a
     return pulse_snr
 
 
-def simulate_pulses_exp(obs_t, period, f, k, random=True):
+def simulate_pulses_exp(obs_t, period, f, k,a, random=True):
     # we simulate the pulses as a power law instead of a log normal
     # number of pulses
     N = int(obs_t / period)
@@ -42,7 +42,7 @@ def simulate_pulses_exp(obs_t, period, f, k, random=True):
     else:
         pulse_N = int(N * f)
     rands = np.random.rand(pulse_N)
-    pulse_snr = expon.rvs(scale=1/k,size=pulse_N)
+    pulse_snr = expon.rvs(scale=1/k,size=pulse_N)+a
     return pulse_snr
 
 

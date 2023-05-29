@@ -22,14 +22,14 @@ import cupy as cp
 def lognorm_dist_cupy(x, mu, sigma,a=0):
     #a is the shift parameter
     pdf = cp.zeros(x.shape)
-    pdf[x > 0] = cp.exp(-((cp.log(x[x > 0]-a) - mu) ** 2) / (2 * sigma**2)) / (
-        x[x > 0] * sigma * cp.sqrt(2 * cp.pi)
+    pdf[x > a] = cp.exp(-((cp.log(x[x > a]-a) - mu) ** 2) / (2 * sigma**2)) / (
+        (x[x > a]-a) * sigma * cp.sqrt(2 * cp.pi)
     )
     return pdf
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_cupy(n,mu,std,N,xlim=100,x_len=5000000):
+def second_cupy(n,mu,std,N,xlim=20,x_len=5000000,a=0):
      #xlim needs to be at least as large as 5 sigma_snrs though
     wide_enough = False
     sigma_snr = det_error
@@ -38,13 +38,12 @@ def second_cupy(n,mu,std,N,xlim=100,x_len=5000000):
         x_lims = [-sigma_snr*xlim,xlim]
         # x_lims = [-xlim,xlim]
         amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-        LN_dist = lognorm_dist_cupy(amp_arr,mu,std)
+        LN_dist = lognorm_dist_cupy(amp_arr,mu,std,a=a)
         gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
         if (gaussian_error[-1] < maximum_accuracy)&(LN_dist[-1] < maximum_accuracy)&(gaussian_error[0] < maximum_accuracy):
             wide_enough = True
         else:
-            xlim = xlim+100
-    # print("second xlim",xlim)
+            xlim = xlim+5
     #convolve the two arrays
     # plt.figure()
     # plt.plot(amp_arr,LN_dist)
@@ -59,22 +58,27 @@ def second_cupy(n,mu,std,N,xlim=100,x_len=5000000):
     likelihood = conv*(1-p_det)
     # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     integral = cp.trapz(likelihood,conv_amp_array)
+    if integral >1:
+        #throw error and exit
+        import sys
+        print("integral is greater than 1")
+        sys.exit()
+    # print("second xlim",xlim)
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=100,x_len=1000000):
+def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0):
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_snr = det_error
     wide_enough = False
     while not wide_enough:
         x_lims = [-xlim,xlim]
         amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-        LN_dist = lognorm_dist_cupy(amp_arr,mu,std)
+        LN_dist = lognorm_dist_cupy(amp_arr,mu,std,a=a)
         gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
         if (gaussian_error[-1] < 1e-5)&(LN_dist[-1] < 1e-5)&(xlim>(max(amp)+10)):
             wide_enough = True
         else:
-            xlim = xlim+100
-    # print("first xlim",xlim)
+            xlim = xlim+50
     #convolve the two arrays
     conv = cp.convolve(LN_dist,gaussian_error)*cp.diff(amp_arr)[0]
     conv_lims = [2*x_lims[0],2*x_lims[1]]
@@ -84,6 +88,7 @@ def first_cupy(amp,mu,std,xlim=100,x_len=1000000):
     likelihood_conv = conv*p_det
     likelihood = cp.interp(amp,conv_amp_array,likelihood_conv)
 
+    # print("first xlim",xlim)
     return cp.sum(cp.log(likelihood))
 #################CUPY END#####################
 
@@ -91,8 +96,8 @@ def first_cupy(amp,mu,std,xlim=100,x_len=1000000):
 def lognorm_dist(x, mu, sigma, a=0):
     #a is the shift parameter
     pdf = np.zeros(x.shape)
-    pdf[x > 0] = np.exp(-((np.log(x[x > 0]-a) - mu) ** 2) / (2 * sigma**2)) / (
-        x[x > 0] * sigma * np.sqrt(2 * np.pi)
+    pdf[x > a] = np.exp(-((np.log(x[x > a]-a) - mu) ** 2) / (2 * sigma**2)) / (
+        (x[x > a]-a) * sigma * np.sqrt(2 * np.pi)
     )
     return pdf
 
@@ -136,13 +141,13 @@ def first(amp,mu,std, sigma_snr=0.4,xlim=1,x_len=10000,plot=False):
         import pdb; pdb.set_trace()
     return np.sum(np.log(likelihood))
 
-def first_plot(amp,mu,std, sigma_snr=0.4):
+def first_plot(amp,mu,std, sigma_snr=0.4, a=0):
     x_len = 10000
     xlim = 100
     x_lims = [-xlim,xlim]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
-    LN_dist = lognorm_dist(amp_arr,mu,std)
+    LN_dist = lognorm_dist(amp_arr,mu,std,a=a)
     #convolve the two arrays
     conv = np.convolve(LN_dist,gaussian_error)*np.diff(amp_arr)[0]
     conv_lims = [-xlim*2,xlim*2]
@@ -166,7 +171,7 @@ def second(n, mu, std, N, sigma_snr,xlim=1,x_len=20000):
             wide_enough = True
         else:
             xlim = xlim+1
-    print(f"xlim {xlim}")
+    # print(f"xlim {xlim}")
     #convolve the two arrays
     # plt.figure()
     # plt.plot(amp_arr,LN_dist)
@@ -193,40 +198,57 @@ def second(n, mu, std, N, sigma_snr,xlim=1,x_len=20000):
         # p_second_int = 1
     return p_second_int * (N - n)
 
-def total_p(X,snr_arr=None):
+def total_p(X,snr_arr=None,use_a=False):
+    # print("starting loglike")
     if isinstance(X,dict):
         mu = X["mu"]
         std = X["std"]
         N = X["N"]
         snr_arr = X["snr_arr"]
+        if use_a:
+            a = X["a"]
+        else:
+            a = 0
     else:
         mu = X[0]
         std = X[1]
         N = X[2]
+        if use_a:
+            a = X[3]
+        else:
+            a = 0
+
     if N < len(snr_arr):
         raise Exception(" N<n")
     sigma_snr = det_error
     snr_arr = cp.array(snr_arr)
-    mu = cp.array(mu)
-    std = cp.array(std)
-    sigma_snr = cp.array(sigma_snr)
-    f = first_cupy(snr_arr, mu, std)
+    # mu = cp.array(mu)
+    # std = cp.array(std)
+    # N = cp.array(N)
+    # a = cp.array(a)
+    # sigma_snr = cp.array(sigma_snr)
+    # print("finished transfer")
+    f = first_cupy(snr_arr, mu, std,a=a)
+    # print("finished f")
     if np.isnan(f):
         print("resetting f")
         f = -cp.inf
     # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
-    s = second_cupy(len(snr_arr), mu, std, N)
+    s = second_cupy(len(snr_arr), mu, std, N,a=a)
+    # print("finished s")
     if np.isnan(s):
         print("resetting s")
         s = -cp.inf
     n = len(snr_arr)
     log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
+    # print("finished log_NCn")
     # print(mu,std,N)
     # print(f,s,log_NCn)
-    # import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
     loglike = f + s + log_NCn
     loglike = np.array(loglike.get())
     # import pdb; pdb.set_trace()
+    # print("ending loglike")
     return loglike
 
 def negative_loglike(X, det_snr):

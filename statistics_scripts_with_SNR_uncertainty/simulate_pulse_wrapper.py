@@ -20,7 +20,7 @@ parser.add_argument('-mu', type=float, default=0.5,
                     help='mean or the k parameter for an exponential distribution')
 parser.add_argument('-std', type=float, default=0.2,
                     help='standard deviation')
-parser.add_argument('-a', type=float, default=1,
+parser.add_argument('-a', type=float, default=0,
                     help='standard deviation')
 parser.add_argument('-obs', type=float, default=10000,
                     help='standard deviation')
@@ -59,9 +59,9 @@ if __name__=='__main__':
 
     mode = args.mode
     if mode=="Exp":
-        pulses = simulate_pulses_exp(obs_t,p,f,mu,random=False)
+        pulses = simulate_pulses_exp(obs_t,p,f,mu,a,random=False)
     elif mode=="Lognorm":
-        pulses = simulate_pulses(obs_t,p,f,mu,std,random=False)
+        pulses = simulate_pulses(obs_t,p,f,mu,std,a,random=False)
     elif mode=="Gauss":
         pulses,a,b = simulate_pulses_gauss(obs_t,p,f,mu,std,random=True)
 
@@ -128,7 +128,7 @@ if __name__=='__main__':
 
     snr_array = np.linspace(0,20,10000)
     if mode=="Lognorm":
-        p_dist , p_det, conv_amp_array, conv = statistics.first_plot(snr_array,mu,std,sigma_snr)
+        p_dist , p_det, conv_amp_array, conv = statistics.first_plot(snr_array,mu,std,sigma_snr,a=a)
     elif mode=="Exp":
         import statistics_exp
         print(statistics_exp.det_error)
