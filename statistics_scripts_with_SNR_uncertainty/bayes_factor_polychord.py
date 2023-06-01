@@ -14,7 +14,7 @@ from dynesty import plotting as dyplot
 import dill
 import dynesty
 import statistics_basic
-
+from scipy.interpolate import RegularGridInterpolator
 parser = argparse.ArgumentParser(description="Simulate some pulses")
 parser.add_argument("-i", type=str, default="fake_data.dill", help="data")
 #add an argument for config file
@@ -31,6 +31,7 @@ statistics_basic.load_detection_fn(detection_curve)
 import statistics
 from statistics import mean_var_to_mu_std
 import statistics_exp
+det_error = statistics.det_error
 # import statistics_gaus
 #####preamble finished#####
 
@@ -180,20 +181,33 @@ if __name__ == "__main__":
         plt.title("logn")
 
     if calculate_ln:
-        nDims = 4
+        xlim_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['xlim_second']
+        mu_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['mu']
+        std_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['std']
+        N_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['N']
+        mg,sg,ng = np.meshgrid(mu_lookup,std_lookup,N_lookup,indexing='ij')
+        xlim_interp = RegularGridInterpolator((mu_lookup,std_lookup,N_lookup), xlim_lookup,bounds_error=False,fill_value=None)
+        nDims = 6
         def pt_Uniform_N(x):
             ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
             ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
             ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
             pta = (np.mean(det_snr) - 0) * x[3] + 0
-            return np.array([ptmu, ptsigma, ptN, pta])
+            ptlowerc = (np.min(det_snr)+(det_error*4) - 0) * x[4] + 0
+            #the upper limit is a multiplicative term on the mu
+            ptupperc = (100 - 1) * x[5] + 10
+            return np.array([ptmu, ptsigma, ptN, pta,ptlowerc,ptupperc])
 
-        def loglikelihood(theta, det_snr):
+        def loglikelihood(theta, det_snr, xlim_interp):
+            #convert to strict upper limit of the lognorm
+            theta[5] = theta[5] *  theta[0]
+            #convert to the standard mu and sigma of a lognorm
             theta[0],theta[1] = mean_var_to_mu_std(theta[0], theta[1]**2)
-            return statistics.total_p(theta, snr_arr = det_snr, use_a=True)
-        import pdb; pdb.set_trace()
-        loglikelihood( [1.14807635e-02, 8.14685618e-01, 2.62606808e+04, 1.41691454e+00],det_snr)
-        with Pool(10, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
+            xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
+            # print(xlim)
+            return statistics.total_p(theta, snr_arr = det_snr, use_a=True,xlim=xlim)
+
+        with Pool(10, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
             ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
                                                  nlive=256,pool=pool, queue_size=pool.njobs)
             ln_sampler_a.run_nested(checkpoint_file=f"{real_det}_logn_a_checkpoint.h5")
