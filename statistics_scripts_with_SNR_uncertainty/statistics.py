@@ -28,14 +28,17 @@ def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
         (x[mask]) * sigma * cp.sqrt(2 * cp.pi)
     )
     def argument(c,mu,sigma):
+        if c==0:
+            return -cp.inf
         return (cp.log(c)-mu)/(sigma*cp.sqrt(2))
+
     pdf = 2*pdf / (cupy_erf(argument(upper_c,mu,sigma))-cupy_erf(argument(lower_c,mu,sigma)))
     return pdf
 
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_cupy(n,mu,std,N,xlim=10,x_len=5000000,a=0,lower_c=0,upper_c=cp.inf):
+def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
      #xlim needs to be at least as large as 5 sigma_snrs though
     wide_enough = False
     sigma_snr = det_error
@@ -68,7 +71,7 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=5000000,a=0,lower_c=0,upper_c=cp.inf):
     # print("second xlim",xlim)
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=20,x_len=5000000,a=0,lower_c=0,upper_c=cp.inf):
+def first_cupy(amp,mu,std,xlim=20,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
     if xlim<max(amp):
         xlim = max(amp)+3
@@ -86,7 +89,6 @@ def first_cupy(amp,mu,std,xlim=20,x_len=5000000,a=0,lower_c=0,upper_c=cp.inf):
     p_det = p_detect_cupy(conv_amp_array)
     likelihood_conv = conv*p_det
     likelihood = cp.interp(amp,conv_amp_array,likelihood_conv)
-
     # print("first xlim",xlim)
     return cp.sum(cp.log(likelihood))
 #################CUPY END#####################
@@ -100,6 +102,8 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
         (x[mask]) * sigma * np.sqrt(2 * np.pi)
     )
     def argument(c,mu,sigma):
+        if c==0:
+            return -np.inf
         return (np.log(c)-mu)/(sigma*np.sqrt(2))
     pdf = 2*pdf / (scipy.special.erf(argument(upper_c,mu,sigma))-scipy.special.erf(argument(lower_c,mu,sigma)))
     return pdf
@@ -147,6 +151,9 @@ def total_p(X,snr_arr=None,use_a=False,use_cutoff=False,xlim=20):
         else:
             lower_c = 0
             upper_c = np.inf
+        if lower_c>upper_c:
+            print("lower_c is greater than upper_c")
+            return -np.inf
 
     if N < len(snr_arr):
         raise Exception(" N<n")
@@ -161,14 +168,14 @@ def total_p(X,snr_arr=None,use_a=False,use_cutoff=False,xlim=20):
     f = first_cupy(snr_arr, mu, std,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
     # print("finished f")
     if np.isnan(f):
-        print("resetting f")
-        f = -cp.inf
+        print("f is nan")
+        return -np.inf
     # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
     s = second_cupy(len(snr_arr), mu, std, N,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
     # print("finished s")
     if np.isnan(s):
-        print("resetting s")
-        s = -cp.inf
+        print("s is nan")
+        return -np.inf
     n = len(snr_arr)
     log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
     # print("finished log_NCn")
