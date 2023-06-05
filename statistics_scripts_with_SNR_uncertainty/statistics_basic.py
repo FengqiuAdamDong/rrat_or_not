@@ -24,7 +24,7 @@ def p_detect_jax(snr,interp=True):
     interp_res = interp_res.at[snr<1.3].set(0)
     return interp_res
 
-def load_detection_fn(detection_curve,lookup=True):
+def load_detection_fn(detection_curve,lookup=True,plot=True):
     global inj_stats
     with open(detection_curve, "rb") as inf:
         inj_stats = dill.load(inf)
@@ -33,7 +33,11 @@ def load_detection_fn(detection_curve,lookup=True):
     snr_arr = np.linspace(0, 10, 1000)
     print("det error", det_error)
     detfn = p_detect(snr_arr)
-    plt.plot(snr_arr, detfn)
+    if plot:
+        plt.figure()
+        plt.plot(snr_arr, detfn)
+        plt.xlabel("SNR")
+        plt.ylabel("Detection Fraction")
 
 
 def logistic(x, k, x0):
