@@ -25,6 +25,7 @@ statistics_basic.load_detection_fn(detection_curve)
 obs_t = config["obs_time"]
 p = config["p"]
 import statistics
+from statistics import mean_var_to_mu_std
 import statistics_exp
 import statistics_gaus
 ##### preamble finished #####
@@ -121,10 +122,6 @@ def plot_fit_tg(max_mu,max_std,dets):
     ax.set_ylabel("Probability")
     ax.legend()
 def plot_fit_ln(max_mu,max_std,dets,sigma_det):
-    def mean_var_to_mu_std(mean, var):
-        mu = np.log(mean**2/np.sqrt(var+mean**2))
-        std = np.sqrt(np.log(var/mean**2+1))
-        return mu, std
     mu, std = mean_var_to_mu_std(max_mu, max_std**2)
     fit_x = np.linspace(1e-9,50,10000)
     fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, sigma_det)
