@@ -265,9 +265,10 @@ if __name__ == "__main__":
             fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue', truths=np.zeros(nDims),
                                     truth_color='black', show_titles=True,
                                     quantiles=None, max_n_ticks=3)
-            plt.title("logn_a")
             plot_fit(ln_a_sresults)
 
+    plt.show()
+    import pdb; pdb.set_trace()
 
     if calculate_exp:
         nDims = 2
@@ -287,5 +288,3 @@ if __name__ == "__main__":
         cfig, caxes = dyplot.cornerplot(exp_sresults)
         plt.title("exp")
 
-    plt.show()
-    import pdb; pdb.set_trace()

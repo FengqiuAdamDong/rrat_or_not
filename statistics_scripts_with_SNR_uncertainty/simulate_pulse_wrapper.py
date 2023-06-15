@@ -115,11 +115,12 @@ cutoff = args.cutoff
 lower = cutoff[0]
 upper = cutoff[1]
 statistics_basic.load_detection_fn(inj_file,plot=False)
-print("mu", mu, "std", std)
 from statistics import lognorm_dist
 from statistics import mean_var_to_mu_std
 
 mu, std = mean_var_to_mu_std(mu, std**2)
+
+print("mu", mu, "std", std)
 if __name__ == "__main__":
 
     from numpy.random import normal
@@ -129,7 +130,7 @@ if __name__ == "__main__":
     sigma_snr = statistics.det_error
     # save the detection function with the detection error
     n = []
-
+    print(f"lower {lower} upper {upper}")
     mode = args.mode
     if mode == "Exp":
         pulses = simulate_pulses_exp(obs_t, p, f, mu, a, random=False)
