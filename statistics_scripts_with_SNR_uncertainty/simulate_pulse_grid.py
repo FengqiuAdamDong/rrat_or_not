@@ -16,7 +16,7 @@ import dill
 import argparse
 import os
 import yaml
-def simulate_and_process_data(detected_req, mode,mu,std ,mu_ln, std_ln, lower, upper, sigma_snr, a, inj_file, dill_file,plot=True):
+def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, lower, upper, sigma_snr, a, inj_file, dill_file,plot=True):
     detected_pulses = []
     total_pulses = []
     while len(detected_pulses) < detected_req:
@@ -38,18 +38,18 @@ def simulate_and_process_data(detected_req, mode,mu,std ,mu_ln, std_ln, lower, u
         if len(d) == 1:
             detected_pulses.append(d[0])
         total_pulses.append(pulses)
-
+    out_fol = "simulated_dir_ln_params"
     print("len detected", len(detected_pulses))
     print("generated", len(total_pulses))
     print("mean", np.mean(total_pulses), "variance", np.std(total_pulses) ** 2)
     print("detection error", sigma_snr)
     print("detected", len(detected_pulses))
-    out_fn = os.path.join("simulated_dir",f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.dill")
-    if not os.path.exists("simulated_dir"):
-        os.makedirs("simulated_dir")
+    out_fn = os.path.join(out_fol,f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.dill")
+    if not os.path.exists(out_fol):
+        os.makedirs(out_fol)
     detected_pulses = process_data(dill_file, detected_pulses, out_fn, plot=True)
-    yaml_fn = os.path.join("simulated_dir",f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.yaml")
-    write_yaml(mu,std,a,len(total_pulses),inj_file,yaml_fn)
+    yaml_fn = os.path.join(out_fol,f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.yaml")
+    write_yaml(mu_ln,std_ln,a,len(total_pulses),inj_file,yaml_fn)
     if plot:
         snr_array = np.linspace(0, 20, 10000)
         if mode == "Lognorm":
@@ -72,15 +72,11 @@ def simulate_and_process_data(detected_req, mode,mu,std ,mu_ln, std_ln, lower, u
 
 def write_yaml(mu,std,a,N,inj_file,output_fn):
     mu = float(mu)
-    if mu < 1.1:
-        mu_arr = [0.1,mu+1]
-    else:
-        mu_arr = [mu-1,mu+1]
-
+    mu_arr = [mu-1,mu+1]
     data = {
         'logn_N_range': [-1,N+20000],
         'logn_mu_range': list(mu_arr),
-        'logn_std_range': [std-0.5, std+0.2],
+        'logn_std_range': [std-0.5, std+0.5],
         'detection_curve': inj_file,
         'snr_thresh': 1.3
     }
@@ -167,7 +163,7 @@ dill_file = args.d
 inj_file = args.inj_file
 #load the detection file
 statistics_basic.load_detection_fn(inj_file,plot=False)
-mu_arr = np.linspace(0.2,1,20)
+mu_arr = np.linspace(-1.5,2,20)
 std_arr = [1]
 detected_req = 500
 print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
@@ -176,7 +172,7 @@ from numpy.random import normal
 import statistics
 from statistics import lognorm_dist
 from statistics import mean_var_to_mu_std
-
+from statistics import mu_std_to_mean_var
 
 if __name__ == "__main__":
 
@@ -187,6 +183,6 @@ if __name__ == "__main__":
         std = std_arr[0]
         lower = 0
         #se the upper cutoff to be 50x the mean
-        upper = mu*50
-        mu_ln, std_ln = mean_var_to_mu_std(mu, std**2)
-        simulate_and_process_data(detected_req, mode,mu,std, mu_ln, std_ln, lower, upper, sigma_snr, a, inj_file, dill_file,plot=False)
+        mean,var = mu_std_to_mean_var(mu,std)
+        upper = mean*50
+        simulate_and_process_data(detected_req, mode,mu,std, lower, upper, sigma_snr, a, inj_file, dill_file,plot=False)

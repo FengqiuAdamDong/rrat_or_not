@@ -187,6 +187,11 @@ def mean_var_to_mu_std(mean, var):
     std = np.sqrt(np.log(var/mean**2+1))
     return mu, std
 
+def mu_std_to_mean_var(mu, std):
+    mean = np.exp(mu+std**2/2)
+    var = (np.exp(std**2)-1)*np.exp(2*mu+std**2)
+    return mean,var
+
 def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
     # # create a mesh grid of N, mu and stds
     mat = np.zeros((len(mu_arr), len(std_arr), len(N_arr)))

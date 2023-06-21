@@ -120,6 +120,7 @@ if __name__ == "__main__":
 
     import statistics
     from statistics import mean_var_to_mu_std
+    from statistics import mu_std_to_mean_var
     import statistics_exp
     det_error = statistics.det_error
     for real_det,config_det in zip(dill_files,config_files):
@@ -132,6 +133,8 @@ if __name__ == "__main__":
         print(real_det,config_det)
         # plot_detection_results(det_width, det_fluence, det_snr)
         detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh = read_config(config_det,det_snr)
+        #filter the det_snr
+        det_snr = det_snr[det_snr>snr_thresh]
         print("logn_N_range", logn_N_range, "logn_mu_range", logn_mu_range, "logn_std_range", logn_std_range)
         #load the lookup table
         xlim_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['xlim_second']
@@ -150,12 +153,15 @@ if __name__ == "__main__":
         def loglikelihood(theta, det_snr, xlim_interp):
             #convert to strict upper limit of the lognorm
             #convert to the standard mu and sigma of a lognorm
+            #print("theta",theta)
             a = 0
             lower_c = 0
-            upper_c = theta[0]*50
-            LN_mu,LN_std = mean_var_to_mu_std(theta[0], theta[1]**2)
-            #xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
-            xlim=100
+            # upper_c = theta[0]*50
+            mean,var = mu_std_to_mean_var(theta[0],theta[1])
+            upper_c = mean*50
+            LN_mu,LN_std = (theta[0],theta[1])
+            xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
+            # xlim=100
             X = {"mu": LN_mu, "std": LN_std, "N": theta[2], "a":0, "lower_c":lower_c, "upper_c":upper_c}
             return statistics.total_p(X, snr_arr = det_snr, use_a=False,use_cutoff=True,xlim=xlim,cuda_device=cuda_device)
 
@@ -189,7 +195,7 @@ if __name__ == "__main__":
             # checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
             # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
         ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
-                                             logl_args=[det_snr,xlim_interp], nlive=10000)
+                                             logl_args=[det_snr,xlim_interp], nlive=256)
         dill_fn = real_det.split("/")[-1]
         dill_fn = dill_fn.split(".")[0]
         checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
@@ -199,11 +205,12 @@ if __name__ == "__main__":
         # ln_sampler_a.run_nested(checkpoint_file=f"{real_det}_logn_a_checkpoint.h5",nlive_init=20,nlive_batch=20,dlogz_init=200)
 
         ln_a_sresults = ln_sampler_a.results
-        fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue', truths=np.zeros(nDims),
+        fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue',labels=["mu","sigma","N"], truths=np.zeros(nDims),
                                 truth_color='black', show_titles=True,
                                 quantiles=None, max_n_ticks=3)
         plt.savefig(f"{real_det}_logn_a_corner.png")
         plt.close()
+        import pdb; pdb.set_trace()
         #plot_fit(ln_a_sresults)
         #plt.savefig(f"{real_det}_logn_a_fit.png")
         #plt.close()
