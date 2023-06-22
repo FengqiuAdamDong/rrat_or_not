@@ -2,7 +2,6 @@ import dill
 import matplotlib.pyplot as plt
 import cupy as cp
 import numpy as np
-import jax.numpy as jnp
 
 def p_detect(snr,interp=True):
     if interp:
