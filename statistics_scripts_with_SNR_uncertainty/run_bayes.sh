@@ -9,4 +9,5 @@
 #SBATCH --error=%x-%j.err
 #SBATCH --gres=gpu:v100l:1
 #
-python ~/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_NS_LN_no_a.py -f simulated_dir_2000
+python ~/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_NS_LN_no_a_single.py -i $1
+# python bayes_factor_NS_LN_no_a_single.py -i $1
