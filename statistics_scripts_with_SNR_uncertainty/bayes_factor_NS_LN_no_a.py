@@ -194,11 +194,14 @@ if __name__ == "__main__":
             # dill_fn = dill_fn.split(".")[0]
             # checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
             # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+        dill_fn = real_det.split("/")[-1]
+        dill_fn = dill_fn.split(".")[:-1]
+        dill_fn = ".".join(dill_fn)
+        checkpoint_fn = os.path.join(folder, f"{dill_fn}.h5")
+        print("checkpoint_fn",checkpoint_fn)
         ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
                                              logl_args=[det_snr,xlim_interp], nlive=256)
-        dill_fn = real_det.split("/")[-1]
-        dill_fn = dill_fn.split(".")[0]
-        checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
+
         ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
         # ln_sampler_a = dynesty.DynamicNestedSampler(loglikelihood, pt_Uniform_N, nDims,
                                 # logl_args=[det_snr,xlim_interp])
@@ -210,7 +213,6 @@ if __name__ == "__main__":
                                 quantiles=None, max_n_ticks=3)
         plt.savefig(f"{real_det}_logn_a_corner.png")
         plt.close()
-        import pdb; pdb.set_trace()
         #plot_fit(ln_a_sresults)
         #plt.savefig(f"{real_det}_logn_a_fit.png")
         #plt.close()

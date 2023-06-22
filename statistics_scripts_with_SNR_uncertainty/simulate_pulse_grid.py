@@ -38,7 +38,7 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, lower, upper, si
         if len(d) == 1:
             detected_pulses.append(d[0])
         total_pulses.append(pulses)
-    out_fol = "simulated_dir_ln_params"
+    out_fol = "simulated_dir_2000"
     print("len detected", len(detected_pulses))
     print("generated", len(total_pulses))
     print("mean", np.mean(total_pulses), "variance", np.std(total_pulses) ** 2)
@@ -165,7 +165,7 @@ inj_file = args.inj_file
 statistics_basic.load_detection_fn(inj_file,plot=False)
 mu_arr = np.linspace(-1.5,2,20)
 std_arr = [1]
-detected_req = 500
+detected_req = 2000
 print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
 from inject_stats import inject_obj
 from numpy.random import normal
