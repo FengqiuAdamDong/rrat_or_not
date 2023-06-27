@@ -17,12 +17,6 @@ def p_detect_cupy(snr,interp=True):
     interp_res[snr<1.3] = 0
     return interp_res
 
-def p_detect_jax(snr,interp=True):
-    interp_res = jnp.interp(snr,jnp.array(inj_stats.detected_bin_midpoints),jnp.array(inj_stats.detected_det_frac))
-    #remmove those values below snr=1.3
-    interp_res = interp_res.at[snr<1.3].set(0)
-    return interp_res
-
 def load_detection_fn(detection_curve,lookup=True,plot=True):
     global inj_stats
     with open(detection_curve, "rb") as inf:

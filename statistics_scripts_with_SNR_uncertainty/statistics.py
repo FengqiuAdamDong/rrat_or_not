@@ -171,7 +171,7 @@ def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
         loglike = f + s + log_NCn
         loglike = np.array(loglike.get())
         overall_time = time.time()
-        # print(f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}")
+        print(f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}")
         # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
     return loglike
 
@@ -192,6 +192,10 @@ def mu_std_to_mean_var(mu, std):
 def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
     # # create a mesh grid of N, mu and stds
     mat = np.zeros((len(mu_arr), len(std_arr), len(N_arr)))
+    if max(det_snr)>100:
+        xlim = max(det_snr)*2
+    else:
+        xlim = 100
     with Pool(2) as po:
 
         X = []
@@ -211,7 +215,7 @@ def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
         m = []
         for ind,v in enumerate(X):
             print(f"{ind}/{len(X)}")
-            m.append(total_p(v,det_snr,use_cutoff=True,cuda_device=0))
+            m.append(total_p(v,det_snr,use_cutoff=True,cuda_device=0,xlim=xlim))
         m = np.array(m)
         for i, mu_i in enumerate(mu_arr):
             for j, std_i in enumerate(std_arr):
