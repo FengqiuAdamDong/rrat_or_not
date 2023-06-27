@@ -38,7 +38,7 @@ def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_cupy(n,mu,std,N,xlim=10,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
+def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
      #xlim needs to be at least as large as 5 sigma_snrs though
     wide_enough = False
     sigma_snr = det_error
