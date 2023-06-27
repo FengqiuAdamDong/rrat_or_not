@@ -17,7 +17,7 @@ from statistics_basic import load_detection_fn, p_detect, p_detect_cupy
 global det_error
 det_error = statistics_basic.det_error
 print("det_error for LN",det_error)
-
+import time
 ###############################CUPY FUNCTIONS##################################
 import cupy as cp
 def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
@@ -63,18 +63,16 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
     likelihood = conv*(1-p_det)
     # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     integral = cp.trapz(likelihood,conv_amp_array)
-    if integral >1.05:
-        #throw error and exit
-        import sys
-        print(f"integral is greater than 1.05, integral is {integral}")
-        sys.exit()
+    # if integral >1.05:
+    #     #throw error and exit
+    #     import sys
+    #     print(f"integral is greater than 1.05, integral is {integral}")
+    #     sys.exit()
     # print("second xlim",xlim)
     return cp.log(integral)*(N-n)
 
 def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
-    if xlim<max(amp):
-        xlim = max(amp)+3
     sigma_snr = det_error
     wide_enough = False
     x_lims = [-xlim,xlim]
@@ -125,9 +123,12 @@ def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     return likelihood, p_det, conv_amp_array, conv
 
-def total_p(X,snr_arr,use_a=False,use_cutoff=False,xlim=100,cuda_device=0):
+def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
     # print("starting loglike")
     with cp.cuda.Device(cuda_device):
+        start = time.time()
+        snr_arr = cp.array(snr_arr)
+        transfer_time = time.time()
         mu = X["mu"]
         std = X["std"]
         N = X["N"]
@@ -144,26 +145,24 @@ def total_p(X,snr_arr,use_a=False,use_cutoff=False,xlim=100,cuda_device=0):
         if lower_c>upper_c:
             print("lower_c is greater than upper_c")
             return -np.inf
-
+        if snr_arr is None:
+            snr_arr = X["snr_arr"]
         if N < len(snr_arr):
             raise Exception(" N<n")
+
+        # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
         sigma_snr = det_error
-        # snr_arr = cp.array(snr_arr)
-        # mu = cp.array(mu)
-        # std = cp.array(std)
-        # N = cp.array(N)
-        # a = cp.array(a)
-        # sigma_snr = cp.array(sigma_snr)
-        # print("finished transfer")
         f = first_cupy(snr_arr, mu, std,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
+        first_time = time.time()
         # print("finished f")
-        if np.isnan(f):
+        if cp.isnan(f):
             print("f is nan")
             return -np.inf
         # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
         s = second_cupy(len(snr_arr), mu, std, N,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
+        second_time = time.time()
         # print("finished s")
-        if np.isnan(s):
+        if cp.isnan(s):
             print("s is nan")
             return -np.inf
         n = len(snr_arr)
@@ -171,11 +170,9 @@ def total_p(X,snr_arr,use_a=False,use_cutoff=False,xlim=100,cuda_device=0):
         # print("finished log_NCn")
         loglike = f + s + log_NCn
         loglike = np.array(loglike.get())
-        # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
+        overall_time = time.time()
+        # print(f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}")
         # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
-
-    # import pdb; pdb.set_trace()
-    # print("ending loglike")
     return loglike
 
 def negative_loglike(X, det_snr):
@@ -195,41 +192,30 @@ def mu_std_to_mean_var(mu, std):
 def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
     # # create a mesh grid of N, mu and stds
     mat = np.zeros((len(mu_arr), len(std_arr), len(N_arr)))
-    with Pool(10) as po:
+    with Pool(2) as po:
 
         X = []
         Y = []
-        for i, mean_i in enumerate(mu_arr):
-            for j, sigma_i in enumerate(std_arr):
+        with cp.cuda.Device(0):
+            det_snr = cp.array(det_snr)
+        for i, mu_i in enumerate(mu_arr):
+            for j, std_i in enumerate(std_arr):
                 for k, N_i in enumerate(N_arr):
                     #change the mu to a different definition
+                    mean_i, var_i = mu_std_to_mean_var(mu_i, std_i)
                     upper_c = mean_i * 50
-                    mu_i, std_i = mean_var_to_mu_std(mean_i, sigma_i**2)
                     X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr, "lower_c": 0, "upper_c": upper_c})
                     Y.append([mu_i,std_i,N_i])
         Y = np.array(Y)
         # m = np.array(po.map(total_p, X))
         m = []
-        with cp.cuda.Device(0):
-            det_snr = cp.array(det_snr)
-
-        abc = {"mu": -2.29, "std": 1.43, "N": 40000, "snr_arr": det_snr, "lower_c": 0, "upper_c": 50*0.28}
-        total_p(abc,det_snr,use_cutoff=True,cuda_device=0)
-
-        abc = {"mu": -0.56, "std": 0.917, "N": 7000, "snr_arr": det_snr, "lower_c": 0, "upper_c": 50*0.8}
-        total_p(abc,det_snr,use_cutoff=True,cuda_device=0)
-        abc = {"mu": -0.179, "std": 0.798, "N": 3900, "snr_arr": det_snr, "lower_c": 0, "upper_c": 50*1.15}
-        total_p(abc,det_snr,use_cutoff=True,cuda_device=0)
-
-
         for ind,v in enumerate(X):
             print(f"{ind}/{len(X)}")
             m.append(total_p(v,det_snr,use_cutoff=True,cuda_device=0))
         m = np.array(m)
-        for i, mean_i in enumerate(mu_arr):
-            for j, sigma_i in enumerate(std_arr):
+        for i, mu_i in enumerate(mu_arr):
+            for j, std_i in enumerate(std_arr):
                 for k, N_i in enumerate(N_arr):
-                    mu_i, std_i = mean_var_to_mu_std(mean_i, sigma_i**2)
                     ind = np.sum((Y==[mu_i,std_i,N_i]),axis=1)==3
                     mat[i,j,k] = m[ind]
 
