@@ -45,15 +45,6 @@ def read_config(filename,det_snr):
         logn_N_range[0] = len(det_snr)+1
     return detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh
 
-# warnings.filterwarnings("ignore")
-def N_to_pfrac(x):
-    total = obs_t / p
-    return (1-(x / total))
-
-def pfrac_to_N(x):
-    total = obs_t / p
-    return total * x
-
 def plot_fit_ln(max_mu,max_std,dets,sigma_det):
     fit_x = np.linspace(1e-9,50,10000)
     fit_y = statistics.first_plot(fit_x, max_mu, max_std, sigma_det)
@@ -197,9 +188,6 @@ if __name__ == "__main__":
         with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
             ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
                                                 nlive=256,pool=pool, queue_size=pool.njobs)
-            # dill_fn = real_det.split("/")[-1]
-            # dill_fn = dill_fn.split(".")[0]
-            # checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
             ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
         # ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
