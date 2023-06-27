@@ -4,7 +4,7 @@
 #SBATCH --time=10:00:00
 #SBATCH --mem=16GB
 #SBATCH --cpus-per-task=1
-#SBATCH --job-name=fetch
+#SBATCH --job-name=bayes_factor_NS
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 #SBATCH --gres=gpu:v100l:1
