@@ -150,7 +150,8 @@ if __name__ == "__main__":
         std_arr,
         title=f"Lnorm num det:{len(det_snr)}",
     )
-    fn = real_det.split("/")[-1].split(".")[0]
+    fn = real_det.split("/")[-1].split(".")
+    fn = ".".join(fn[:-1])
     savefn = f"bayes_factor_{fn}.npz"
     print(savefn)
     plt.savefig(f"bayes_factor_{fn}.png")
