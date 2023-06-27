@@ -131,7 +131,7 @@ def load_config(config, det_snr):
 if __name__ == "__main__":
     from bayes_factor_polychord import process_detection_results, plot_detection_results
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
-    plot_detection_results(det_width, det_fluence, det_snr)
+    # plot_detection_results(det_width, det_fluence, det_snr)
     #get all the things from the config file
     logn_N_range, logn_mu_range, logn_std_range, logn_mesh_size, obs_t, snr_thresh, det_snr, p = load_config(config, det_snr)
 
