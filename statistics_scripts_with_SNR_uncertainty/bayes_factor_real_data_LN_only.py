@@ -112,7 +112,7 @@ def load_config(config, det_snr):
     try:
         logn_mesh_size = config["logn_mesh_size"]
     except:
-        logn_mesh_size = 50
+        logn_mesh_size = 1000
     try:
         obs_t = config["obs_time"]
         p = config["p"]

@@ -71,7 +71,7 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     # print("second xlim",xlim)
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
+def first_cupy(amp,mu,std,xlim=20,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_snr = det_error
     wide_enough = False

@@ -41,6 +41,7 @@ def read_config(filename,det_snr):
     logn_mu_range = data['logn_mu_range']
     logn_std_range = data['logn_std_range']
     snr_thresh = data['snr_thresh']
+    logn_N_range[1] = logn_N_range[1]*2
     if logn_N_range[0] == -1:
         #change to full range
         logn_N_range[0] = len(det_snr)+1
@@ -190,7 +191,7 @@ if __name__ == "__main__":
     print("checkpoint_fn",checkpoint_fn)
     with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
         ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-                                            nlive=256,pool=pool, queue_size=pool.njobs)
+                                            nlive=10000,pool=pool, queue_size=pool.njobs)
         ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
     ln_a_sresults = ln_sampler_a.results
