@@ -112,7 +112,7 @@ def load_config(config, det_snr):
     try:
         logn_mesh_size = config["logn_mesh_size"]
     except:
-        logn_mesh_size = 1000
+        logn_mesh_size = 50
     try:
         obs_t = config["obs_time"]
         p = config["p"]
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     # log normal original distribution
     mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
     std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
-    N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size +2)
+    N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size +1000)
 
     mat = statistics.likelihood_lognorm(
         mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
