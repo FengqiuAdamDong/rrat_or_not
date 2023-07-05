@@ -74,7 +74,6 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
 def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_snr = det_error
-    wide_enough = False
     x_lims = [-xlim,xlim]
     amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
     LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
