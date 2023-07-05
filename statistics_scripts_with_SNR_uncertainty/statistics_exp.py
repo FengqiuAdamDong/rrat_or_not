@@ -9,7 +9,7 @@ from scipy.stats import norm
 import dill
 from scipy.stats import expon
 from cupyx.scipy.special import gammaln as cupy_gammaln
-
+import time
 import statistics_basic
 from statistics_basic import load_detection_fn, p_detect, p_detect_cupy
 global det_error
@@ -30,17 +30,10 @@ def second_exp_cupy(n,k,N,xlim=110,x_len=5000000):
      #xlim needs to be at least as large as 5 sigma_snrs though
     wide_enough = False
     sigma_snr = det_error
-    maximum_accuracy = 10/(N-n)
-    while not wide_enough:
-        x_lims = [-sigma_snr*xlim,xlim]
-        # x_lims = [-xlim,xlim]
-        amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-        dist = exponential_dist_cupy(amp_arr,k)
-        gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-        if (gaussian_error[-1] < maximum_accuracy)&(dist[-1] < maximum_accuracy)&(gaussian_error[0] < maximum_accuracy):
-            wide_enough = True
-        else:
-            xlim = xlim+20
+    x_lims = [-sigma_snr*10,xlim]
+    amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
+    dist = exponential_dist_cupy(amp_arr,k)
+    gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
 
     # print("second xlim",xlim)
     #convolve the two arrays
@@ -62,17 +55,10 @@ def second_exp_cupy(n,k,N,xlim=110,x_len=5000000):
 def first_exp_cupy(amp,k,xlim=100,x_len=100000):
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_snr = det_error
-    wide_enough = False
-    while not wide_enough:
-        x_lims = [-xlim,xlim]
-        amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-        dist = exponential_dist_cupy(amp_arr,k)
-        gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-        if (gaussian_error[-1] < 1e-5)&(dist[-1] < 1e-5)&(xlim>(max(amp)+10)):
-            wide_enough = True
-        else:
-            xlim = xlim+20
-
+    x_lims = [-xlim,xlim]
+    amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
+    dist = exponential_dist_cupy(amp_arr,k)
+    gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
     # print("first xlim",xlim)
     #convolve the two arrays
     conv = cp.convolve(dist,gaussian_error)*cp.diff(amp_arr)[0]
@@ -90,6 +76,8 @@ def first_exp_cupy(amp,k,xlim=100,x_len=100000):
 
 
 
+def k_to_mean_var(k):
+    return 1/k,1/k**2
 
 def first_exp_plot(amp,k, sigma_snr=0.4):
     x_len = 10000
@@ -183,31 +171,46 @@ def second_exp(n, k, N, sigma_snr):
 
     return p_second_int * (N - n)
 
-def total_p_exp(X,snr_arr=None):
-    if isinstance(X,dict):
-        k = cp.array(X["k"])
-        N = cp.array(X["N"])
-        snr_arr = cp.array(X["snr_arr"])
-    else:
-        k = cp.array(X[0])
-        N = cp.array(X[1])
+def total_p_exp(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
+    with cp.cuda.Device(cuda_device):
+        start = time.time()
         snr_arr = cp.array(snr_arr)
+        transfer_time = time.time()
+        k = X["k"]
+        N = X["N"]
+        if use_a:
+            a = X["a"]
+        else:
+            a = 0
+        if use_cutoff:
+            lower_c = X["lower_c"]
+            upper_c = X["upper_c"]
+        else:
+            lower_c = 0
+            upper_c = np.inf
+        if lower_c>upper_c:
+            print("lower_c is greater than upper_c")
+            return -np.inf
+        if snr_arr is None:
+            snr_arr = X["snr_arr"]
+        if N < len(snr_arr):
+            raise Exception(" N<n")
 
-    sigma_snr = cp.array(det_error)
-    f = first_exp_cupy(snr_arr, k)
-    if np.isnan(f):
-        print("resetting f")
-        f = -cp.inf
-    s = second_exp_cupy(len(snr_arr), k, N)
-    if np.isnan(s):
-        print("resetting s")
-        s = -cp.inf
-    n = len(snr_arr)
-    log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
-    # print(k,N)
-    # print(f,s,log_NCn)
-    loglike = f + s + log_NCn
-    loglike = np.array(loglike.get())
+        sigma_snr = cp.array(det_error)
+        f = first_exp_cupy(snr_arr, k)
+        if cp.isnan(f):
+            print("f is nan")
+            return -cp.inf
+        s = second_exp_cupy(len(snr_arr), k, N)
+        if cp.isnan(s):
+            print("s is nan")
+            return -cp.inf
+        n = len(snr_arr)
+        log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
+        # print(k,N)
+        # print(f,s,log_NCn)
+        loglike = f + s + log_NCn
+        loglike = np.array(loglike.get())
     return loglike
 
 def negative_loglike(X, det_snr):
