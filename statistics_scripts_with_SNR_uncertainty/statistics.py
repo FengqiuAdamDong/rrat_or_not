@@ -196,31 +196,30 @@ def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
         xlim = max(det_snr)*2
     else:
         xlim = 100
-    with Pool(2) as po:
-
-        X = []
-        Y = []
-        with cp.cuda.Device(0):
-            det_snr = cp.array(det_snr)
-        for i, mu_i in enumerate(mu_arr):
-            for j, std_i in enumerate(std_arr):
-                for k, N_i in enumerate(N_arr):
-                    #change the mu to a different definition
-                    mean_i, var_i = mu_std_to_mean_var(mu_i, std_i)
-                    upper_c = mean_i * 50
-                    X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr, "lower_c": 0, "upper_c": upper_c})
-                    Y.append([mu_i,std_i,N_i])
-        Y = np.array(Y)
-        # m = np.array(po.map(total_p, X))
-        m = []
-        for ind,v in enumerate(X):
-            print(f"{ind}/{len(X)}")
-            m.append(total_p(v,det_snr,use_cutoff=True,cuda_device=0,xlim=xlim))
-        m = np.array(m)
-        for i, mu_i in enumerate(mu_arr):
-            for j, std_i in enumerate(std_arr):
-                for k, N_i in enumerate(N_arr):
-                    ind = np.sum((Y==[mu_i,std_i,N_i]),axis=1)==3
-                    mat[i,j,k] = m[ind]
+    #with Pool(2) as po:
+    X = []
+    Y = []
+    with cp.cuda.Device(0):
+        det_snr = cp.array(det_snr)
+    for i, mu_i in enumerate(mu_arr):
+        for j, std_i in enumerate(std_arr):
+            for k, N_i in enumerate(N_arr):
+                #change the mu to a different definition
+                mean_i, var_i = mu_std_to_mean_var(mu_i, std_i)
+                upper_c = mean_i * 50
+                X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr, "lower_c": 0, "upper_c": upper_c})
+                Y.append([mu_i,std_i,N_i])
+    Y = np.array(Y)
+    # m = np.array(po.map(total_p, X))
+    m = []
+    for ind,v in enumerate(X):
+        print(f"{ind}/{len(X)}")
+        m.append(total_p(v,det_snr,use_cutoff=True,cuda_device=0,xlim=xlim))
+    m = np.array(m)
+    for i, mu_i in enumerate(mu_arr):
+        for j, std_i in enumerate(std_arr):
+            for k, N_i in enumerate(N_arr):
+                ind = np.sum((Y==[mu_i,std_i,N_i]),axis=1)==3
+                mat[i,j,k] = m[ind]
 
     return mat

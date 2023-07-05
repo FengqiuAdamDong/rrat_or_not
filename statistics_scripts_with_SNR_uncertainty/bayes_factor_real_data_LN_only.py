@@ -112,7 +112,7 @@ def load_config(config, det_snr):
     try:
         logn_mesh_size = config["logn_mesh_size"]
     except:
-        logn_mesh_size = 25
+        logn_mesh_size = 50
     try:
         obs_t = config["obs_time"]
         p = config["p"]
@@ -143,6 +143,9 @@ if __name__ == "__main__":
     mat = statistics.likelihood_lognorm(
         mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
     )
+
+    np.savez(savefn, mu_arr=mu_arr, std_arr=std_arr, N_arr=N_arr, mat=mat)
+
     max_mu, max_std, max_N = plot_mat_ln(
         mat,
         N_arr,
@@ -155,5 +158,4 @@ if __name__ == "__main__":
     savefn = f"bayes_factor_{fn}.npz"
     print(savefn)
     plt.savefig(f"bayes_factor_{fn}.png")
-    np.savez(savefn, mu_arr=mu_arr, std_arr=std_arr, N_arr=N_arr, mat=mat)
     plt.close()
