@@ -121,7 +121,7 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    # plot_detection_results(det_width, det_fluence, det_snr)
+    plot_detection_results(det_width, det_fluence, det_snr)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh = read_config(config_det,det_snr)
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
@@ -189,10 +189,16 @@ if __name__ == "__main__":
     dill_fn = ".".join(dill_fn)
     checkpoint_fn = f"{dill_fn}.h5"
     print("checkpoint_fn",checkpoint_fn)
-    with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
-        ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-                                            nlive=10000,pool=pool, queue_size=pool.njobs)
-        ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+    # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
+    #     print("starting sampling")
+    #     ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
+    #                                         nlive=256,pool=pool, queue_size=pool.njobs)
+    #     print("starting run_nested")
+    #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+    print("starting sampling")
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=256)
+    print("starting run_nested")
+    ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
     ln_a_sresults = ln_sampler_a.results
     fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue',labels=["mu","sigma","N"], truths=np.zeros(nDims),

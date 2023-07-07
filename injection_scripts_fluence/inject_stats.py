@@ -154,10 +154,12 @@ def grab_spectra_manual(
             # make a copy to plot the waterfall
             t_start = t_start - 1
             t_dur = t_dur + 2
+            print(t_start,t_dur)
             if (t_start<0)|((t_start+t_dur)>(te-ts)):
                 break
             nsamps_start_zoom = int(t_start / tsamp)
             nsamps_end_zoom = int((t_dur+t_start) / tsamp)
+            print(nsamps_start_zoom,nsamps_end_zoom)
             waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
@@ -167,7 +169,7 @@ def grab_spectra_manual(
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
             )
-        if (loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2):
+        if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
@@ -365,7 +367,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # double the resolution
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
-    fig,axes = plt.subplots(1,3,figsize=(50,50))
+    fig,axes = plt.subplots(1,3,figsize=(10,10))
     cmap = plt.get_cmap("magma")
     axes[0].imshow(ds_data, aspect="auto", cmap=cmap)
     #plot the polyfit
@@ -631,6 +633,10 @@ class inject_stats:
             cur_toa = self.toa_arr[snr_ind]
             cur_dm = self.dm_arr[snr_ind]
             cur_width = self.width_arr[snr_ind]
+            if len(cur_snr)==0:
+                print("WARNING NO MATCHING SNR, THIS SHOULD NOT HAPPEN NORMALLY. IF YOU ARE NOT EXPECTING THIS WARNING THEN CHECK THE FILES CREATED")
+                continue
+
             self.sorted_inject.append(
                 inject_obj(
                     snr=cur_snr,

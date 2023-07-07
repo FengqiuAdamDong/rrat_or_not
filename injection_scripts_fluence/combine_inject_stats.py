@@ -28,7 +28,6 @@ class inject_stats_collection(inject_stats):
                 inst.compare([csv], title=f)
                 self.det_snr.append(inst.det_snr)
                 self.detected_pulses.append(inst.detected_pulses)
-
         self.det_snr = np.array(self.det_snr)
         self.detected_pulses = np.array(self.detected_pulses)
         all_det_snr = self.det_snr.flatten()

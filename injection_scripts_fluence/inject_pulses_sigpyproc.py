@@ -26,7 +26,9 @@ TRIAL_SNR = np.linspace(0.1,5,20)
 # TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
-pulse_width = [0.016]  # 11ms pulse width
+#B1905 is 0.013s
+#J2044+4614 is 0.014s
+pulse_width = [0.013]  # 11ms pulse width
 
 TRIAL_DMS = [
     100,
@@ -219,7 +221,7 @@ def inject_pulses(
         # get the data to do statistics
         if p_toa < stats_window:
             stats_window = p_toa
-
+        print("calculating stats prior to injection")
         SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
         #scale stats std by the sqrt of number of masked channel and the number of channels
         print(f"stats std: {stats_std}")
@@ -228,6 +230,8 @@ def inject_pulses(
         total_inj_pow = p_SNR * stats_std
         print(f"total power:{total_inj_pow}")
         data = add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top)
+        # SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
+
     # data = data.astype("uint8")
     # np.savez('data',data = data,masked_chans = masked_chans)
     # for i, p in enumerate(pulse_attrs):
@@ -405,7 +409,7 @@ def get_filterbank_data_window(fn, maskfn, duration=20):
     chunk_size = hdr.nsamples//len(pazi_mask)
     chunk_dur = chunk_size * tsamp
     #get required chunks
-    reuired_chunks = duration/chunk_dur
+    reuired_chunks = int(duration/chunk_dur)
     fil_dur = hdr.nsamples * tsamp
     # start in the middle of the data
     start_chunk = int(len(pazi_mask)//2 - reuired_chunks//2)
@@ -505,8 +509,9 @@ def process(pool_arr):
 
     header = rawdata.header
     freqs = np.array(range(header.nchans)) * header.foff + header.fch1
+    plot = False
     injdata, statistics = inject_pulses(
-        rawdata, masked_chans, header, freqs, pulses_to_add, downsamp, stats_window
+        rawdata, masked_chans, header, freqs, pulses_to_add, downsamp, stats_window, plot=plot
     )
     s = np.array(statistics)
     SNR_4 = str(np.around(SNR, 4)).zfill(6)

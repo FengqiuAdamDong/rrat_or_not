@@ -40,7 +40,7 @@ from sklearn.cluster import DBSCAN
 import numpy as np
 
 features = np.column_stack((dm_arr, tcand_arr, tstart_arr))
-errors = np.array([20, 0.1, 0.1])
+errors = np.array([8, 0.1, 0.1])
 features = features / errors
 db = DBSCAN(eps=1, min_samples=2).fit(features)
 
