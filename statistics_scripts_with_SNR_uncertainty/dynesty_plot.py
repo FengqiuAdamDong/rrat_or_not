@@ -22,6 +22,7 @@ class dynesty_plot:
             if f.endswith('.npz'):
                 self.data.append(np.load(f,allow_pickle=True)['results'])
             elif f.endswith('.h5'):
+                print(f)
                 self.data.append(dynesty.NestedSampler.restore(f))
 
     def plot_corner(self, labels=None):
@@ -45,10 +46,30 @@ class dynesty_plot:
         """
         Plot the accuracy of the results
         """
+        ratios = []
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
+            split = fn.split('_')
+            sigma = float(split[-1])
+            mu = float(split[-2])
+            N = float(split[-3])
+            true_centre = np.array([mu,sigma,N])
+            ratios.append(centre/true_centre)
+        #plot the first element of the ratios
+        mu_ratios = [r[0] for r in ratios]
+        true_mus = [r[0] for r in true_centres]
+        sigma_ratios = [r[1] for r in ratios]
+        true_sigmas = [r[1] for r in true_centres]
+        N_ratios = [r[2] for r in ratios]
+        true_Ns = [r[2] for r in true_centres]
+
+        plt.scatter(true_mus,mu_ratios,legend="mu")
+        plt.scatter(true_sigmas,sigma_ratios,legend="sigma")
+        plt.scatter(true_Ns,N_ratios,legend="N")
+        plt.show()
 if __name__=="__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='+', help='filenames to plot')
 
@@ -57,4 +78,5 @@ if __name__=="__main__":
     dp = dynesty_plot(filenames)
     dp.load_filenames()
     dp.plot_corner()
+    dp.plot_accuracy()
     import pdb; pdb.set_trace()
