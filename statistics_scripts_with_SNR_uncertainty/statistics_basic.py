@@ -5,16 +5,20 @@ import numpy as np
 
 def p_detect(snr,interp=True):
     if interp:
-        interp_res = np.interp(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+        # interp_res = np.interp(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
+        interp_res = np.interp(snr,inj_stats.detected_snr_fit,inj_stats.detected_det_frac_fit)
+
         #remmove those values below snr=1.3
-        interp_res[snr<1.3] = 0
+        # interp_res[snr<1.3] = 0
         return interp_res
     return inj_stats.predict_poly(snr,x=inj_stats.detected_bin_midpoints,p=inj_stats.detected_det_frac)
 
 def p_detect_cupy(snr,interp=True):
-    interp_res = cp.interp(snr,cp.array(inj_stats.detected_bin_midpoints),cp.array(inj_stats.detected_det_frac))
+    # interp_res = cp.interp(snr,cp.array(inj_stats.detected_bin_midpoints),cp.array(inj_stats.detected_det_frac))
+    interp_res = cp.interp(snr,cp.array(inj_stats.detected_snr_fit),cp.array(inj_stats.detected_det_frac_fit))
+
     #remmove those values below snr=1.3
-    interp_res[snr<1.3] = 0
+    # interp_res[snr<1.3] = 0
     return interp_res
 
 def load_detection_fn(detection_curve,lookup=True,plot=True):

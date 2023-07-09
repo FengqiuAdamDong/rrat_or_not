@@ -891,26 +891,26 @@ class inject_stats:
         self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
         self.detected_det_frac = self.detected_det_frac[:-2]
 
-    def predict_poly(self,predict_x,x,p,poly=-99,plot=False,title="polynomial fit"):
+    def predict_poly(self,predict_x,x,p,poly=-99,start_point = 2.2,plot=False,title="polynomial fit"):
         if isinstance(poly,int):
             poly = self.poly_det_fit
-        ind_1 = np.argwhere(p==max(p))
-        ind_0 = np.argwhere(p==min(p))
-        ind_0 = max(ind_0)[0]-1
-        ind_1 = min(ind_1)[0]+1
-
-        set_0 = np.argwhere(predict_x<x[ind_0+1])
-        set_1 = np.argwhere(predict_x>x[ind_1-1])
 
         predict = np.poly1d(poly)
         p_pred = predict(predict_x)
-        p_pred[set_0] = np.min(p)
-        p_pred[set_1] = np.max(p)
-        #make sure 1 and 0 are the limits
-        p_pred[p_pred>1] = np.max(p)
-        p_pred[p_pred<0] = np.min(p)
-        #lowess smoothing
-        # p_pred = sm.nonparametric.lowess(p_pred, predict_x, frac = 0.10)[:,1]
+        #find the closest index of x to start_point
+        i = np.argmin(np.abs(predict_x-start_point))
+        while (p_pred[i]>np.min(p)) & (p_pred[i]>0):
+            i -= 1
+            if i==0:
+                break
+        set_0 = i+1
+        while (p_pred[i]<np.max(p)) & (p_pred[i]<1):
+            i += 1
+            if i==len(p_pred):
+                break
+        set_1 = i
+        p_pred[:set_0] = np.min(p)
+        p_pred[set_1:] = np.max(p)
         if plot:
             fig,axes = plt.subplots(1,1)
             axes.scatter(x,p,label="Raw",c='r')
@@ -932,8 +932,6 @@ class inject_stats:
             ind_0 = 0
         if ind_1>(len(x)-1):
             ind_1 = len(x)-1
-        print("ind0",ind_0)
-        print("ind1",ind_1)
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
         return poly
 

@@ -19,16 +19,6 @@ from dynesty import utils as dyfunc
 import glob
 import yaml
 import cupy as cp
-parser = argparse.ArgumentParser(description="Simulate some pulses")
-#add an argument for config file
-parser.add_argument("-i", default="simulated_dir", help="folder with the simulated pulses")
-args = parser.parse_args()
-real_det = args.i
-
-# import statistics_gaus
-#####preamble finished#####
-cuda_device=0
-
 
 def read_config(filename,det_snr):
     with open(filename, 'r') as file:
@@ -100,8 +90,42 @@ def plot_detection_results(det_width, det_fluence, det_snr):
     axs[0, 1].legend()
     plt.show()
 
+def pt_Uniform_N(x):
+    ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
+    ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
+    ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
+    return np.array([ptmu, ptsigma, ptN])
+
+def loglikelihood(theta, det_snr, xlim_interp):
+    #convert to strict upper limit of the lognorm
+    #convert to the standard mu and sigma of a lognorm
+    #print("theta",theta)
+    a = 0
+    lower_c = 0
+    # upper_c = theta[0]*50
+    mean,var = mu_std_to_mean_var(theta[0],theta[1])
+    upper_c = mean*50
+    LN_mu,LN_std = (theta[0],theta[1])
+    xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
+    if max(det_snr) > xlim:
+        xlim = max(det_snr)*2
+    # xlim=100
+    X = {"mu": LN_mu, "std": LN_std, "N": theta[2], "a":0, "lower_c":lower_c, "upper_c":upper_c}
+    return statistics.total_p(X, snr_arr = det_snr, use_a=False,use_cutoff=True,xlim=xlim,cuda_device=cuda_device)
+
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Simulate some pulses")
+    #add an argument for config file
+    parser.add_argument("-i", default="simulated_dir", help="folder with the simulated pulses")
+    args = parser.parse_args()
+    real_det = args.i
+
+    # import statistics_gaus
+    #####preamble finished#####
+    cuda_device=0
+
+
     config_det = real_det.replace(".dill",".yaml")
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
@@ -134,29 +158,6 @@ if __name__ == "__main__":
     mg,sg,ng = np.meshgrid(mu_lookup,std_lookup,N_lookup,indexing='ij')
     xlim_interp = RegularGridInterpolator((mu_lookup,std_lookup,N_lookup), xlim_lookup,bounds_error=False,fill_value=None)
     nDims = 3
-    def pt_Uniform_N(x):
-        ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
-        ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
-        ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
-        return np.array([ptmu, ptsigma, ptN])
-
-    def loglikelihood(theta, det_snr, xlim_interp):
-        #convert to strict upper limit of the lognorm
-        #convert to the standard mu and sigma of a lognorm
-        #print("theta",theta)
-        a = 0
-        lower_c = 0
-        # upper_c = theta[0]*50
-        mean,var = mu_std_to_mean_var(theta[0],theta[1])
-        upper_c = mean*50
-        LN_mu,LN_std = (theta[0],theta[1])
-        xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
-        if max(det_snr) > xlim:
-            xlim = max(det_snr)*2
-        # xlim=100
-        X = {"mu": LN_mu, "std": LN_std, "N": theta[2], "a":0, "lower_c":lower_c, "upper_c":upper_c}
-        return statistics.total_p(X, snr_arr = det_snr, use_a=False,use_cutoff=True,xlim=xlim,cuda_device=cuda_device)
-
     def plot_fit(ln_a_sresults):
         # Plot the actual fit
         samples, weights = ln_a_sresults.samples, ln_a_sresults.importance_weights()
@@ -201,6 +202,8 @@ if __name__ == "__main__":
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
     ln_a_sresults = ln_sampler_a.results
+    #save the result in a npz file
+    np.savez(f"{real_det}_logn_results.npz",results=ln_sampler_a.__dict__)
     fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue',labels=["mu","sigma","N"], truths=np.zeros(nDims),
                             truth_color='black', show_titles=True,
                             quantiles=None, max_n_ticks=3)

@@ -6,14 +6,18 @@ import matplotlib.pyplot as plt
 import sys
 import dill
 from inject_stats import inject_stats
-
-
+from scipy.signal import deconvolve
+from scipy.signal import convolve
+from scipy.stats import norm
+import scipy.fft as fft
 class inject_stats_collection(inject_stats):
     def __init__(self):
         self.inj_stats = []
         self.folder = []
         self.det_snr = []
         self.detected_pulses = []
+        self.snr = []
+        self.det_frac = []
     def calculate_detection_curve(self, csvs="1"):
         # build statistics
         snrs = []
@@ -28,16 +32,30 @@ class inject_stats_collection(inject_stats):
                 inst.compare([csv], title=f)
                 self.det_snr.append(inst.det_snr)
                 self.detected_pulses.append(inst.detected_pulses)
+                self.snr.append(inst.snr)
+                self.det_frac.append(inst.det_frac)
+        self.snr = np.array(self.snr)
+        self.det_frac = np.array(self.det_frac)
+        #fit this to polynomial
+
+        #average along the 0th axis
+        self.snr = np.mean(self.snr,axis=0)
+        self.det_frac = np.mean(self.det_frac,axis=0)
         self.det_snr = np.array(self.det_snr)
         self.detected_pulses = np.array(self.detected_pulses)
+        self.inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=5)
         all_det_snr = self.det_snr.flatten()
         detected_snr = self.det_snr[self.detected_pulses]
         self.bin_detections(all_det_snr, detected_snr, num_bins=30)
-        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=50)
+        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=7)
         predict_x_array = np.linspace(0,10,10000)
         self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title="overall detection curve")
         detect_errors = list(inj_stats.detect_error_snr for inj_stats in self.inj_stats)
         self.detect_error_snr = np.mean(detect_errors)
+        self.deconvolve_response(self.det_frac, self.detect_error_snr, self.snr, self.inj_snr_fit)
+        plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label="detected")
+        plt.legend()
+        plt.show()
         plt.savefig("overall_detection_curve.png")
         plt.close()
         interp_p = np.interp(predict_x_array, self.detected_bin_midpoints, self.detected_det_frac)
@@ -46,6 +64,51 @@ class inject_stats_collection(inject_stats):
         plt.legend()
         plt.savefig("overall_detection_curve_interp.png")
         plt.close()
+
+    def model(self,X, snr_fit, det_error, snr, det_frac, deg=5,plot=False):
+        #create a model for the detection curve
+        predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=X)
+        #convolve with a gaussian
+        gaussian = norm.pdf(snr_fit,loc=0,scale=det_error)
+        convolved = convolve(predict_y,gaussian,mode="same")
+        #scale to the max of det_frac
+        convolved = convolved / np.max(convolved) * np.max(det_frac)
+        #then do an interp for snr
+        interp_p = np.interp(snr, snr_fit, convolved)
+        if plot:
+            plt.figure()
+            plt.scatter(snr,det_frac,label="det_frac")
+            plt.scatter(snr,interp_p,label="convolved")
+            plt.scatter(snr_fit,predict_y,label="predict_y")
+            plt.legend()
+        return interp_p
+
+    def loglikelihood(self, X, snr_fit, det_error, snr, det_frac, deg=5):
+        interp_p = self.model(X, snr_fit, det_error, snr, det_frac, deg=deg)
+        #calculate the squared_difference
+        squared_difference = np.log(np.exp(-(det_frac - interp_p)**2/2))
+        return -np.sum(squared_difference)
+
+
+    def deconvolve_response(self,det_frac, det_error, snr, poly):
+        snr_fit = np.linspace(-10,10,1000)
+        spacing = snr_fit[1] - snr_fit[0]
+        #generate an array with the same spacing as the snr
+        p_det_predict = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=poly,plot=True,title="overall detection curve")
+        #minimize the loglikelihood
+        from scipy.optimize import minimize
+        res = minimize(self.loglikelihood, x0=poly, args=(snr_fit, det_error, snr, det_frac), method='nelder-mead', options={'xatol': 1e-8,'maxiter':10000000, 'disp': True})
+        predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=res.x)
+        self.model(res.x,snr_fit,det_error,snr,det_frac,plot=True)
+        plt.show()
+        plt.figure()
+        plt.scatter(snr_fit,predict_y,label="predict_y")
+        plt.scatter(snr,det_frac,label="det_frac")
+        self.detected_snr_fit = snr_fit
+        self.detected_det_frac_fit = predict_y
+
+
+
 
 
 def combine_images():
@@ -95,7 +158,6 @@ if __name__ == "__main__":
             continue
 
     inj_collection.calculate_detection_curve()
-
     import dill
     with open("inj_stats_combine_fitted.dill", "wb") as of:
         dill.dump(inj_collection, of)
