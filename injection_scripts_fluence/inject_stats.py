@@ -154,10 +154,12 @@ def grab_spectra_manual(
             # make a copy to plot the waterfall
             t_start = t_start - 1
             t_dur = t_dur + 2
+            print(t_start,t_dur)
             if (t_start<0)|((t_start+t_dur)>(te-ts)):
                 break
             nsamps_start_zoom = int(t_start / tsamp)
             nsamps_end_zoom = int((t_dur+t_start) / tsamp)
+            print(nsamps_start_zoom,nsamps_end_zoom)
             waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
@@ -167,7 +169,7 @@ def grab_spectra_manual(
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
             )
-        if (loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2):
+        if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
@@ -365,7 +367,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # double the resolution
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
-    fig,axes = plt.subplots(1,3,figsize=(50,50))
+    fig,axes = plt.subplots(1,3,figsize=(10,10))
     cmap = plt.get_cmap("magma")
     axes[0].imshow(ds_data, aspect="auto", cmap=cmap)
     #plot the polyfit
@@ -631,6 +633,10 @@ class inject_stats:
             cur_toa = self.toa_arr[snr_ind]
             cur_dm = self.dm_arr[snr_ind]
             cur_width = self.width_arr[snr_ind]
+            if len(cur_snr)==0:
+                print("WARNING NO MATCHING SNR, THIS SHOULD NOT HAPPEN NORMALLY. IF YOU ARE NOT EXPECTING THIS WARNING THEN CHECK THE FILES CREATED")
+                continue
+
             self.sorted_inject.append(
                 inject_obj(
                     snr=cur_snr,
@@ -885,26 +891,26 @@ class inject_stats:
         self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
         self.detected_det_frac = self.detected_det_frac[:-2]
 
-    def predict_poly(self,predict_x,x,p,poly=-99,plot=False,title="polynomial fit"):
+    def predict_poly(self,predict_x,x,p,poly=-99,start_point = 2.2,plot=False,title="polynomial fit"):
         if isinstance(poly,int):
             poly = self.poly_det_fit
-        ind_1 = np.argwhere(p==max(p))
-        ind_0 = np.argwhere(p==min(p))
-        ind_0 = max(ind_0)[0]-1
-        ind_1 = min(ind_1)[0]+1
-
-        set_0 = np.argwhere(predict_x<x[ind_0+1])
-        set_1 = np.argwhere(predict_x>x[ind_1-1])
 
         predict = np.poly1d(poly)
         p_pred = predict(predict_x)
-        p_pred[set_0] = np.min(p)
-        p_pred[set_1] = np.max(p)
-        #make sure 1 and 0 are the limits
-        p_pred[p_pred>1] = np.max(p)
-        p_pred[p_pred<0] = np.min(p)
-        #lowess smoothing
-        # p_pred = sm.nonparametric.lowess(p_pred, predict_x, frac = 0.10)[:,1]
+        #find the closest index of x to start_point
+        i = np.argmin(np.abs(predict_x-start_point))
+        while (p_pred[i]>np.min(p)) & (p_pred[i]>0):
+            i -= 1
+            if i==0:
+                break
+        set_0 = i+1
+        while (p_pred[i]<np.max(p)) & (p_pred[i]<1):
+            i += 1
+            if i==len(p_pred):
+                break
+        set_1 = i
+        p_pred[:set_0] = np.min(p)
+        p_pred[set_1:] = np.max(p)
         if plot:
             fig,axes = plt.subplots(1,1)
             axes.scatter(x,p,label="Raw",c='r')
@@ -926,8 +932,6 @@ class inject_stats:
             ind_0 = 0
         if ind_1>(len(x)-1):
             ind_1 = len(x)-1
-        print("ind0",ind_0)
-        print("ind1",ind_1)
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
         return poly
 

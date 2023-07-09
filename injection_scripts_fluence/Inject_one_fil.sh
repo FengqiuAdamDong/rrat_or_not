@@ -41,7 +41,7 @@ cp *.pazi $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 300 --n 100 $fil
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 500 --n 200 $fil
 #come back
 cd -
 cp $SLURM_TMPDIR/*SNR*.fil .
