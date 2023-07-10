@@ -7,7 +7,6 @@ from matplotlib import pyplot as plt
 from scipy import optimize as o
 import dill
 import warnings
-import inject_stats
 import argparse
 from dynesty.pool import Pool
 from dynesty import plotting as dyplot

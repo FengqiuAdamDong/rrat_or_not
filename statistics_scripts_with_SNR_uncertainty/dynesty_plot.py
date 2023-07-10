@@ -33,40 +33,58 @@ class dynesty_plot:
         means = []
         stds = []
         for d in self.data:
-            dyplot.cornerplot(d.results, labels=labels,show_titles=True)
+            #dyplot.cornerplot(d.results, labels=labels,show_titles=True)
             mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
             diag_cov = np.diag(cov)
             std = np.sqrt(diag_cov)
-            means.append(cov)
+            means.append(mean)
             stds.append(std)
-        self.means = np.array(covs)
+        self.means = np.array(means)
         self.stds = np.array(stds)
 
-    def plot_accraucy(self):
+    def plot_accuracy(self):
         """
         Plot the accuracy of the results
         """
         ratios = []
+        true_centres = []
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
             split = fn.split('_')
-            sigma = float(split[-1])
-            mu = float(split[-2])
-            N = float(split[-3])
+            sigma = float(split[-2])
+            mu = float(split[-3])
+            N = float(split[-4])
             true_centre = np.array([mu,sigma,N])
+            true_centres.append(true_centre)
             ratios.append(centre/true_centre)
         #plot the first element of the ratios
         mu_ratios = [r[0] for r in ratios]
         true_mus = [r[0] for r in true_centres]
+        mus = [r[0] for r in self.means]
         sigma_ratios = [r[1] for r in ratios]
         true_sigmas = [r[1] for r in true_centres]
+        sigmas = [r[1] for r in self.means]
         N_ratios = [r[2] for r in ratios]
         true_Ns = [r[2] for r in true_centres]
+        Ns = [r[2] for r in self.means]
+        plt.figure()
+        plt.scatter(true_mus,mus,label="mu")
+        x = np.linspace(-1,2,100)
+        plt.plot(x,x,'r--')
+        plt.savefig('mus.png')
+        plt.figure()
+        plt.scatter(true_sigmas,sigmas,label="sigma")
+        x = np.linspace(0,1,100)
+        plt.plot(x,x,'r--')
+        plt.savefig('sigmas.png')
+        plt.figure()
+        x = np.linspace(0,5e6)
+        plt.scatter(true_Ns,Ns,label="N")
+        #plt.plot(x,x,'r--')
+        plt.savefig('N.png')
 
-        plt.scatter(true_mus,mu_ratios,legend="mu")
-        plt.scatter(true_sigmas,sigma_ratios,legend="sigma")
-        plt.scatter(true_Ns,N_ratios,legend="N")
-        plt.show()
+        #plt.scatter(true_Ns,N_ratios,label="N")
+        plt.legend()
 if __name__=="__main__":
     import argparse
 
@@ -79,4 +97,3 @@ if __name__=="__main__":
     dp.load_filenames()
     dp.plot_corner()
     dp.plot_accuracy()
-    import pdb; pdb.set_trace()
