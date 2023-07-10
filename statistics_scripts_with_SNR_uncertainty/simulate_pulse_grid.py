@@ -83,7 +83,10 @@ def write_yaml(mu,std,a,N,inj_file,output_fn):
         'logn_std_range': [std-0.5, std+0.5],
         'detection_curve': inj_file,
         'snr_thresh': 1.3,
-        'a': a
+        'a': a,
+        'N': N,
+        'mu': mu,
+        'std': std,
     }
     with open(output_fn,'w') as my_file:
         yaml.dump(data, my_file)
