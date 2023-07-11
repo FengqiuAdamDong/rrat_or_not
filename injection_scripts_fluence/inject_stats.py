@@ -232,6 +232,20 @@ def grab_spectra_manual(
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)
     return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR
 
+def find_polynomial_fit(x_std, ts_std):
+    rchi2 = 100
+    i = 1
+    while rchi2 > (1 + 1e-5):
+        coeffs = np.polyfit(x_std, ts_std, i)
+        poly = np.poly1d(coeffs)
+        # Calculate the reduced chi2 of the fit
+        rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std) ** 2)) / (len(ts_std) - i)
+        print("rchi2", rchi2, "i", i)
+        i += 1
+        if i > 10:
+            break
+
+    return poly, coeffs
 
 def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     # calculates the SNR given a timeseries
@@ -241,8 +255,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 1)
-    poly = np.poly1d(coeffs)
+    poly, coeffs = find_polynomial_fit(x_std, ts_std)
     # subtract the mean
     ts_sub = ts - poly(x)
     ts_std_sub = ts_std - poly(x_std)
@@ -288,7 +301,6 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
         plt.show()
 
     return Amplitude, std, loc, sigma_width
-
 
 def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
     # calculates the FLUENCE given a timeseries
@@ -341,8 +353,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 10)
-    poly = np.poly1d(coeffs)
+    poly, coeffs = find_polynomial_fit(x_std, ts_std)
     # subtract the mean
     ts_sub = ts - np.interp(x,x_std,poly(x_std))
     ts_std_sub = ts_std - poly(x_std)

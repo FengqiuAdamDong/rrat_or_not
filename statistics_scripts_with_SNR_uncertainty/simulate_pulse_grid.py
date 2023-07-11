@@ -190,7 +190,7 @@ mode = args.mode
 statistics_basic.load_detection_fn(inj_file,plot=False)
 if mode=="Lognorm":
     mu_arr = np.linspace(-0.5,1,20)
-    std_arr = [0.5]
+    std_arr = [0.25]
 elif mode=="Exp":
     k_arr = np.linspace(0.5,2,20)
     #use mu as k_arr
