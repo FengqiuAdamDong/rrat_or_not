@@ -30,12 +30,17 @@ def load_detection_fn(detection_curve,lookup=True,plot=True):
     snr_arr = np.linspace(0, 10, 1000)
     print("det error", det_error)
     detfn = p_detect(snr_arr)
+    #get the snr cutoff by finding when detfn is larger than 0.05
+    snr_cutoff = snr_arr[np.where(detfn>0.02)[0][0]]
     if plot:
         plt.figure()
         plt.plot(snr_arr, detfn)
         plt.xlabel("SNR")
         plt.ylabel("Detection Fraction")
-
+    if snr_cutoff < 1.3:
+        print("WARNING SNR CUTOFF IS LESS THAN 1.3")
+        snr_cutoff = 1.3
+    return snr_cutoff
 
 def logistic(x, k, x0):
     L = 1

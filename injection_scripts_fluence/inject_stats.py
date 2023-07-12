@@ -97,7 +97,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
 
 
 def grab_spectra_manual(
-        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 50e-2
+        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3
 ):
     # load the filterbank file
     g = r.FilReader(gf)
@@ -242,7 +242,7 @@ def find_polynomial_fit(x_std, ts_std):
         coeffs = np.polyfit(x_std, ts_std, i)
         poly = np.poly1d(coeffs)
         # Calculate the reduced chi2 of the fit
-        rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:1000]) ** 2)) / (len(ts_std) - i)
+        rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:500]) ** 2)) / (len(ts_std) - i)
         print("rchi2", rchi2, "i", i)
         rchi2_arr.append(rchi2)
         poly_arr.append(poly)
@@ -252,6 +252,8 @@ def find_polynomial_fit(x_std, ts_std):
     ind = np.argmin(rchi2_arr)
     poly = poly_arr[ind]
     coeffs = coeffs_arr[ind]
+    # coeffs = np.polyfit(x_std, ts_std, 10)
+    # poly = np.poly1d(coeffs)
 
     return poly, coeffs
 
@@ -524,7 +526,7 @@ class inject_obj:
         if period > 1.9:
             t_dur = 1.8
             t_start = 4.1
-            fit_del = 25e-2
+            fit_del = 10e-2
         else:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)
@@ -735,7 +737,8 @@ class inject_stats:
         self.inj_snr = inj_snr[ind]
         self.poly_snr = p_snr
         # take the average of the last 3 for the error
-        self.detect_error_snr = np.mean(self.det_snr_std[-3:])
+        self.detect_error_snr = np.sqrt(np.mean(self.det_snr_std[-3:]**2))
+        print(self.detect_error_snr)
 
     def calculate_fluence_statistics(self):
         det_fluence = []

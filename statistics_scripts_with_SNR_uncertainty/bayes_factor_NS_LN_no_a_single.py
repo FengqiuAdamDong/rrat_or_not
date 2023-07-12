@@ -129,8 +129,8 @@ if __name__ == "__main__":
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
     detection_curve = config["detection_curve"]
-    statistics_basic.load_detection_fn(detection_curve)
-
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve)
+    print("snr_thresh",snr_thresh)
     import statistics
     from statistics import mean_var_to_mu_std
     from statistics import mu_std_to_mean_var
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
     plot_detection_results(det_width, det_fluence, det_snr)
-    detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh = read_config(config_det,det_snr)
+    detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
     print("logn_N_range", logn_N_range, "logn_mu_range", logn_mu_range, "logn_std_range", logn_std_range)

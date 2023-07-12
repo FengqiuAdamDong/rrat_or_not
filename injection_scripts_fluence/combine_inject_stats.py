@@ -10,6 +10,8 @@ from scipy.signal import deconvolve
 from scipy.signal import convolve
 from scipy.stats import norm
 import scipy.fft as fft
+import smplotlib
+
 class inject_stats_collection(inject_stats):
     def __init__(self):
         self.inj_stats = []
@@ -50,10 +52,11 @@ class inject_stats_collection(inject_stats):
         self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=7)
         predict_x_array = np.linspace(0,10,10000)
         self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title="overall detection curve")
-        detect_errors = list(inj_stats.detect_error_snr for inj_stats in self.inj_stats)
-        self.detect_error_snr = np.mean(detect_errors)
+        detect_errors = np.array(list(inj_stats.detect_error_snr for inj_stats in self.inj_stats))
+        self.detect_error_snr = np.sqrt(np.mean(detect_errors**2))
+        print(self.detect_error_snr)
         self.deconvolve_response(self.det_frac, self.detect_error_snr, self.snr, self.inj_snr_fit)
-        plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label="detected")
+        plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label=r"Measured $P(det|SNR_d)$")
         plt.legend()
         plt.show()
         plt.savefig("overall_detection_curve.png")
@@ -77,9 +80,11 @@ class inject_stats_collection(inject_stats):
         interp_p = np.interp(snr, snr_fit, convolved)
         if plot:
             plt.figure()
-            plt.scatter(snr,det_frac,label="det_frac")
-            plt.scatter(snr,interp_p,label="convolved")
-            plt.scatter(snr_fit,predict_y,label="predict_y")
+            plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
+            plt.scatter(snr,interp_p,label=r"Forward model $P(det|SNR_t)$")
+            plt.plot(snr_fit,predict_y,label=r"Forward model $P(det|SNR_d)$")
+            plt.xlabel("SNR")
+            plt.ylabel("Probability")
             plt.legend()
         return interp_p
 
@@ -102,8 +107,10 @@ class inject_stats_collection(inject_stats):
         self.model(res.x,snr_fit,det_error,snr,det_frac,plot=True)
         plt.show()
         plt.figure()
-        plt.scatter(snr_fit,predict_y,label="predict_y")
-        plt.scatter(snr,det_frac,label="det_frac")
+        plt.plot(snr_fit,predict_y,label="forward model $P(det|SNR_d)$")
+        plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
+        plt.xlabel("SNR")
+        plt.ylabel("Probability")
         self.detected_snr_fit = snr_fit
         self.detected_det_frac_fit = predict_y
 
