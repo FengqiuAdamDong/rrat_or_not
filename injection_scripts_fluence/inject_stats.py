@@ -235,15 +235,26 @@ def grab_spectra_manual(
 def find_polynomial_fit(x_std, ts_std):
     rchi2 = 100
     i = 1
+    rchi2_arr = []
+    poly_arr = []
+    coeffs_arr = []
     while rchi2 > (1 + 1e-5):
         coeffs = np.polyfit(x_std, ts_std, i)
         poly = np.poly1d(coeffs)
         # Calculate the reduced chi2 of the fit
         rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std) ** 2)) / (len(ts_std) - i)
         print("rchi2", rchi2, "i", i)
+        rchi2_arr.append(rchi2)
+        poly_arr.append(poly)
+        coeffs_arr.append(coeffs)
         i += 1
         if i > 10:
             break
+    # find the minimum rchi2
+    rchi2_arr = np.array((rchi2_arr-1)**2)
+    ind = np.argmin(rchi2_arr)
+    poly = poly_arr[ind]
+    coeffs = coeffs_arr[ind]
 
     return poly, coeffs
 
