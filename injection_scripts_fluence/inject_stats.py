@@ -242,7 +242,7 @@ def find_polynomial_fit(x_std, ts_std):
         coeffs = np.polyfit(x_std, ts_std, i)
         poly = np.poly1d(coeffs)
         # Calculate the reduced chi2 of the fit
-        rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std) ** 2)) / (len(ts_std) - i)
+        rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:1000]) ** 2)) / (len(ts_std) - i)
         print("rchi2", rchi2, "i", i)
         rchi2_arr.append(rchi2)
         poly_arr.append(poly)
