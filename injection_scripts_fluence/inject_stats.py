@@ -251,7 +251,7 @@ def find_polynomial_fit(x_std, ts_std):
         if i > 10:
             break
     # find the minimum rchi2
-    rchi2_arr = np.array(rchi2_arr-1)**2
+    rchi2_arr = (np.array(rchi2_arr)-1)**2
     ind = np.argmin(rchi2_arr)
     poly = poly_arr[ind]
     coeffs = coeffs_arr[ind]
