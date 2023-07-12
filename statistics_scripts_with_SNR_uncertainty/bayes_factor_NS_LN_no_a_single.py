@@ -196,7 +196,7 @@ if __name__ == "__main__":
     #     print("starting run_nested")
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=256)
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=10000)
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
