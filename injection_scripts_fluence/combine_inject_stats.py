@@ -45,7 +45,7 @@ class inject_stats_collection(inject_stats):
         self.det_frac = np.mean(self.det_frac,axis=0)
         self.det_snr = np.array(self.det_snr)
         self.detected_pulses = np.array(self.detected_pulses)
-        self.inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=5)
+        self.inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
         all_det_snr = self.det_snr.flatten()
         detected_snr = self.det_snr[self.detected_pulses]
         self.bin_detections(all_det_snr, detected_snr, num_bins=30)
@@ -88,7 +88,7 @@ class inject_stats_collection(inject_stats):
             plt.legend()
         return interp_p
 
-    def loglikelihood(self, X, snr_fit, det_error, snr, det_frac, deg=5):
+    def loglikelihood(self, X, snr_fit, det_error, snr, det_frac, deg=10):
         interp_p = self.model(X, snr_fit, det_error, snr, det_frac, deg=deg)
         #calculate the squared_difference
         squared_difference = np.log(np.exp(-(det_frac - interp_p)**2/2))
@@ -102,7 +102,8 @@ class inject_stats_collection(inject_stats):
         p_det_predict = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=poly,plot=True,title="overall detection curve")
         #minimize the loglikelihood
         from scipy.optimize import minimize
-        res = minimize(self.loglikelihood, x0=poly, args=(snr_fit, det_error, snr, det_frac), method='nelder-mead', options={'xatol': 1e-8,'maxiter':10000000, 'disp': True})
+        res = minimize(self.loglikelihood, x0=poly, args=(snr_fit, det_error, snr, det_frac, len(poly)), method='nelder-mead', options={'xatol': 1e-8,'maxiter':10000000, 'disp': True})
+        print(res.x)
         predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=res.x)
         self.model(res.x,snr_fit,det_error,snr,det_frac,plot=True)
         plt.show()

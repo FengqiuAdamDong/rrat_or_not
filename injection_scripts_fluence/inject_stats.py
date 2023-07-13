@@ -526,7 +526,7 @@ class inject_obj:
         if period > 1.9:
             t_dur = 1.8
             t_start = 4.1
-            fit_del = 10e-2
+            fit_del = 15e-2
         else:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)

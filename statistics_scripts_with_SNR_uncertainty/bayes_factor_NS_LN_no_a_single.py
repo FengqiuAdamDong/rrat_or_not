@@ -144,7 +144,7 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    plot_detection_results(det_width, det_fluence, det_snr)
+    #plot_detection_results(det_width, det_fluence, det_snr)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
