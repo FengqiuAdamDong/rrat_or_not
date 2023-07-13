@@ -30,7 +30,7 @@ def read_config(filename,det_snr):
     logn_mu_range = data['logn_mu_range']
     logn_std_range = data['logn_std_range']
     snr_thresh = data['snr_thresh']
-    logn_N_range[1] = logn_N_range[1]*2
+    logn_N_range[1] = logn_N_range[1]
     if logn_N_range[0] == -1:
         #change to full range
         logn_N_range[0] = len(det_snr)+1
@@ -144,7 +144,7 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    plot_detection_results(det_width, det_fluence, det_snr)
+    #plot_detection_results(det_width, det_fluence, det_snr)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
