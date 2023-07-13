@@ -30,7 +30,7 @@ def read_config(filename,det_snr):
     logn_mu_range = data['logn_mu_range']
     logn_std_range = data['logn_std_range']
     snr_thresh = data['snr_thresh']
-    logn_N_range[1] = logn_N_range[1]*2
+    logn_N_range[1] = logn_N_range[1]
     if logn_N_range[0] == -1:
         #change to full range
         logn_N_range[0] = len(det_snr)+1
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     #     print("starting run_nested")
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=10000)
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=256)
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
