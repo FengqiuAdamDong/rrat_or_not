@@ -74,9 +74,10 @@ def process_archive(fn,keep_subints):
     phase = np.linspace(0,1,profiles_np.shape[1])
     plt.plot(phase,profiles_np.mean(axis=0))
     plt.show()
-    on_phase_edges = [-1,-1]
-    on_phase_edges[0] = float(input("on start"))
-    on_phase_edges[1] = float(input("on end"))
+    on_phase_edges = [0.6,0.95]
+    # on_phase_edges[0] = float(input("on start"))
+    # on_phase_edges[1] = float(input("on end"))
+    #
 
     for i in range(profiles_np.shape[0]):
         profile = copy.deepcopy(profiles_np[i,:])

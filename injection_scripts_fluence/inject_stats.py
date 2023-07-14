@@ -97,7 +97,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
 
 
 def grab_spectra_manual(
-        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3
+        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3,plot_name = ""
 ):
     # load the filterbank file
     g = r.FilReader(gf)
@@ -202,15 +202,30 @@ def grab_spectra_manual(
     else:
         # fit using downsampled values
         # this is mostly used for the injections
-        amp, std, loc, sigma_width = autofit_pulse(
-            dat_ts,
-            tsamp * downsamp,
-            fit_del,
-            nsamps=int(0.9 / tsamp / downsamp),
-            ds_data=waterfall_dat,
-            downsamp=downsamp,
-            plot=False,
-        )
+        try:
+            amp, std, loc, sigma_width = autofit_pulse(
+                dat_ts,
+                tsamp * downsamp,
+                fit_del,
+                nsamps=int(0.9 / tsamp / downsamp),
+                ds_data=waterfall_dat,
+                downsamp=downsamp,
+                plot=False,
+                plot_name=plot_name,
+            )
+            #refit with new initial params
+            amp, std, loc, sigma_width = autofit_pulse(
+                dat_ts,
+                tsamp * downsamp,
+                fit_del,
+                nsamps=int(loc / tsamp / downsamp),
+                ds_data=waterfall_dat,
+                downsamp=downsamp,
+                plot=True,
+                plot_name=plot_name,
+            )
+        except:
+            amp, std, loc, sigma_width = -1, -1, -1, -1
         #scale std by the sqrt of non masked chans
         std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
         SNR = amp / std
@@ -257,7 +272,7 @@ def find_polynomial_fit(x_std, ts_std):
 
     return poly, coeffs
 
-def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
+def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name=""):
     # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
@@ -308,7 +323,8 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
         axs[1, 0].set_title("baseline subtracted")
         axs[1, 1].plot(x, ts)
         axs[1, 1].set_title("OG time series")
-        plt.show()
+        plt.savefig(f"{plot_name}_autofit.png")
+        plt.close()
 
     return Amplitude, std, loc, sigma_width
 
@@ -507,6 +523,7 @@ class inject_obj:
         self.det_snr = []
         self.processed = False
 
+
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
         #find where nans are in fluence array
@@ -520,7 +537,7 @@ class inject_obj:
         self.fluence_amp[ind] = -10
 
 
-    def calculate_fluence_single(self, mask=True, period = 2):
+    def calculate_fluence_single(self, mask=True, period = 2,manual=True,plot_name=""):
         ts = self.toas - 5
         te = self.toas + 5
         if period > 1.9:
@@ -541,10 +558,11 @@ class inject_obj:
             subband=256,
             mask=True,
             downsamp=self.downsamp,
-            manual=True,
+            manual=manual,
             t_start = t_start,
             t_dur = t_dur,
             fit_del = fit_del,
+            plot_name = plot_name
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
         self.det_snr = det_snr
@@ -553,7 +571,11 @@ class inject_obj:
         self.fluence_amp = gaussian_amp
         self.det_std = sigma_width
         self.noise_std = std
-        self.processed = True
+        #if we get a negative det_amp then set the processed status to false
+        if self.det_amp==-1:
+            self.processed = False
+        else:
+            self.processed = True
         print(
             f"fitted_snr {det_snr} std {std} amp {amp}"
         )
