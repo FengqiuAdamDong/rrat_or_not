@@ -141,9 +141,9 @@ class dynesty_plot:
         ks = [r[0] for r in self.means]
         k_errs = [r[0] for r in self.stds]
 
-        true_Ns = [r[2] for r in true_centres]
-        Ns = [r[2] for r in self.means]
-        N_errs = [r[2] for r in self.stds]
+        true_Ns = [r[1] for r in true_centres]
+        Ns = [r[1] for r in self.means]
+        N_errs = [r[1] for r in self.stds]
 
         plt.figure()
         max_k = max([max(true_ks),max(ks)])
