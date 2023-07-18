@@ -118,9 +118,55 @@ class dynesty_plot:
         plt.ylabel("recovered N")
         plt.plot(x,x,'r--')
         plt.savefig('N.png')
-
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
+
+    def plot_accuracy_exp(self):
+        """
+        Plot the accuracy of the results
+        """
+        true_centres = []
+
+        for fn,centre,errors in zip(self.filename,self.means,self.stds):
+            #get the mu and sigma from the filename
+            split = fn.split('.')
+            #join all but the last element
+            yaml_file = '.'.join(split[:-1])+'.yaml'
+            #load the yaml file
+            with open(yaml_file) as f:
+                yaml_data = yaml.safe_load(f)
+                true_centres.append(np.array([yaml_data['k'],yaml_data['N']]))
+        #plot the first element of the ratios
+        true_ks = [r[0] for r in true_centres]
+        ks = [r[0] for r in self.means]
+        k_errs = [r[0] for r in self.stds]
+
+        true_Ns = [r[2] for r in true_centres]
+        Ns = [r[2] for r in self.means]
+        N_errs = [r[2] for r in self.stds]
+
+        plt.figure()
+        max_k = max([max(true_ks),max(ks)])
+        min_k = min([min(true_ks),min(ks)])
+        plt.errorbar(true_ks,ks,yerr=k_errs,label="k",linestyle='None',marker='o')
+        x = np.linspace(min_k,max_k,100)
+        plt.plot(x,x,'r--')
+        plt.xlabel(r"True $\k$")
+        plt.ylabel(r"recovered $\k$")
+        plt.savefig('ks.png')
+
+        plt.figure()
+        max_N = max([max(true_Ns),max(Ns)])
+        x = np.linspace(0,max_N,100)
+        plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
+        plt.xlabel("True N")
+        plt.ylabel("recovered N")
+        plt.plot(x,x,'r--')
+        plt.savefig('N.png')
+        #plt.scatter(true_Ns,N_ratios,label="N")
+        plt.legend()
+
+
 if __name__=="__main__":
     import argparse
 
