@@ -188,7 +188,7 @@ if __name__=="__main__":
     if args.exp:
         dp.plot_corner(labels=[r"$K$","N"],plot=True)
         if plot_accuracy:
-            dp.plot_accuracy_logn()
+            dp.plot_accuracy_exp()
     else:
         dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
         if plot_accuracy:
