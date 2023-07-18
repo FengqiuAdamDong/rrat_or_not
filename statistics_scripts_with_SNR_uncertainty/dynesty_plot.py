@@ -175,6 +175,7 @@ if __name__=="__main__":
     parser.add_argument('-p', help="period", type=float ,default = -1)
     parser.add_argument('--obs_time',help="observation time",type=float,default=1)
     parser.add_argument("--plot_accuracy",help="plot the accuracy of the results",action="store_true")
+    parser.add_argument("--exp",help="making the plots for an exponential distribution",action="store_true")
     args = parser.parse_args()
     global period
     global obs_time
@@ -184,6 +185,11 @@ if __name__=="__main__":
     filenames = args.filenames
     dp = dynesty_plot(filenames)
     dp.load_filenames()
-    dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
-    if plot_accuracy:
-        dp.plot_accuracy_logn()
+    if args.exp:
+        dp.plot_corner(labels=[r"$K$","N"],plot=True)
+        if plot_accuracy:
+            dp.plot_accuracy_logn()
+    else:
+        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
+        if plot_accuracy:
+            dp.plot_accuracy_logn()
