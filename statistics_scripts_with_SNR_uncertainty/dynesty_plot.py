@@ -126,7 +126,6 @@ if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='+', help='filenames to plot')
-    parser.add_argument('--labels', nargs='+', help='labels for the plot')
     parser.add_argument('-p', help="period", type=float ,default = -1)
     parser.add_argument('--obs_time',help="observation time",type=float,default=1)
     parser.add_argument("--plot_accuracy",help="plot the accuracy of the results",action="store_true")

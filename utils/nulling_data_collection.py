@@ -72,9 +72,9 @@ def process_archive(fn,keep_subints):
             profiles_tmp.append(profiles_np[i,:])
     profiles_np = np.array(profiles_tmp)
     phase = np.linspace(0,1,profiles_np.shape[1])
-    plt.plot(phase,profiles_np.mean(axis=0))
-    plt.show()
-    on_phase_edges = [0.6,0.95]
+    #plt.plot(phase,profiles_np.mean(axis=0))
+    #plt.show()
+    on_phase_edges = [0.5,0.95]
     # on_phase_edges[0] = float(input("on start"))
     # on_phase_edges[1] = float(input("on end"))
     #
@@ -101,7 +101,7 @@ def process_archive(fn,keep_subints):
         # plt.show()
 
         #now scale the observation by the off pulse std
-        off_phase_edges = [0.05,0.55]
+        off_phase_edges = [0.05,0.5]
         off_ind = (phase>off_phase_edges[0])&(phase<off_phase_edges[1])
         off_ind_array.append(profiles_np[i,off_ind])
 
@@ -110,14 +110,14 @@ def process_archive(fn,keep_subints):
     profiles_np = profiles_np/off_std
     #keep on the keep subints portion of the data in the middle of profiles_np
     folded_profile = np.mean(profiles_np,axis = 0)
-    plt.imshow(profiles_np,aspect="auto")
-    plt.xlabel("phase bin")
-    plt.ylabel("subint")
-    plt.figure()
-    plt.plot(phase,folded_profile)
-    plt.xlabel("phase")
-    plt.ylabel("intensity")
-    plt.show()
+    #plt.imshow(profiles_np,aspect="auto")
+    #plt.xlabel("phase bin")
+    #plt.ylabel("subint")
+    #plt.figure()
+    #plt.plot(phase,folded_profile)
+    #plt.xlabel("phase")
+    #plt.ylabel("intensity")
+    #plt.show()
     return profiles_np
 
 def maximise_fn(nf,on_bins,off_bins):

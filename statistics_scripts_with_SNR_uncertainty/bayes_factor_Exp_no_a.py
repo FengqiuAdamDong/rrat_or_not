@@ -104,7 +104,8 @@ if __name__ == "__main__":
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
     detection_curve = config["detection_curve"]
-    statistics_basic.load_detection_fn(detection_curve)
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve)
+    print("snr_thresh",snr_thresh)
 
     import statistics
     from statistics import mean_var_to_mu_std
@@ -119,16 +120,17 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    # plot_detection_results(det_width, det_fluence, det_snr)
-    detection_curve, exp_N_range, exp_k_range, snr_thresh = read_config(config_det,det_snr)
+    detection_curve, exp_N_range, exp_k_range, snr_thresh_user = read_config(config_det,det_snr)
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
+    plot_detection_results(det_width, det_fluence, det_snr)
     print("exp_N_range", exp_N_range, "exp_k_range", exp_k_range)
     nDims = 2
     def pt_Uniform_N(x):
-        ptmu = (exp_k_range[1] - exp_k_range[0]) * x[0] + exp_k_range[0]
+        #jeffrey's prior for ptk
+        ptk = exp_k_range[1]**x[0] / (exp_k_range[0]**(x[0]-1))
         ptN = (exp_N_range[1] - exp_N_range[0]) * x[1] + exp_N_range[0]
-        return np.array([ptmu, ptN])
+        return np.array([ptk, ptN])
 
     def loglikelihood(theta, det_snr):
         #print("theta",theta)
@@ -162,22 +164,20 @@ if __name__ == "__main__":
         ax.set_xlabel("SNR")
         ax.set_ylabel("Probability")
         ax.legend()
-    # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
-        # ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-                                            # nlive=10000,pool=pool, queue_size=pool.njobs)
-        # dill_fn = real_det.split("/")[-1]
-        # dill_fn = dill_fn.split(".")[0]
-        # checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
-        # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
     checkpoint_fn = f"{dill_fn}.h5"
     print("checkpoint_fn",checkpoint_fn)
-    with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
-        ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-                                            nlive=256,pool=pool, queue_size=pool.njobs)
-        ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+    # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
+    #     ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
+    #                                         nlive=256,pool=pool, queue_size=pool.njobs)
+    #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+    print("starting sampling")
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr],nlive=256)
+    print("starting run_nested")
+    ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
     ln_a_sresults = ln_sampler_a.results
     fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue',labels=["k","N"], truths=np.zeros(nDims),

@@ -7,7 +7,7 @@ import statistics_basic
 
 def n_detect(snr_emit,inj_stats_fn=""):
     # snr emit is the snr that the emitted pulse has
-    p = statistics_basic.p_detect(snr_emit)
+    p = statistics_basic.p_detect_cpu(snr_emit)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
