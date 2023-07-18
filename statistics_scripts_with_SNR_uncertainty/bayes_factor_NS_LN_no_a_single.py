@@ -144,10 +144,11 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    plot_detection_results(det_width, det_fluence, det_snr)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
+
+    plot_detection_results(det_width, det_fluence, det_snr)
     print("logn_N_range", logn_N_range, "logn_mu_range", logn_mu_range, "logn_std_range", logn_std_range)
     #load the lookup table
     xlim_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['xlim_second']
@@ -187,7 +188,7 @@ if __name__ == "__main__":
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
-    checkpoint_fn = f"{dill_fn}.h5"
+    checkpoint_fn = f"{dill_fn}_logn.h5"
     print("checkpoint_fn",checkpoint_fn)
     # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
     #     print("starting sampling")

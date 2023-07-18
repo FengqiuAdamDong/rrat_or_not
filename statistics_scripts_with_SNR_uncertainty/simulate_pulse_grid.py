@@ -100,7 +100,7 @@ def write_yaml_exp(k,a,N,inj_file,output_fn):
         'exp_k_range': list(k_arr),
         'detection_curve': inj_file,
         'snr_thresh': 1.3,
-        'a': a
+        'a': a,
         'N': N,
         'k': k,
     }
