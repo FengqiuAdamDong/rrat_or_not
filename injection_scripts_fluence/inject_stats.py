@@ -189,14 +189,14 @@ def grab_spectra_manual(
             ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
             ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
             #scale the ts with the std so everythin is in units of noise
-            FLUENCE = fit_FLUENCE(
-                ts_no_ds/std,
-                tsamp,
-                3 * sigma_width,
-                nsamp=int(loc / tsamp),
-                ds_data=waterfall_dat,
-                plot=False,
-            )
+            #FLUENCE = fit_FLUENCE(
+            #    ts_no_ds/std,
+            #    tsamp,
+            #    3 * sigma_width,
+            #    nsamp=int(loc / tsamp),
+            #    ds_data=waterfall_dat,
+            #    plot=False,
+            #)
         else:
             FLUENCE = -1
     else:
@@ -234,14 +234,15 @@ def grab_spectra_manual(
         ts_no_ds_zoom_end = int(5.9/tsamp)
         ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
         ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
-        FLUENCE = fit_FLUENCE(
-            ts_no_ds/std,
-            tsamp,
-            fit_del,
-            nsamp=int(loc / tsamp),
-            ds_data=waterfall_dat,
-            plot=False,
-        )
+        #FLUENCE = fit_FLUENCE(
+        #    ts_no_ds/std,
+        #    tsamp,
+        #    fit_del,
+        #    nsamp=int(loc / tsamp),
+        #    ds_data=waterfall_dat,
+        #    plot=False,
+        #)
+    FLUENCE = -1
     # recalculate the amplitude given a gaussian pulse shape
     gaussian_amp = FLUENCE / sigma_width / np.sqrt(2 * np.pi)
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)

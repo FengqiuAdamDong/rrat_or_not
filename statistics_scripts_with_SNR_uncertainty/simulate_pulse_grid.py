@@ -91,16 +91,18 @@ def write_yaml(mu,std,a,N,inj_file,output_fn):
     with open(output_fn,'w') as my_file:
         yaml.dump(data, my_file)
 
-def write_yaml_exp(mu,a,N,inj_file,output_fn):
+def write_yaml_exp(k,a,N,inj_file,output_fn):
     #in this case mu is the k variable for the exponential distribution
-    mu = float(mu)
-    mu_arr = [mu-1,mu+1]
+    k = float(k)
+    k_arr = [k-1,k+1]
     data = {
         'exp_N_range': [-1,N+20000],
-        'exp_k_range': list(mu_arr),
+        'exp_k_range': list(k_arr),
         'detection_curve': inj_file,
         'snr_thresh': 1.3,
         'a': a
+        'N': N,
+        'k': k,
     }
     with open(output_fn,'w') as my_file:
         yaml.dump(data, my_file)
