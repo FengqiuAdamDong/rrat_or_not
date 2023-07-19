@@ -220,7 +220,7 @@ if __name__=="__main__":
     filenames = args.filenames
     dp = dynesty_plot(filenames)
     dp.load_filenames()
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=1.6)
+    snr_thresh = statistics_basic.load_detection_fn(det_curve,min_snr_cutoff=1.6)
 
     if args.exp:
         dp.plot_corner(labels=[r"$K$","N"],plot=False)
