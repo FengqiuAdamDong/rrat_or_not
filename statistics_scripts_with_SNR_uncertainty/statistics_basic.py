@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import cupy as cp
 import numpy as np
 
-def p_detect(snr,interp=True):
+def p_detect(snr,interp=True,min_snr_cutoff=1.6):
     if interp:
         interp_res = np.interp(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
         # interp_res = np.interp(snr,inj_stats.detected_snr_fit,inj_stats.detected_det_frac_fit)
@@ -11,8 +11,8 @@ def p_detect(snr,interp=True):
         #remmove those values below snr=1.3
         snr_cutoff = snr[np.where(interp_res>0)[0][0]]
         print(snr_cutoff)
-        if snr_cutoff < 1.6:
-            snr_cutoff = 1.6
+        if snr_cutoff < min_snr_cutoff:
+            snr_cutoff = min_snr_cutoff
         interp_res[snr<snr_cutoff] = 0
         inj_stats._snr = snr
         inj_stats._interp_res = interp_res
@@ -34,7 +34,7 @@ def p_detect_cupy(snr,interp=True):
     # interp_res[snr<1.3] = 0
     return interp_res
 
-def load_detection_fn(detection_curve,lookup=True,plot=True):
+def load_detection_fn(detection_curve,lookup=True,plot=True,min_snr_cutoff=1.6):
     global inj_stats
     with open(detection_curve, "rb") as inf:
         inj_stats = dill.load(inf)
@@ -42,7 +42,7 @@ def load_detection_fn(detection_curve,lookup=True,plot=True):
     det_error = inj_stats.detect_error_snr
     snr_arr = np.linspace(0, 10, 10000)
     print("det error", det_error)
-    detfn = p_detect(snr_arr)
+    detfn = p_detect(snr_arr,min_snr_cutoff=min_snr_cutoff)
     #get the snr cutoff by finding when detfn is larger than 0.05
     snr_cutoff = snr_arr[np.where(detfn>0)[0][0]]
     if plot:

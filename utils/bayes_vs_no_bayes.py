@@ -8,25 +8,39 @@ from bayes_factor_NS_LN_no_a_single import loglikelihood
 from bayes_factor_NS_LN_no_a_single import pt_Uniform_N
 import yaml
 import smplotlib
-def Ntonull(N):
-    """
-    Convert the number of events to the nulling fraction
-    """
-    nulling_frac = 1-(N/(obs_time/period))
-    # print("nulling frac",nulling_frac,"N",N)
-    return nulling_frac
-def nulltoN(null):
-    N = (1-null)*(obs_time/period)
-    # print(obs_time,period,"obs time, period")
-    # print("N",N,"nulling frac",null)
-    return N
+import statistics_basics
+
+def process_detection_results(real_det):
+    with open(real_det, "rb") as inf:
+        det_class = dill.load(inf)
+
+    det_fluence = []
+    det_width = []
+    det_snr = []
+    noise_std = []
+
+    for pulse_obj in det_class.sorted_pulses:
+        if pulse_obj.det_amp != -1:
+            det_fluence.append(pulse_obj.det_fluence)
+            det_width.append(pulse_obj.det_std)
+            det_snr.append(pulse_obj.det_snr)
+            noise_std.append(pulse_obj.noise_std)
+
+    det_fluence = np.array(det_fluence)
+    det_width = np.array(det_width)
+    det_snr = np.array(det_snr)
+    noise_std = np.array(noise_std)
+
+    return det_fluence, det_width, det_snr, noise_std
 
 class dynesty_plot:
     """
     Class to plot dynesty results"""
 
-    def __init__(self, filenames):
+    def __init__(self, filenames)
         self.filename = filenames
+        #strip the .h5 from the filename and all .dill
+        self.detections = [f.strip(".h5")+".dill" for f in self.filename]
 
     def load_filenames(self):
         """
@@ -39,6 +53,26 @@ class dynesty_plot:
             elif f.endswith('.h5'):
                 print(f)
                 self.data.append(dynesty.NestedSampler.restore(f))
+
+    def load_detections(self, num_bins=20):
+        self.snrs = []
+        self.snr_bin_midpoints = []
+        self.snr_bin_heights = []
+        self.simp_total_N = []
+        for f in self.detections:
+            det_fluence, det_width, det_snr, noise_std = process_detection_results(f)
+            # Define the number of bins and the range of values
+            value_min = np.min(det_snr)
+            value_max = np.max(det_snr)
+            # Create the bins and calculate the bin heights
+            bin_heights, bin_edges = np.histogram(det_snr, bins=num_bins, range=(value_min, value_max))
+            bin_midpoints = 0.5 * (bin_edges[1:] + bin_edges[:-1])
+            self.snr_bin_midpoints.append(bin_midpoints)
+            self.snr_bin_heights.append(bin_heights)
+            self.snrs.append(det_snr)
+            simp_selection_corrected_heights = bin_heights/statistics_basics.p_detect_cpu(bin_midpoints)
+            self.simp_total_N.append(np.sum(simp_selection_corrected_heights))
+
 
     def plot_corner(self, labels=None, plot=False):
         """
@@ -159,6 +193,7 @@ class dynesty_plot:
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
+        plt.scatter(true_Ns,self.simp_totals,marker='x',label="simple correction")
         plt.xlabel("True N")
         plt.ylabel("recovered N")
         plt.plot(x,x,'r--')
@@ -168,7 +203,7 @@ class dynesty_plot:
 
 
 if __name__=="__main__":
-    import argparse
+     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='+', help='filenames to plot')
@@ -176,20 +211,22 @@ if __name__=="__main__":
     parser.add_argument('--obs_time',help="observation time",type=float,default=1)
     parser.add_argument("--plot_accuracy",help="plot the accuracy of the results",action="store_true")
     parser.add_argument("--exp",help="making the plots for an exponential distribution",action="store_true")
+    parser.add_argument("--det_curve",help="inj_stats dill file",required=True)
     args = parser.parse_args()
-    global period
-    global obs_time
+    det_curve = args.det_curve
     period = args.p
     obs_time = args.obs_time
     plot_accuracy = args.plot_accuracy
     filenames = args.filenames
     dp = dynesty_plot(filenames)
     dp.load_filenames()
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=1.6)
+
     if args.exp:
-        dp.plot_corner(labels=[r"$K$","N"],plot=True)
+        dp.plot_corner(labels=[r"$K$","N"],plot=False)
         if plot_accuracy:
             dp.plot_accuracy_exp()
     else:
-        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
+        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=False)
         if plot_accuracy:
             dp.plot_accuracy_logn()
