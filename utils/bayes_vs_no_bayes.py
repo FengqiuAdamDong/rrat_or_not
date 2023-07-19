@@ -193,7 +193,7 @@ class dynesty_plot:
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
-        plt.scatter(true_Ns,self.simp_totals,marker='x',label="simple correction")
+        plt.scatter(true_Ns,self.simp_total_N,marker='x',label="simple correction")
         plt.xlabel("True N")
         plt.ylabel("recovered N")
         plt.plot(x,x,'r--')
