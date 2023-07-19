@@ -6,9 +6,7 @@ from math import comb
 from scipy.special import gammaln
 from multiprocessing import Pool
 import os
-import scipy.optimize as opt
 import dill
-from scipy.integrate import quad
 import scipy
 from cupyx.scipy.special import gammaln as cupy_gammaln
 from cupyx.scipy.special import erf as cupy_erf
