@@ -8,8 +8,8 @@ from bayes_factor_NS_LN_no_a_single import loglikelihood
 from bayes_factor_NS_LN_no_a_single import pt_Uniform_N
 import yaml
 import smplotlib
-import statistics_basics
-
+import statistics_basic
+import dill
 def process_detection_results(real_det):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
@@ -203,7 +203,7 @@ class dynesty_plot:
 
 
 if __name__=="__main__":
-     import argparse
+    import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', nargs='+', help='filenames to plot')
