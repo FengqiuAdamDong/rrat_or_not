@@ -37,7 +37,7 @@ class dynesty_plot:
     """
     Class to plot dynesty results"""
 
-    def __init__(self, filenames)
+    def __init__(self, filenames):
         self.filename = filenames
         #strip the .h5 from the filename and all .dill
         self.detections = [f.strip(".h5")+".dill" for f in self.filename]
