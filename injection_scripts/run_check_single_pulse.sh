@@ -24,11 +24,11 @@ do
     if [ "$LOCAL" != true ]; then
         "$SCRIPT_DIR"/check_single_pulse.sh -b -d $dm *snr*.fil
         "$SCRIPT_DIR"/check_single_pulse.sh -f *snr*.fil
-        "$SCRIPT_DIR"/get_bright_bursts.sh -i .
+        #"$SCRIPT_DIR"/get_bright_bursts.sh -i .
     else
         "$SCRIPT_DIR"/check_single_pulse.sh -b -d $dm -l *snr*.fil
         "$SCRIPT_DIR"/check_single_pulse.sh -f -l *snr*.fil
-        "$SCRIPT_DIR"/get_bright_bursts.sh -i .
+        #"$SCRIPT_DIR"/get_bright_bursts.sh -i .
     fi
 
 
