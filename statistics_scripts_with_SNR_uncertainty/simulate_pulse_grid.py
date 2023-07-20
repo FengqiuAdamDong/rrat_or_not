@@ -81,6 +81,8 @@ def write_yaml(mu,std,a,N,inj_file,output_fn):
         'logn_N_range': [-1,N+20000],
         'logn_mu_range': list(mu_arr),
         'logn_std_range': [std-0.5, std+0.5],
+        'exp_N_range': [-1,N+20000],
+        'exp_k_range': [0.1, 10],
         'detection_curve': inj_file,
         'snr_thresh': 1.3,
         'a': a,
@@ -94,10 +96,17 @@ def write_yaml(mu,std,a,N,inj_file,output_fn):
 def write_yaml_exp(k,a,N,inj_file,output_fn):
     #in this case mu is the k variable for the exponential distribution
     k = float(k)
-    k_arr = [k-1,k+1]
+    k_low = k-1
+    if k_low < 0:
+        k_low = 0.1
+    k_arr = [k_low,k+1]
+
     data = {
         'exp_N_range': [-1,N+20000],
         'exp_k_range': list(k_arr),
+        'logn_N_range': [-1,N+20000],
+        'logn_mu_range': [-2,2],
+        'logn_std_range': [0.01, 2],
         'detection_curve': inj_file,
         'snr_thresh': 1.3,
         'a': a,

@@ -151,7 +151,7 @@ class dynesty_plot:
         plt.errorbar(true_ks,ks,yerr=k_errs,label="k",linestyle='None',marker='o')
         x = np.linspace(min_k,max_k,100)
         plt.plot(x,x,'r--')
-        plt.xlabel(r"True $\k$")
+        plt.xlabel(r"True $k$")
         plt.ylabel(r"recovered $k$")
         plt.savefig('ks.png')
 

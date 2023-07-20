@@ -54,11 +54,12 @@ class dynesty_plot:
                 print(f)
                 self.data.append(dynesty.NestedSampler.restore(f))
 
-    def load_detections(self, num_bins=20):
+    def load_detections(self, num_bins=100):
         self.snrs = []
         self.snr_bin_midpoints = []
         self.snr_bin_heights = []
         self.simp_total_N = []
+        self.simp_selection_corrected_heights = []
         for f in self.detections:
             det_fluence, det_width, det_snr, noise_std = process_detection_results(f)
             # Define the number of bins and the range of values
@@ -70,8 +71,15 @@ class dynesty_plot:
             self.snr_bin_midpoints.append(bin_midpoints)
             self.snr_bin_heights.append(bin_heights)
             self.snrs.append(det_snr)
-            simp_selection_corrected_heights = bin_heights/statistics_basics.p_detect_cpu(bin_midpoints)
-            self.simp_total_N.append(np.sum(simp_selection_corrected_heights))
+
+            simp_selection_corrected_height = bin_heights/statistics_basic.p_detect_cpu(bin_midpoints)
+            self.simp_selection_corrected_heights.append(simp_selection_corrected_height)
+            # plt.figure()
+            # plt.plot(bin_midpoints, simp_selection_corrected_height, label="corrected")
+            # plt.plot(bin_midpoints, bin_heights, label="No correction")
+            # plt.legend()
+            # plt.show()
+            self.simp_total_N.append(np.sum(simp_selection_corrected_height))
 
 
     def plot_corner(self, labels=None, plot=False):
@@ -178,22 +186,39 @@ class dynesty_plot:
         true_Ns = [r[1] for r in true_centres]
         Ns = [r[1] for r in self.means]
         N_errs = [r[1] for r in self.stds]
+        fitted_k = []
+        fitted_k_err = []
+        #estimate k for each set of bins
+        for bin_centers,corrected_heights in zip(self.snr_bin_midpoints,self.simp_selection_corrected_heights):
+            #fit an exponential to the data
+            from scipy.optimize import curve_fit
+            def exp_func(x,A,k):
+                return A*np.exp(-k*x)
+            popt,pcov = curve_fit(exp_func,bin_centers,corrected_heights,p0=[1,1],maxfev=1000000,bounds=([0,0],[np.inf,10]))
+            fitted_k.append(popt[1])
+            fitted_k_err.append(np.sqrt(np.diag(pcov))[1])
+            #integrate under the fitted k line
+            print(popt)
+            print(np.sqrt(np.diag(pcov)))
 
         plt.figure()
         max_k = max([max(true_ks),max(ks)])
         min_k = min([min(true_ks),min(ks)])
-        plt.errorbar(true_ks,ks,yerr=k_errs,label="k",linestyle='None',marker='o')
+        plt.errorbar(true_ks,ks,yerr=k_errs,label="k (This method)",linestyle='None',marker='o')
+        plt.errorbar(true_ks,fitted_k,yerr=fitted_k_err,label="k (simple correction)",linestyle='None',marker='x')
+        plt.legend()
         x = np.linspace(min_k,max_k,100)
         plt.plot(x,x,'r--')
-        plt.xlabel(r"True $\k$")
+        plt.xlabel(r"True $k$")
         plt.ylabel(r"recovered $k$")
         plt.savefig('ks.png')
-
+        plt.show()
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
-        plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
-        plt.scatter(true_Ns,self.simp_total_N,marker='x',label="simple correction")
+        plt.errorbar(true_Ns,Ns,yerr=N_errs,label="This method",linestyle='None',marker='o')
+        plt.scatter(true_Ns,self.simp_total_N,marker='x',label="Simple correction")
+        plt.legend()
         plt.xlabel("True N")
         plt.ylabel("recovered N")
         plt.plot(x,x,'r--')
@@ -219,9 +244,10 @@ if __name__=="__main__":
     plot_accuracy = args.plot_accuracy
     filenames = args.filenames
     dp = dynesty_plot(filenames)
+
+    snr_thresh = statistics_basic.load_detection_fn(det_curve,min_snr_cutoff=1.6)
     dp.load_filenames()
     dp.load_detections()
-    snr_thresh = statistics_basic.load_detection_fn(det_curve,min_snr_cutoff=1.6)
 
     if args.exp:
         dp.plot_corner(labels=[r"$K$","N"],plot=False)

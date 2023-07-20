@@ -9,8 +9,7 @@
 #SBATCH --error=%x-%j.err
 #SBATCH --gres=gpu:v100l:1
 #
-module load python
-module load scipy-stack
-source ~/rrat_or_not/bin/activate
+source ~/util/load_presto.sh
+source ~/extract_snr/bin/activate
 python ~/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_NS_LN_no_a_single.py -i $1
 # python bayes_factor_NS_LN_no_a_single.py -i $1
