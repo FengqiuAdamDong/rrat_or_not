@@ -168,7 +168,7 @@ if __name__ == "__main__":
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
-    checkpoint_fn = f"{dill_fn}.h5"
+    checkpoint_fn = f"{dill_fn}_exp.h5"
     print("checkpoint_fn",checkpoint_fn)
     # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
     #     ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
