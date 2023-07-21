@@ -207,7 +207,7 @@ def grab_spectra_manual(
                 dat_ts,
                 tsamp * downsamp,
                 fit_del,
-                nsamps=int(0.9 / tsamp / downsamp),
+                nsamps=int(t_dur / 2 / tsamp / downsamp),
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
                 plot=False,
@@ -224,7 +224,8 @@ def grab_spectra_manual(
                 plot=True,
                 plot_name=plot_name,
             )
-        except:
+        except Exception as e:
+            print(e)
             amp, std, loc, sigma_width = -1, -1, -1, -1
         #scale std by the sqrt of non masked chans
         std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
@@ -312,6 +313,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     # once we have calculated the location
     print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width}")
     if plot:
+        print(f"Making plot {plot_name}_autofit.png")
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].plot(x_std, ts_std)
         axs[0, 0].plot(x, poly(x))

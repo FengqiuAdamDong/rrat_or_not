@@ -40,6 +40,65 @@ class dynesty_plot:
                 print(f)
                 self.data.append(dynesty.NestedSampler.restore(f))
 
+    def plot_bayes_ratio_logn(self):
+        mu_arr= []
+        evidence_diff_arr = []
+        evidence_diff_err = []
+        for fn,logn_sampler in zip(self.filename,self.data):
+            #get the logn version of the filename
+            split = fn.split('_')
+            exp_fn = '_'.join(split[:-1])+'_exp.h5'
+            exp_sampler = dynesty.NestedSampler.restore(exp_fn)
+            #get the logn evidence
+            exp_evidence = exp_sampler.results.logz[-1]
+            exp_evidence_error = exp_sampler.results.logzerr[-1]
+
+            logn_evidence = logn_sampler.results.logz[-1]
+            logn_evidence_error = logn_sampler.results.logzerr[-1]
+            #propagate the errors
+            evidence_error = np.sqrt(exp_evidence_error**2+logn_evidence_error**2)
+
+            print("exp evidence",exp_evidence,"logn evidence",logn_evidence,"comparison",logn_evidence-exp_evidence,"error",evidence_error)
+            #get the k value from fn
+            mu = float(fn.split('_')[3])
+            mu_arr.append(mu)
+            evidence_diff_arr.append(logn_evidence-exp_evidence)
+        plt.figure()
+        plt.errorbar(mu_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
+        plt.xlabel(r"$mu$")
+        plt.ylabel(r"$\ln(Z_{logn})-\ln(Z_{exp})$")
+        plt.savefig("evidence_diff_logn.png")
+
+
+    def plot_bayes_ratio_exp(self):
+        k_arr= []
+        evidence_diff_arr = []
+
+        for fn,exp_sampler in zip(self.filename,self.data):
+            #get the logn version of the filename
+            split = fn.split('_')
+            logn_fn = '_'.join(split[:-1])+'_logn.h5'
+            logn_sampler = dynesty.NestedSampler.restore(logn_fn)
+            #get the logn evidence
+            exp_evidence = exp_sampler.results.logz[-1]
+            exp_evidence_error = exp_sampler.results.logzerr[-1]
+
+            logn_evidence = logn_sampler.results.logz[-1]
+            logn_evidence_error = logn_sampler.results.logzerr[-1]
+
+            evidence_error = np.sqrt(exp_evidence_error**2+logn_evidence_error**2)
+            print("exp evidence",exp_evidence,"logn evidence",logn_evidence,"comparison",exp_evidence-logn_evidence,"error",evidence_error)
+            #get the k value from fn
+            k = float(fn.split('_')[3])
+            k_arr.append(k)
+            evidence_diff_arr.append(exp_evidence-logn_evidence)
+        plt.figure()
+        plt.errorbar(k_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
+        plt.xlabel(r"$k$")
+        plt.ylabel(r"$\ln(Z_{exp})-\ln(Z_{logn})$")
+        plt.savefig("evidence_diff_exp.png")
+
+
     def plot_corner(self, labels=None, plot=False):
         """
         Plot the corner plot of the samples
@@ -74,9 +133,9 @@ class dynesty_plot:
 
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
-            split = fn.split('.')
+            split = fn.split('_')
             #join all but the last element
-            yaml_file = '.'.join(split[:-1])+'.yaml'
+            yaml_file = '_'.join(split[:-1])+'.yaml'
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
@@ -129,9 +188,9 @@ class dynesty_plot:
 
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
-            split = fn.split('.')
+            split = fn.split('_')
             #join all but the last element
-            yaml_file = '.'.join(split[:-1])+'.yaml'
+            yaml_file = '_'.join(split[:-1])+'.yaml'
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
@@ -176,6 +235,7 @@ if __name__=="__main__":
     parser.add_argument('--obs_time',help="observation time",type=float,default=1)
     parser.add_argument("--plot_accuracy",help="plot the accuracy of the results",action="store_true")
     parser.add_argument("--exp",help="making the plots for an exponential distribution",action="store_true")
+    parser.add_argument("--bayes_ratio",help="plot the bayes ratio",action="store_true")
     args = parser.parse_args()
     global period
     global obs_time
@@ -189,7 +249,12 @@ if __name__=="__main__":
         dp.plot_corner(labels=[r"$K$","N"],plot=True)
         if plot_accuracy:
             dp.plot_accuracy_exp()
+        if args.bayes_ratio:
+            dp.plot_bayes_ratio_exp()
+
     else:
-        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
+        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=False)
         if plot_accuracy:
             dp.plot_accuracy_logn()
+        if args.bayes_ratio:
+            dp.plot_bayes_ratio_logn()
