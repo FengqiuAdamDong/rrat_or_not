@@ -6,6 +6,7 @@ import dynesty
 import sys
 from bayes_factor_NS_LN_no_a_single import loglikelihood
 from bayes_factor_NS_LN_no_a_single import pt_Uniform_N
+from scipy.interpolate import RegularGridInterpolator
 import yaml
 import smplotlib
 def Ntonull(N):
@@ -129,9 +130,9 @@ class dynesty_plot:
 
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
-            split = fn.split('.')
+            split = fn.split('_')
             #join all but the last element
-            yaml_file = '.'.join(split[:-1])+'.yaml'
+            yaml_file = '_'.join(split[:-1])+'.yaml'
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
