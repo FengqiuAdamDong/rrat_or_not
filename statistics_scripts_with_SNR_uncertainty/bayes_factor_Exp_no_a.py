@@ -126,9 +126,12 @@ if __name__ == "__main__":
     plot_detection_results(det_width, det_fluence, det_snr)
     print("exp_N_range", exp_N_range, "exp_k_range", exp_k_range)
     nDims = 2
-    def pt_Uniform_N(x):
+    def pt_Uniform_N(x,max_det):
         #jeffrey's prior for ptk
-        ptk = exp_k_range[1]**x[0] / (exp_k_range[0]**(x[0]-1))
+        max_k = np.log(2)/(max_det/50)
+        min_k = np.log(2)/max_det
+        # ptk = exp_k_range[1]**x[0] / (exp_k_range[0]**(x[0]-1))
+        ptk = (max_k**x[0]) / (min_k**(x[0]-1))
         ptN = (exp_N_range[1] - exp_N_range[0]) * x[1] + exp_N_range[0]
         return np.array([ptk, ptN])
 
@@ -175,7 +178,8 @@ if __name__ == "__main__":
     #                                         nlive=256,pool=pool, queue_size=pool.njobs)
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr],nlive=256)
+    max_det = max(det_snr)
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr],nlive=256,ptform_args=[max_det])
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 

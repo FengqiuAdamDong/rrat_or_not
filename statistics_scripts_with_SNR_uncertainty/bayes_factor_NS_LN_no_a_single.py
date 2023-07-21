@@ -89,9 +89,17 @@ def plot_detection_results(det_width, det_fluence, det_snr):
     axs[0, 1].legend()
     plt.show()
 
-def pt_Uniform_N(x):
-    ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
-    ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
+def pt_Uniform_N(x,max_det):
+    #need to set conditional prior for mu and sigma
+    #lets set the sigma prior to be always between 0 and 2
+    #
+    # ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
+    ptsigma = (2-0) * x[1] + 0
+    #set the prior for mu conditional on sigma
+    min_mu = np.log(max_det/50)
+    max_mu = np.log(max_det)
+    # ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
+    ptmu = (max_mu - min_mu) * x[0] + min_mu
     ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
     return np.array([ptmu, ptsigma, ptN])
 
@@ -101,9 +109,9 @@ def loglikelihood(theta, det_snr, xlim_interp):
     #print("theta",theta)
     a = 0
     lower_c = 0
-    # upper_c = theta[0]*50
-    mean,var = mu_std_to_mean_var(theta[0],theta[1])
-    upper_c = mean*50
+    # mean,var = mu_std_to_mean_var(theta[0],theta[1])
+    median = np.exp(theta[0])
+    upper_c = median*50
     LN_mu,LN_std = (theta[0],theta[1])
     xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
     if max(det_snr) > xlim:
@@ -197,7 +205,8 @@ if __name__ == "__main__":
     #     print("starting run_nested")
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=256)
+    max_det = np.max(det_snr)
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=256,ptform_args=[max_det])
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 

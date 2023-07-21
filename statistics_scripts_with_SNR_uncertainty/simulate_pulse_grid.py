@@ -78,7 +78,7 @@ def write_yaml(mu,std,a,N,inj_file,output_fn):
     mu = float(mu)
     mu_arr = [mu-1,mu+1]
     data = {
-        'logn_N_range': [-1,N+20000],
+        'logn_N_range': [-1,(N+10000)*2],
         'logn_mu_range': list(mu_arr),
         'logn_std_range': [std-0.5, std+0.5],
         'exp_N_range': [-1,N+20000],
@@ -201,7 +201,7 @@ mode = args.mode
 statistics_basic.load_detection_fn(inj_file,plot=False)
 if mode=="Lognorm":
     mu_arr = np.linspace(-0.5,1,20)
-    std_arr = [0.25]
+    std_arr = [0.5]
 elif mode=="Exp":
     k_arr = np.linspace(0.5,2,20)
     #use mu as k_arr
@@ -227,7 +227,11 @@ if __name__ == "__main__":
         if mode=="Lognorm":
             #use the upper cutoff to be 50x the mean
             mean,var = mu_std_to_mean_var(mu,std)
+            median = np.exp(mu)
+            #set upper to 50x median
+            upper = 50*median
         elif mode=="Exp":
             mean,var = k_to_mean_var(mu)
-        upper = np.inf
+            median = np.log(2)/mu
+            upper = 50*median
         simulate_and_process_data(detected_req, mode,mu,std, lower, upper, sigma_snr, a, inj_file, dill_file,plot=False,out_fol=output_fol)

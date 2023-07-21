@@ -6,6 +6,7 @@ import dynesty
 import sys
 from bayes_factor_NS_LN_no_a_single import loglikelihood
 from bayes_factor_NS_LN_no_a_single import pt_Uniform_N
+from scipy.interpolate import RegularGridInterpolator
 import yaml
 import smplotlib
 def Ntonull(N):
