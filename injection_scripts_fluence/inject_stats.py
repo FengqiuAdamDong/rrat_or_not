@@ -244,7 +244,8 @@ def grab_spectra_manual(
     # recalculate the amplitude given a gaussian pulse shape
     gaussian_amp = FLUENCE / sigma_width / np.sqrt(2 * np.pi)
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)
-    return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR
+    approximate_toa = g.header.tstart + ((te+ts)/2)/86400
+    return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR, approximate_toa
 
 def find_polynomial_fit(x_std, ts_std):
     rchi2 = 100
@@ -520,6 +521,7 @@ class inject_obj:
         self.fluence_amp = []
         self.noise_std = []
         self.det_snr = []
+        self.approximate_toa = []
         self.processed = False
 
 
@@ -548,7 +550,7 @@ class inject_obj:
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
 
-        fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
+        fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,
             te=te,
@@ -564,6 +566,7 @@ class inject_obj:
             plot_name = plot_name
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
+        self.approximate_toa = approximate_toa
         self.det_snr = det_snr
         self.det_fluence = fluence
         self.det_amp = amp
@@ -584,7 +587,7 @@ class inject_obj:
         for t, dm, snr in zip(self.toas, self.dm, self.snr):
             ts = t - 5
             te = t + 5
-            fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
+            fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
                 gf=self.filfile,
                 ts=ts,
                 te=te,
@@ -598,19 +601,21 @@ class inject_obj:
                 f"inj_snr {snr} fitted_snr {det_snr} std {std} amp {amp}"
             )
             # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
+
             self.det_fluence.append(fluence)
             self.det_amp.append(amp)
             self.det_std.append(sigma_width)
             self.fluence_amp.append(gaussian_amp)
             self.noise_std.append(std)
             self.det_snr.append(det_snr)
-
+            self.approximate_toa.append(approximate_toa)
         self.det_fluence = np.array(self.det_fluence)
         self.det_amp = np.array(self.det_amp)
         self.det_std = np.array(self.det_std)
         self.fluence_amp = np.array(self.fluence_amp)
         self.noise_std = np.array(self.noise_std)
         self.det_snr = np.array(self.det_snr)
+        self.approximate_toa = np.array(self.approximate_toa)
 
 
 

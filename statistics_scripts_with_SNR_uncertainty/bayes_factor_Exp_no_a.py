@@ -104,7 +104,7 @@ if __name__ == "__main__":
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
     detection_curve = config["detection_curve"]
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve)
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=2.0)
     print("snr_thresh",snr_thresh)
 
     import statistics

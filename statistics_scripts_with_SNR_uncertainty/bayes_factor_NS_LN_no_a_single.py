@@ -96,7 +96,7 @@ def pt_Uniform_N(x,max_det):
     # ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
     ptsigma = (2-0) * x[1] + 0
     #set the prior for mu conditional on sigma
-    min_mu = np.log(max_det/50)
+    min_mu = np.log(max_det/100)
     max_mu = np.log(max_det)
     # ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
     ptmu = (max_mu - min_mu) * x[0] + min_mu
