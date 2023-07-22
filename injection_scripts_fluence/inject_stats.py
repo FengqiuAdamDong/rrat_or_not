@@ -63,8 +63,6 @@ def get_mask_arr(gfb):
 
 
 def maskfile(maskfn, data, start_bin, nbinsextra):
-    from presto import rfifind
-
     print("loading mask")
     rfimask = rfifind.rfifind(maskfn)
     print("getting mask")
