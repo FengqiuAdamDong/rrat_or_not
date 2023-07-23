@@ -71,7 +71,7 @@ class det_stats:
 
             # for faster debugging
             # self.sorted_pulses = self.sorted_pulses[0:10]
-            with ProcessPool(nodes=64) as p:
+            with ProcessPool(nodes=2) as p:
                 self.sorted_pulses = p.map(run_calc, self.sorted_pulses)
 
         else:
