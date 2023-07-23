@@ -113,8 +113,10 @@ class det_stats:
                 continue
             print(i,"out of ",len(self.sorted_pulses))
             s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
-            with open(f"tmp.dill", "wb") as of:
-                dill.dump(inject_stats, of)
+            #every 20 pulses, save the file
+            if i%20 == 0:
+                with open(f"tmp.dill", "wb") as of:
+                    dill.dump(inject_stats, of)
 
 
 def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
