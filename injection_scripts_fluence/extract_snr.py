@@ -82,8 +82,10 @@ class det_stats:
                     continue
                 print(i,"out of ",len(self.sorted_pulses))
                 s.calculate_fluence_single(period = self.period,manual=manual,plot_name=plot_name)
-                with open(f"tmp.dill", "wb") as of:
-                    dill.dump(inject_stats, of)
+                #dump every 30 pulses
+                if i%30 == 0:
+                    with open(f"tmp.dill", "wb") as of:
+                        dill.dump(inject_stats, of)
 
     def get_bad_bursts(self,refit="refit"):
         #get all png files in the refit directory
