@@ -35,7 +35,8 @@ if __name__=='__main__':
         # os.symlink(os.path.join(pwd,basename+'/'), os.path.join(pwd,os.path.join(path,basename)))
         #create the basename folder
         new_folder = os.path.join(pwd,os.path.join(path,basename))
-        os.makedirs(new_folder)
+        if not os.path.exists(new_folder):
+            os.makedirs(new_folder)
         #list all rfifind files in the original folder
         rfifind_files = glob.glob(os.path.join(os.getcwd(),os.path.join(basename,"*rfifind*")))
         #symbolic link all rfifind files to the new folder
