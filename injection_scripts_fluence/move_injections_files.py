@@ -22,7 +22,7 @@ if __name__=='__main__':
 
 
     #check if path exists
-    if not os.path.exists(path):
+    if not os.path.exists(os.path.join(pwd,path)):
         os.makedirs(os.path.join(pwd,path))
 
     #symbolic link every gap-th file to path
