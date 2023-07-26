@@ -210,7 +210,7 @@ def grab_spectra_manual(
                 downsamp=downsamp,
                 plot=False,
                 plot_name=plot_name,
-                width = guess_width
+                fit_width_guess = guess_width
             )
             #refit with new initial params
             amp, std, loc, sigma_width = autofit_pulse(
@@ -222,7 +222,7 @@ def grab_spectra_manual(
                 downsamp=downsamp,
                 plot=True,
                 plot_name=plot_name,
-                width = std
+                fit_width_guess = sigma_width
             )
         except Exception as e:
             print(e)
@@ -275,7 +275,7 @@ def find_polynomial_fit(x_std, ts_std):
 
     return poly, coeffs
 
-def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", width = 0.01):
+def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", fit_width_guess = 0.01):
     # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
@@ -294,10 +294,10 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     max_time = nsamps * tsamp
     # x axis of the fit
     xind = np.array(list(range(len(ts_sub)))) * tsamp
-
+    print(f"initial width guess {fit_width_guess}, amp {mamplitude}, max_time {max_time}")
     max_l = minimize(
         log_likelihood,
-        [mamplitude, max_time, width, 0],
+        [mamplitude, max_time, fit_width_guess, 0],
         args=(xind, ts_sub, std),
         method="Nelder-Mead",
     )
@@ -329,6 +329,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         axs[1, 1].set_title("OG time series")
         plt.savefig(f"{plot_name}_autofit.png")
         plt.close()
+        plt.show()
 
     return Amplitude, std, loc, sigma_width
 

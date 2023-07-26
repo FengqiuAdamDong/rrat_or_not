@@ -232,6 +232,7 @@ def inject_pulses(
         print(f"total power:{total_inj_pow}")
         data = add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top)
         # SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
+        # print(f"fitted SNR: {SNR}, stats std: {stats_std}")
 
     # data = data.astype("uint8")
     # np.savez('data',data = data,masked_chans = masked_chans)

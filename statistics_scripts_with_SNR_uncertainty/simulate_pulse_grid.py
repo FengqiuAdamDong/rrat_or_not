@@ -183,6 +183,7 @@ parser = argparse.ArgumentParser(description="Simulate some pulses")
 parser.add_argument("-a", type=float, default=0, help="offset value")
 parser.add_argument("-d", type=str, default="", help="dill_file")
 parser.add_argument("-inj_file", type=str, help="injection_file.dill")
+parser.add_argument("-s", type=float, default=0.5, help="std value")
 parser.add_argument(
     "-mode",
     type=str,
@@ -201,7 +202,7 @@ mode = args.mode
 statistics_basic.load_detection_fn(inj_file,plot=False)
 if mode=="Lognorm":
     mu_arr = np.linspace(-0.5,1,20)
-    std_arr = [0.5]
+    std_arr = [args.s]
 elif mode=="Exp":
     k_arr = np.linspace(0.5,2,20)
     #use mu as k_arr
