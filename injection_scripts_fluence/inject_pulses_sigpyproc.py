@@ -368,7 +368,7 @@ def get_pazi_mask(pazi_fn):
     return masks
 
 
-def get_filterbank_data_window(fn, maskfn, duration=20):
+def get_filterbank_data_window(fn, maskfn, duration=20, pazi=False):
     """Load a window of filterbank data from a .fil file, after applying a mask to discard some of the data.
 
     Parameters
@@ -401,7 +401,10 @@ def get_filterbank_data_window(fn, maskfn, duration=20):
     #find the archive filename
     pazi_fn = fn.replace(".fil", "") + "_1000.00ms_Cand.pfd.pazi"
     #load the archive
-    pazi_mask = get_pazi_mask(pazi_fn)
+    if pazi:
+        pazi_mask = get_pazi_mask(pazi_fn)
+    else:
+        pazi_mask = np.ones(1000)
     #load the weights
     print("getting filterbank data")
     filf = r.FilReader(fn)
@@ -555,11 +558,17 @@ if __name__ == "__main__":
         help="enable multiprocessing with 10 cores",
         action="store_true",
     )
+    parser.add_argument(
+        "--pazi",
+        action="store_true",
+        help="enable pazi masking",
+        )
     args = parser.parse_args()
 
     duration = args.d
     ifn = args.fil
     maskfn = args.m
+    pazi = args.pazi
     if args.injection_file:
         injection_sample = np.load(args.injection_file)
         npul = len(injection_sample)
@@ -604,7 +613,7 @@ if __name__ == "__main__":
                 p.map(multiprocess, pool_arr)
     else:
         rawdata, masked_chans, presto_header = get_filterbank_data_window(
-            ifn, duration=duration, maskfn=maskfn
+            ifn, duration=duration, maskfn=maskfn, pazi=pazi
         )
         for dm in TRIAL_DMS:
             pool_arr = []

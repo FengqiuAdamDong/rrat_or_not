@@ -28,7 +28,8 @@ if __name__=='__main__':
     #symbolic link every gap-th file to path
     for i in range(0,len(files),gap):
         active_file = files[i]
-        os.symlink(os.path.join(pwd,active_file), os.path.join(pwd,os.path.join(path,active_file)))
+        if not os.path.exists(os.path.join(pwd,os.path.join(path,active_file))):
+            os.symlink(os.path.join(pwd,active_file), os.path.join(pwd,os.path.join(path,active_file)))
         #basename
         basename = active_file.split(".")[0]
         #symbolic link the base folder
@@ -42,6 +43,8 @@ if __name__=='__main__':
         #symbolic link all rfifind files to the new folder
         for rfifind_file in rfifind_files:
             #check if file exits
-            if not os.path.exists(os.path.join(new_folder,os.path.basename(rfifind_file))):
+            rfi_path = os.path.join(new_folder,os.path.basename(rfifind_file))
+            print(rfi_path)
+            if not os.path.exists(rfi_path):
                 print("symlinking "+rfifind_file+" to "+new_folder)
-                os.symlink(rfifind_file, new_folder)
+                os.symlink(rfifind_file, new_folder+"/"+os.path.basename(rfifind_file))

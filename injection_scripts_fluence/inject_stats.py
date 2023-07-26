@@ -95,7 +95,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
 
 
 def grab_spectra_manual(
-        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3,plot_name = ""
+        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3,plot_name = "", guess_width = 0.01,
 ):
     # load the filterbank file
     g = r.FilReader(gf)
@@ -210,6 +210,7 @@ def grab_spectra_manual(
                 downsamp=downsamp,
                 plot=False,
                 plot_name=plot_name,
+                width = guess_width
             )
             #refit with new initial params
             amp, std, loc, sigma_width = autofit_pulse(
@@ -221,6 +222,7 @@ def grab_spectra_manual(
                 downsamp=downsamp,
                 plot=True,
                 plot_name=plot_name,
+                width = std
             )
         except Exception as e:
             print(e)
@@ -273,7 +275,7 @@ def find_polynomial_fit(x_std, ts_std):
 
     return poly, coeffs
 
-def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name=""):
+def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", width = 0.01):
     # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
@@ -295,7 +297,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
 
     max_l = minimize(
         log_likelihood,
-        [mamplitude, max_time, 0.01, 0],
+        [mamplitude, max_time, width, 0],
         args=(xind, ts_sub, std),
         method="Nelder-Mead",
     )
@@ -586,7 +588,7 @@ class inject_obj:
         # print(fluence,amp,std,self.filfile)
 
     def calculate_fluence(self):
-        for t, dm, snr in zip(self.toas, self.dm, self.snr):
+        for t, dm, snr, width in zip(self.toas, self.dm, self.snr, self.width):
             ts = t - 5
             te = t + 5
             fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
@@ -598,6 +600,7 @@ class inject_obj:
                 subband=256,
                 mask=True,
                 downsamp=self.downsamp,
+                guess_width=width,
             )
             print(
                 f"inj_snr {snr} fitted_snr {det_snr} std {std} amp {amp}"
