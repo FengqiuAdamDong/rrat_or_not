@@ -2,9 +2,10 @@ import os
 import numpy as np
 import sys
 import argparse
+import glob
 if __name__=='__main__':
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('--path', type=str)
+    argparser.add_argument('--path', type=str,default="injections",help='path to store the injections filterbank files (just a symlink)')
     argparser.add_argument('--gap', type=int,help='gap between two filterbank files')
 
     args = argparser.parse_args()
@@ -28,4 +29,13 @@ if __name__=='__main__':
         #basename
         basename = active_file.split(".")[0]
         #symbolic link the base folder
-        os.symlink(os.path.join(pwd,basename+'/'), os.path.join(pwd,os.path.join(path,basename)))
+        # os.symlink(os.path.join(pwd,basename+'/'), os.path.join(pwd,os.path.join(path,basename)))
+        #create the basename folder
+        new_folder = os.path.join(pwd,os.path.join(path,basename))
+        os.makedirs(new_folder)
+        #list all rfifind files in the original folder
+        rfifind_files = glob.glob(os.path.join(pwd,os.path.join(basename,"*rfifind*")))
+        #symbolic link all rfifind files to the new folder
+        for rfifind_file in rfifind_files:
+            print("symlinking "+rfifind_file+" to "+new_folder)
+            os.symlink(rfifind_file, new_folder)

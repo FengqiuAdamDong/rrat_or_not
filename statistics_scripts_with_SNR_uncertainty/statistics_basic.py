@@ -2,7 +2,6 @@ import dill
 import matplotlib.pyplot as plt
 import cupy as cp
 import numpy as np
-
 def p_detect(snr,interp=True,min_snr_cutoff=1.6):
     if interp:
         interp_res = np.interp(snr,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)

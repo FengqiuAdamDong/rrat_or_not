@@ -22,6 +22,19 @@ def nulltoN(null):
     # print("N",N,"nulling frac",null)
     return N
 
+def smoothTriangle(data, degree):
+    triangle=np.concatenate((np.arange(degree + 1), np.arange(degree)[::-1])) # up then down
+    smoothed=[]
+
+    for i in range(degree, len(data) - degree * 2):
+        point=data[i:i + len(triangle)] * triangle
+        smoothed.append(np.sum(point)/np.sum(triangle))
+    # Handle boundaries
+    smoothed=[smoothed[0]]*int(degree + degree/2) + smoothed
+    while len(smoothed) < len(data):
+        smoothed.append(smoothed[-1])
+    return smoothed
+
 class dynesty_plot:
     """
     Class to plot dynesty results"""
@@ -226,6 +239,44 @@ class dynesty_plot:
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
+    def plot_fit_logn(self):
+        import statistics_basic
+        for f,m in zip(self.filename,self.means):
+            #get the mu and sigma from the filename
+            split = f.split('_')
+            #join all but the last element
+            yaml_file = '_'.join(split[:-1])+'.yaml'
+            real_det = '_'.join(split[:-1])+'.dill'
+            #load the yaml file
+            with open(yaml_file) as f:
+                data = yaml.safe_load(f)
+            detection_curve = data['detection_curve']
+            snr_thresh = data['snr_thresh']
+            if snr_thresh < 1.6:
+                snr_thresh = 1.6
+            #load the detection curve
+            snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+            import statistics
+            from bayes_factor_NS_LN_no_a_single import process_detection_results
+            #load the detections
+            det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
+            det_snr = det_snr[det_snr > snr_thresh]
+            fit_x = np.linspace(1e-9, 10, 10000)
+            mu = m[0]
+            std = m[1]
+            det_error = statistics.det_error
+            fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, det_error, a=0)
+            fit_y = smoothTriangle(fit_y, 100)
+            fit_y = fit_y / np.trapz(fit_y, fit_x)
+            fig, ax = plt.subplots(1, 1)
+            ax.hist(det_snr, bins='auto', density=True, label=f"max_mu={m[0]:.2f}, max_std={m[1]:.2f}")
+            ax.plot(fit_x, fit_y, label="fit")
+            # ax.plot(conv_amp_array, conv, label="convolution")
+            # ax.plot(conv_amp_array, p_det, label="p_det")
+            ax.set_xlabel("SNR")
+            ax.set_ylabel("Probability")
+            # plt.legend()
+            plt.show()
 
 if __name__=="__main__":
     import argparse
@@ -237,6 +288,7 @@ if __name__=="__main__":
     parser.add_argument("--plot_accuracy",help="plot the accuracy of the results",action="store_true")
     parser.add_argument("--exp",help="making the plots for an exponential distribution",action="store_true")
     parser.add_argument("--bayes_ratio",help="plot the bayes ratio",action="store_true")
+
     args = parser.parse_args()
     global period
     global obs_time
@@ -254,7 +306,8 @@ if __name__=="__main__":
             dp.plot_bayes_ratio_exp()
 
     else:
-        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=False)
+        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
+        dp.plot_fit_logn()
         if plot_accuracy:
             dp.plot_accuracy_logn()
         if args.bayes_ratio:

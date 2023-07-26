@@ -136,14 +136,7 @@ if __name__ == "__main__":
     config_det = real_det.replace(".dill",".yaml")
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
-    detection_curve = config["detection_curve"]
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=2.0)
-    print("snr_thresh",snr_thresh)
-    import statistics
-    from statistics import mean_var_to_mu_std
-    from statistics import mu_std_to_mean_var
-    import statistics_exp
-    det_error = statistics.det_error
+
     # for real_det,config_det in zip(dill_files,config_files):
     #check if png already made
     png_fp = f"{real_det}_logn_a_corner.png"
@@ -153,6 +146,15 @@ if __name__ == "__main__":
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
+    if snr_thresh_user > 1.6:
+        snr_thresh = snr_thresh_user
+    else:
+        snr_thresh = 1.6
+    detection_curve = config["detection_curve"]
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+    print("snr_thresh",snr_thresh)
+    import statistics
+    det_error = statistics.det_error
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]
 
@@ -166,26 +168,6 @@ if __name__ == "__main__":
     mg,sg,ng = np.meshgrid(mu_lookup,std_lookup,N_lookup,indexing='ij')
     xlim_interp = RegularGridInterpolator((mu_lookup,std_lookup,N_lookup), xlim_lookup,bounds_error=False,fill_value=None)
     nDims = 3
-    def plot_fit(ln_a_sresults):
-        # Plot the actual fit
-        samples, weights = ln_a_sresults.samples, ln_a_sresults.importance_weights()
-        mean, cov = dyfunc.mean_and_cov(samples, weights)
-        max_mu = mean[0]
-        max_std = mean[1]
-        max_N = mean[2]
-        max_a = 0
-        mu, std = mean_var_to_mu_std(max_mu, max_std**2)
-        fit_x = np.linspace(1e-9, 50, 10000)
-        fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, det_error, a=max_a)
-        fit_y = fit_y / np.trapz(fit_y, fit_x)
-        fig, ax = plt.subplots(1, 1)
-        ax.hist(det_snr, bins='auto', density=True, label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}")
-        ax.plot(fit_x, fit_y, label="fit")
-        ax.plot(conv_amp_array, conv, label="convolution")
-        ax.plot(conv_amp_array, p_det, label="p_det")
-        ax.set_xlabel("SNR")
-        ax.set_ylabel("Probability")
-        ax.legend()
     # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
         # ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
                                             # nlive=10000,pool=pool, queue_size=pool.njobs)
