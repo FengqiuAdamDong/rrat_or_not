@@ -83,7 +83,7 @@ class det_stats:
                 print(i,"out of ",len(self.sorted_pulses))
                 s.calculate_fluence_single(period = self.period,manual=manual,plot_name=plot_name)
                 #dump every 30 pulses
-                if i%30 == 0:
+                if i%100 == 0:
                     with open(f"tmp.dill", "wb") as of:
                         dill.dump(inject_stats, of)
 
