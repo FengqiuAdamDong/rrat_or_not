@@ -104,14 +104,7 @@ if __name__ == "__main__":
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
     detection_curve = config["detection_curve"]
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=2.0)
-    print("snr_thresh",snr_thresh)
 
-    import statistics
-    from statistics import mean_var_to_mu_std
-    from statistics import mu_std_to_mean_var
-    import statistics_exp
-    det_error = statistics.det_error
     # for real_det,config_det in zip(dill_files,config_files):
     #check if png already made
     png_fp = f"{real_det}_exp_a_corner.png"
@@ -121,7 +114,19 @@ if __name__ == "__main__":
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
     detection_curve, exp_N_range, exp_k_range, snr_thresh_user = read_config(config_det,det_snr)
+    if snr_thresh_user > 1.6:
+        snr_thresh = snr_thresh_user
+    else:
+        snr_thresh = 1.6
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+    print("snr_thresh",snr_thresh)
+
+    import statistics
+    from statistics import mean_var_to_mu_std
+    from statistics import mu_std_to_mean_var
+    import statistics_exp
     #filter the det_snr
+    det_error = statistics.det_error
     det_snr = det_snr[det_snr>snr_thresh]
     plot_detection_results(det_width, det_fluence, det_snr)
     print("exp_N_range", exp_N_range, "exp_k_range", exp_k_range)
