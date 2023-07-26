@@ -40,5 +40,7 @@ if __name__=='__main__':
         rfifind_files = glob.glob(os.path.join(os.getcwd(),os.path.join(basename,"*rfifind*")))
         #symbolic link all rfifind files to the new folder
         for rfifind_file in rfifind_files:
-            print("symlinking "+rfifind_file+" to "+new_folder)
-            os.symlink(rfifind_file, new_folder)
+            #check if file exits
+            if not os.path.exists(os.path.join(new_folder,os.path.basename(rfifind_file))):
+                print("symlinking "+rfifind_file+" to "+new_folder)
+                os.symlink(rfifind_file, new_folder)
