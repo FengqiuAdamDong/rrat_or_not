@@ -20,7 +20,7 @@ do
     #copy the filterbank file back in
     cp -d $f $MASKFOL
     #copy the pazi file in
-    cp -d $MASKFOL*.pazi $MASKFOL
+    #cp -d $MASKFOL*.pazi $MASKFOL
     cd $MASKFOL
     if [ "$LOCAL" != true ]; then
         module use /project/6004902/modulefiles

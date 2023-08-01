@@ -41,6 +41,12 @@ class dynesty_plot:
 
     def __init__(self, filenames):
         self.filename = filenames
+        #get the parameters from the first filename
+        split = filenames[0].split('_')
+        self.dist = split[1]
+        #make self.dist lower case
+        self.dist = self.dist.lower()
+        self.dets = int(split[2])
 
     def load_filenames(self):
         """
@@ -81,7 +87,7 @@ class dynesty_plot:
         plt.errorbar(mu_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
         plt.xlabel(r"$mu$")
         plt.ylabel(r"$\ln(Z_{logn})-\ln(Z_{exp})$")
-        plt.savefig("evidence_diff_logn.png")
+        plt.savefig(f"self.dets{self.dets}_evidence_diff_logn.pdf")
 
 
     def plot_bayes_ratio_exp(self):
@@ -110,7 +116,7 @@ class dynesty_plot:
         plt.errorbar(k_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
         plt.xlabel(r"$k$")
         plt.ylabel(r"$\ln(Z_{exp})-\ln(Z_{logn})$")
-        plt.savefig("evidence_diff_exp.png")
+        plt.savefig(f"self.dets{self.dets}_evidence_diff_exp.pdf")
 
 
     def plot_corner(self, labels=None, plot=False):
@@ -128,7 +134,7 @@ class dynesty_plot:
                     N_ax = corner[1][2][2]
                     N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
                     N_sax.set_xlabel(r"Nulling fraction")
-                plt.savefig(f.strip(".h5")+"_corner.png")
+                plt.savefig(f.strip(".h5")+"_corner.pdf")
                 plt.close()
 
             mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
@@ -174,7 +180,8 @@ class dynesty_plot:
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $\mu$")
         plt.ylabel(r"recovered $\mu$")
-        plt.savefig('mus.png')
+        plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
+        plt.savefig(f"{self.dets}_mus.pdf")
         plt.figure()
         plt.errorbar(true_sigmas,sigmas,yerr=sigma_errs,label="sigma",linestyle='None',marker='o')
         max_sigma = max([max(true_sigmas),max(sigmas)])
@@ -182,15 +189,17 @@ class dynesty_plot:
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $\sigma$")
         plt.ylabel(r"recovered $\sigma$")
-        plt.savefig('sigmas.png')
+        plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
+        plt.savefig(f"{self.dets}_sigmas.pdf")
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
+        plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.plot(x,x,'r--')
-        plt.savefig('N.png')
+        plt.savefig(f"{self.dets}_logn_Ns.pdf")
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
@@ -226,7 +235,8 @@ class dynesty_plot:
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $k$")
         plt.ylabel(r"recovered $k$")
-        plt.savefig('ks.png')
+        plt.title(f"{self.dets} detections")
+        plt.savefig(f"{self.dets}_ks.pdf")
 
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
@@ -234,8 +244,9 @@ class dynesty_plot:
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
+        plt.title(f"{self.dets} detections")
         plt.plot(x,x,'r--')
-        plt.savefig('N.png')
+        plt.savefig(f"{self.dets}_exp_Ns.pdf")
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
@@ -307,7 +318,7 @@ if __name__=="__main__":
 
     else:
         dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
-        dp.plot_fit_logn()
+        #dp.plot_fit_logn()
         if plot_accuracy:
             dp.plot_accuracy_logn()
         if args.bayes_ratio:
