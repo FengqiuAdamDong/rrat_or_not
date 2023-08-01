@@ -329,8 +329,6 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         axs[1, 1].set_title("OG time series")
         plt.savefig(f"{plot_name}_autofit.png")
         plt.close()
-        plt.show()
-
     return Amplitude, std, loc, sigma_width
 
 def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
@@ -911,8 +909,8 @@ class inject_stats:
 
     def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
         # set the number of data points per bin
-        num_points_per_bin = len(all_det_vals) // num_bins
-        print("number of points in each bin ", num_points_per_bin)
+        self.num_points_per_bin = len(all_det_vals) // num_bins
+        print("number of points in each bin ", self.num_points_per_bin)
 
         # calculate the bin edges based on the percentiles of the data
         bin_edges = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))

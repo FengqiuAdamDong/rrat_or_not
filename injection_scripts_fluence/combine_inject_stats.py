@@ -39,12 +39,13 @@ class inject_stats_collection(inject_stats):
         self.snr = np.array(self.snr)
         self.det_frac = np.array(self.det_frac)
         #fit this to polynomial
-
         #average along the 0th axis
         self.snr = np.mean(self.snr,axis=0)
         self.det_frac = np.mean(self.det_frac,axis=0)
         self.det_snr = np.array(self.det_snr)
         self.detected_pulses = np.array(self.detected_pulses)
+
+        self.total_injections_per_snr = self.det_snr.shape[0]*self.det_snr.shape[2]
         self.inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
         all_det_snr = self.det_snr.flatten()
         detected_snr = self.det_snr[self.detected_pulses]
@@ -56,11 +57,15 @@ class inject_stats_collection(inject_stats):
         self.detect_error_snr = np.sqrt(np.mean(detect_errors**2))
         print(self.detect_error_snr)
         self.deconvolve_response(self.det_frac, self.detect_error_snr, self.snr, self.inj_snr_fit)
-        plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label=r"Measured $P(det|SNR_d)$")
+
+        error_det_frac_d = np.sqrt(self.detected_det_frac*(1-self.detected_det_frac)/self.num_points_per_bin)
+        # plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label=r"Measured $P(det|S_{det)$")
+        plt.errorbar(self.detected_bin_midpoints,self.detected_det_frac,yerr=error_det_frac_d,fmt=".",label=r"Measured $P(det|S_{det})$")
         plt.legend()
         plt.show()
         plt.savefig("overall_detection_curve.png")
         plt.close()
+
         interp_p = np.interp(predict_x_array, self.detected_bin_midpoints, self.detected_det_frac)
         plt.plot(predict_x_array, interp_p, label="interpolated")
         plt.title("overall detection curve interp")
@@ -79,11 +84,13 @@ class inject_stats_collection(inject_stats):
         #then do an interp for snr
         interp_p = np.interp(snr, snr_fit, convolved)
         if plot:
+            error_det_frac_i = np.sqrt(det_frac*(1-det_frac)/self.total_injections_per_snr)
             plt.figure()
-            plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
-            plt.scatter(snr,interp_p,label=r"Forward model $P(det|SNR_t)$")
-            plt.plot(snr_fit,predict_y,label=r"Forward model $P(det|SNR_d)$")
-            plt.xlabel("SNR")
+            plt.errorbar(snr,det_frac,yerr=error_det_frac_i,fmt=".",label=r"$P(det|S_T)$")
+            # plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
+            plt.plot(snr,interp_p,label=r"Forward model $P(det|S_T)$")
+            plt.plot(snr_fit,predict_y,label=r"Forward model $P(det|S_{det})$")
+            plt.xlabel("S")
             plt.ylabel("Probability")
             plt.legend()
         return interp_p
@@ -96,6 +103,7 @@ class inject_stats_collection(inject_stats):
 
 
     def deconvolve_response(self,det_frac, det_error, snr, poly):
+
         snr_fit = np.linspace(-10,10,1000)
         spacing = snr_fit[1] - snr_fit[0]
         #generate an array with the same spacing as the snr
@@ -106,10 +114,10 @@ class inject_stats_collection(inject_stats):
         print(res.x)
         predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=res.x)
         self.model(res.x,snr_fit,det_error,snr,det_frac,plot=True)
-        plt.show()
+
         plt.figure()
-        plt.plot(snr_fit,predict_y,label="forward model $P(det|SNR_d)$")
-        plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
+        plt.plot(snr_fit,predict_y,label="Forward model $P(det|S_{det})$")
+        # plt.scatter(snr,det_frac,label=r"$P(det|S_t)$")
         plt.xlabel("SNR")
         plt.ylabel("Probability")
         self.detected_snr_fit = snr_fit
