@@ -53,6 +53,9 @@ class dynesty_plot:
             elif f.endswith('.h5'):
                 print(f)
                 self.data.append(dynesty.NestedSampler.restore(f))
+                evidence = self.data[-1].results.logz[-1]
+                evidence_error = self.data[-1].results.logzerr[-1]
+                print(f"evidence for {evidence}+-{evidence_error}")
 
     def plot_bayes_ratio_logn(self):
         mu_arr= []
