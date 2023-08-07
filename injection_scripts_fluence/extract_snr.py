@@ -104,7 +104,7 @@ class det_stats:
                     s.fluence_amp = -1
 
     def calculate_snr_refit(self):
-        plot_folder = "fit_plots"
+        plot_folder = "good_refits"
         if not os.path.exists(plot_folder):
             os.makedirs(plot_folder)
 
