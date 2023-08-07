@@ -110,7 +110,7 @@ class det_stats:
 
         for i,s in enumerate(self.sorted_pulses):
             plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
-            if i%10 == 0:
+            if i%100 == 0:
                 with open(f"tmp.dill", "wb") as of:
                     dill.dump(inject_stats, of)
             if s.processed:
