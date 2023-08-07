@@ -119,7 +119,7 @@ class det_stats:
             print(i,"out of ",len(self.sorted_pulses))
             s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
             #move the refitted png to the original fit_plots folder
-            os.system(f"mv refit/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}_autofit.png fit_plots/{plot_name}.png")
+            os.system(f"mv refit/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}_autofit.png {plot_name}.png")
             #every 20 pulses, save the file
 
 def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
