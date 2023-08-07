@@ -95,7 +95,7 @@ class dynesty_plot:
         plt.errorbar(mu_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
         plt.xlabel(r"$mu$")
         plt.ylabel(r"$\ln(Z_{logn})-\ln(Z_{exp})$")
-        plt.savefig(f"self.dets{self.dets}_evidence_diff_logn.pdf")
+        plt.savefig(f"{self.dets}_evidence_diff_logn.pdf")
 
 
     def plot_bayes_ratio_exp(self):
@@ -124,7 +124,7 @@ class dynesty_plot:
         plt.errorbar(k_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
         plt.xlabel(r"$k$")
         plt.ylabel(r"$\ln(Z_{exp})-\ln(Z_{logn})$")
-        plt.savefig(f"self.dets{self.dets}_evidence_diff_exp.pdf")
+        plt.savefig(f"{self.dets}_evidence_diff_exp.pdf")
 
 
     def plot_corner(self, labels=None, plot=False):
