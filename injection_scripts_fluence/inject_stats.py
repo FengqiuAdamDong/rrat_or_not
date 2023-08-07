@@ -147,26 +147,26 @@ def grab_spectra_manual(
             downsamp=downsamp,
         )
 
-        while amp==-1:
-            #fit has failed, get a larger time window and try again
-            # make a copy to plot the waterfall
-            t_start = t_start - 1
-            t_dur = t_dur + 2
-            print(t_start,t_dur)
-            if (t_start<0)|((t_start+t_dur)>(te-ts)):
-                break
-            nsamps_start_zoom = int(t_start / tsamp)
-            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
-            print(nsamps_start_zoom,nsamps_end_zoom)
-            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
-            amp, std, loc, sigma_width = fit_SNR_manual(
-                dat_ts,
-                tsamp * downsamp,
-                fit_del,
-                nsamps=int(t_dur/2 / tsamp / downsamp),
-                ds_data=waterfall_dat,
-                downsamp=downsamp,
-            )
+#        while amp==-1:
+#            #fit has failed, get a larger time window and try again
+#            # make a copy to plot the waterfall
+#            t_start = t_start - 1
+#            t_dur = t_dur + 2
+#            print(t_start,t_dur)
+#            if (t_start<0)|((t_start+t_dur)>(te-ts)):
+#                break
+#            nsamps_start_zoom = int(t_start / tsamp)
+#            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
+#            print(nsamps_start_zoom,nsamps_end_zoom)
+#            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
+#            amp, std, loc, sigma_width = fit_SNR_manual(
+#                dat_ts,
+#                tsamp * downsamp,
+#                fit_del,
+#                nsamps=int(t_dur/2 / tsamp / downsamp),
+#                ds_data=waterfall_dat,
+#                downsamp=downsamp,
+#            )
         if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width = fit_SNR_manual(
@@ -261,7 +261,7 @@ def find_polynomial_fit(x_std, ts_std):
         poly = np.poly1d(coeffs)
         # Calculate the reduced chi2 of the fit
         rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:500]) ** 2)) / (len(ts_std) - i)
-        print("rchi2", rchi2, "i", i)
+        # print("rchi2", rchi2, "i", i)
         rchi2_arr.append(rchi2)
         poly_arr.append(poly)
         coeffs_arr.append(coeffs)
@@ -412,11 +412,25 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     axes[0].imshow(ds_data, aspect="auto", cmap=cmap)
     #plot the polyfit
     axes[2].plot(x, np.interp(x,x_std,poly(x_std)), lw=5, alpha=0.7)
-    axes[2].scatter(x_std,ts_std,alpha=0.5)
+    axes[2].scatter(x_std,ts_std,alpha=0.5,s=4)
     axes[2].scatter(x,ts,alpha=0.5)
 
-    k = axes[1].plot(xind, ts_sub)
+    k = axes[1].scatter(xind, ts_sub,marker='.',s=5)
     (my_plot,) = axes[1].plot(xind_fit, y_fit, lw=5,alpha=0.7)
+
+    #make a copy of ts_sub
+    ts_sub_copy = copy.deepcopy(ts_sub)
+    xind_copy = copy.deepcopy(xind)
+    #average every 4th sample of ts_sub_copy
+    #make sure ts_sub_copy has length multiple of 4
+    ts_sub_copy = ts_sub_copy[:int(len(ts_sub_copy)/4)*4]
+    xind_copy = xind_copy[:int(len(xind_copy)/4)*4]
+    ts_sub_copy = np.mean(ts_sub_copy.reshape(-1, 4), axis=1)
+    xind_copy = np.mean(xind_copy.reshape(-1, 4), axis=1)
+    #plot the downsampled versio
+    my_plot2 = axes[1].scatter(xind_copy, ts_sub_copy, lw=5,alpha=0.7,marker='x',s=5)
+
+
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
@@ -452,7 +466,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
         for i, v in enumerate(max_l.x):
             x_new[i] = v
 
-        print("new fit: ", x_new)
+        # print("new fit: ", x_new)
         new_fit = gaussian(xind_fit, x_new[0], x_new[1], x_new[2], x_new[3])
         my_plot.set_ydata(new_fit)
         fig.canvas.draw_idle()
@@ -578,8 +592,10 @@ class inject_obj:
         self.noise_std = std
         #if we get a negative det_amp then set the processed status to false
         if self.det_amp==-1:
+            print("setting process to False")
             self.processed = False
         else:
+            print("set processed to true")
             self.processed = True
         print(
             f"fitted_snr {det_snr} std {std} amp {amp}"

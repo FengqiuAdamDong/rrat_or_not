@@ -110,16 +110,16 @@ class det_stats:
 
         for i,s in enumerate(self.sorted_pulses):
             plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
+            if i%10 == 0:
+                with open(f"tmp.dill", "wb") as of:
+                    dill.dump(inject_stats, of)
             if s.processed:
                 print("already processed, skipping")
                 continue
             print(i,"out of ",len(self.sorted_pulses))
             s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
+            print(s.processed)
             #every 20 pulses, save the file
-            if i%20 == 0:
-                with open(f"tmp.dill", "wb") as of:
-                    dill.dump(inject_stats, of)
-
 
 def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
     # this function combines two sets (from positive_bursts_1 and positive_bursts_short eg)
