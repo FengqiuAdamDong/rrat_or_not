@@ -146,10 +146,7 @@ if __name__ == "__main__":
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
-    if snr_thresh_user > 1.6:
-        snr_thresh = snr_thresh_user
-    else:
-        snr_thresh = 1.6
+    snr_thresh = snr_thresh_user
     detection_curve = config["detection_curve"]
     snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
     print("snr_thresh",snr_thresh)

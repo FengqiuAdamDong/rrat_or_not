@@ -376,7 +376,7 @@ def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
 
 def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # calculates the SNR given a timeseries
-    ind_max = nsamps
+    ind_max = nsampscopy
     w_bin = width / tsamp
     ts_std = np.delete(ts, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     x = np.linspace(0, tsamp * len(ts), len(ts))
@@ -417,6 +417,19 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
 
     k = axes[1].plot(xind, ts_sub)
     (my_plot,) = axes[1].plot(xind_fit, y_fit, lw=5,alpha=0.7)
+
+    #make a copy of ts_sub
+    ts_sub_copy = copy.deepcopy(ts_sub)
+    xind_copy = copy.deepcopy(xind)
+    #make sure ts_sub_copy length if a multiple of 4
+    ts_sub_copy = ts_sub_copy[:int(len(ts_sub_copy)/4)*4]
+    xind_copy = xind_copy[:int(len(xind_copy)/4)*4]
+    #average every 4th sample of ts_sub_copy
+    ts_sub_copy = np.mean(ts_sub_copy.reshape(-1, 4), axis=1)
+    xind_copy = np.mean(xind_copy.reshape(-1, 4), axis=1)
+    #plot the downsampled versio
+    (my_plot2,) = axes[1].plot(xind_copy, ts_sub_copy, lw=5,alpha=0.7)
+
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
@@ -812,7 +825,7 @@ class inject_stats:
         time_tol = 0.5
         dm_tol = 10
         snr_tol = 1e-3
-        for csv in fn:
+        for i,csv in enumerate(fn):
             (
                 dm,
                 burst_time,
@@ -820,6 +833,8 @@ class inject_stats:
                 inj_snr,
                 MJD,
             ) = read_positive_burst_inj(csv)
+            before_num = [sum(si.detected) for si in self.sorted_inject]
+
             for t, d, inj_s in zip(burst_time, dm, inj_snr):
                 # here we gotta match the values
                 t_low = t - time_tol
@@ -839,6 +854,10 @@ class inject_stats:
                         truth_t = (t_arr < t_hi) & (t_arr > t_low)
                         total_truth = truth_dm & truth_t
                         self.detected_truth(si, total_truth)
+            after_num = [sum(si.detected) for si in self.sorted_inject]
+            extra = np.array(after_num) - np.array(before_num)
+            if i>0:
+                print(csv,sum(extra))
         for si in self.sorted_inject:
             print(f"snr {np.mean(si.snr)}",'detection frac',sum(si.detected)/len(si.detected))
         # get lists to plot

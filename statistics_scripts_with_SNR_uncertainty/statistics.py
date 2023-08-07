@@ -38,7 +38,6 @@ def gaussian_cupy(x, mu, sigma):
 
 def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
      #xlim needs to be at least as large as 5 sigma_snrs though
-    wide_enough = False
     sigma_snr = det_error
     maximum_accuracy = 1/(N-n)
     x_lims = [-sigma_snr*10,xlim]
@@ -46,12 +45,6 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
     LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
     gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-    #convolve the two arrays
-    # plt.figure()
-    # plt.plot(amp_arr,LN_dist)
-    # plt.plot(amp_arr,gaussian_error)
-    # integral_ln = np.trapz(LN_dist,amp_arr)
-    # plt.title(f"xlen {x_len} xlim {xlim} integral {integral_ln}")
     conv = cp.convolve(LN_dist,gaussian_error)*cp.diff(amp_arr)[0]
     conv_lims = [2*x_lims[0],2*x_lims[1]]
     #shift the whole distribution by a at the end here
@@ -61,12 +54,6 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     likelihood = conv*(1-p_det)
     # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     integral = cp.trapz(likelihood,conv_amp_array)
-    # if integral >1.05:
-    #     #throw error and exit
-    #     import sys
-    #     print(f"integral is greater than 1.05, integral is {integral}")
-    #     sys.exit()
-    # print("second xlim",xlim)
     return cp.log(integral)*(N-n)
 
 def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):

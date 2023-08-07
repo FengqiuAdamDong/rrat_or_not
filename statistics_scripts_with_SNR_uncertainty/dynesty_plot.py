@@ -46,7 +46,12 @@ class dynesty_plot:
         self.dist = split[1]
         #make self.dist lower case
         self.dist = self.dist.lower()
-        self.dets = int(split[2])
+        try:
+            self.dets = int(split[2])
+        except:
+            self.dets = 2
+
+
 
     def load_filenames(self):
         """
@@ -137,7 +142,10 @@ class dynesty_plot:
                     N_ax = corner[1][2][2]
                     N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
                     N_sax.set_xlabel(r"Nulling fraction")
+
                 plt.savefig(f.strip(".h5")+"_corner.pdf")
+
+                plt.savefig(f.strip(".h5")+"_corner.png")
                 plt.close()
 
             mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
