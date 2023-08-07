@@ -376,7 +376,7 @@ def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
 
 def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # calculates the SNR given a timeseries
-    ind_max = nsampscopy
+    ind_max = nsamps
     w_bin = width / tsamp
     ts_std = np.delete(ts, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     x = np.linspace(0, tsamp * len(ts), len(ts))
