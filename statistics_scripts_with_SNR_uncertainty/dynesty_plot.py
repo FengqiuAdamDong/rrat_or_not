@@ -153,6 +153,8 @@ class dynesty_plot:
             std = np.sqrt(diag_cov)
             means.append(mean)
             stds.append(std)
+            print(means)
+            print(std)
         self.means = np.array(means)
         self.stds = np.array(stds)
 
