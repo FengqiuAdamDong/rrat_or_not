@@ -30,11 +30,15 @@ def read_config(filename,det_snr):
     logn_mu_range = data['logn_mu_range']
     logn_std_range = data['logn_std_range']
     snr_thresh = data['snr_thresh']
+    try:
+        flux_cal = data['flux_cal']
+    except:
+        flux_cal = 1
     logn_N_range[1] = logn_N_range[1]
     if logn_N_range[0] == -1:
         #change to full range
         logn_N_range[0] = len(det_snr)+1
-    return detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh
+    return detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh, flux_cal
 
 def plot_fit_ln(max_mu,max_std,dets,sigma_det):
     fit_x = np.linspace(1e-9,50,10000)
@@ -128,7 +132,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     real_det = args.i
 
-    # import statistics_gaus
     #####preamble finished#####
     cuda_device=0
 
@@ -145,12 +148,13 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh_user = read_config(config_det,det_snr)
-    snr_thresh = snr_thresh_user
+    detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh, flux_cal = read_config(config_det,det_snr)
+    det_snr = det_snr*flux_cal #convert to flux units
     detection_curve = config["detection_curve"]
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh,flux_cal=flux_cal)
     print("snr_thresh",snr_thresh)
     import statistics
+
     det_error = statistics.det_error
     #filter the det_snr
     det_snr = det_snr[det_snr>snr_thresh]

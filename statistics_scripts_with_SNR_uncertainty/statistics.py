@@ -11,13 +11,14 @@ import scipy
 from cupyx.scipy.special import gammaln as cupy_gammaln
 from cupyx.scipy.special import erf as cupy_erf
 import statistics_basic
-from statistics_basic import load_detection_fn, p_detect, p_detect_cupy
+from statistics_basic import load_detection_fn, p_detect, p_detect_cupy, p_detect_cpu
 global det_error
 det_error = statistics_basic.det_error
 print("det_error for LN",det_error)
 import time
 ###############################CUPY FUNCTIONS##################################
 import cupy as cp
+
 def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
     #lower and upper cutoff parameters added
     pdf = cp.zeros(x.shape)
