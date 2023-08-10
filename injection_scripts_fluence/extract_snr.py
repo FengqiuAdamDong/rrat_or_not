@@ -56,7 +56,7 @@ class det_stats:
             temp.append(t)
         self.sorted_pulses = temp
 
-    def calculate_snr(self, multiprocessing=False,manual=True):
+    def calculate_snr(self, multiprocessing=False,manual=True,save_freq=100):
         import copy
         plot_folder = "fit_plots"
         if not os.path.exists(plot_folder):
@@ -103,21 +103,24 @@ class det_stats:
                     s.det_fluence = -1
                     s.fluence_amp = -1
 
-    def calculate_snr_refit(self):
+    def calculate_snr_refit(self,save_freq=100):
         plot_folder = "good_refits"
         if not os.path.exists(plot_folder):
             os.makedirs(plot_folder)
 
         for i,s in enumerate(self.sorted_pulses):
             plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
-            if i%100 == 0:
+            if i%int(save_freq) == 0:
                 with open(f"tmp.dill", "wb") as of:
                     dill.dump(inject_stats, of)
             if s.processed:
                 print("already processed, skipping")
                 continue
             print(i,"out of ",len(self.sorted_pulses))
-            s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
+            try:
+                s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
+            except:
+                continue
             #move the refitted png to the original fit_plots folder
             os.system(f"mv refit/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}_autofit.png {plot_name}.png")
             #every 20 pulses, save the file
@@ -168,6 +171,7 @@ if __name__ == "__main__":
     parser.add_argument("-manual", action="store_true", help="Use manual SNR calculation")
     parser.add_argument("-multiprocessing", action="store_true", help="Use multiprocessing")
     parser.add_argument("-checkpoint", default="tmp.dill", help="checkpoint file or file to refit")
+    parser.add_argument("-save_freq", default=100, help="save every x pulses")
     args = parser.parse_args()
 
     dm = float(args.dm)
@@ -216,7 +220,7 @@ if __name__ == "__main__":
             inject_stats = dill.load(of)
     if args.manual:
         inject_stats.get_bad_bursts()
-        inject_stats.calculate_snr_refit()
+        inject_stats.calculate_snr_refit(save_freq=args.save_freq)
     else:
         inject_stats.calculate_snr(manual=args.manual,multiprocessing=args.multiprocessing)
 
