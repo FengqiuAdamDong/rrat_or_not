@@ -99,9 +99,9 @@ def pt_Uniform_N(x,max_det):
     #
     # ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
 
-    ptsigma = (2**x[0]) / (1e-2**(x[0]-1))
+    # ptsigma = (2**x[0]) / (1e-2**(x[0]-1))
 
-    # ptsigma = (2-0) * x[1] + 0
+    ptsigma = (2-0) * x[1] + 0
     #set the prior for mu conditional on sigma
     min_mu = np.log(max_det/100)
     max_mu = np.log(max_det)
@@ -118,7 +118,7 @@ def loglikelihood(theta, det_snr, xlim_interp):
     lower_c = 0
     # mean,var = mu_std_to_mean_var(theta[0],theta[1])
     median = np.exp(theta[0])
-    upper_c = median*100
+    upper_c = median*50
     LN_mu,LN_std = (theta[0],theta[1])
     xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
     if max(det_snr) > xlim:
