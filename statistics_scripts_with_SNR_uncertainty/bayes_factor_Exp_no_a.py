@@ -39,11 +39,16 @@ def read_config(filename,det_snr):
     exp_N_range = data['exp_N_range']
     exp_k_range = data['exp_k_range']
     snr_thresh = data['snr_thresh']
+    try:
+        flux_cal = data['flux_cal']
+    except:
+        flux_cal = 1
+
     exp_N_range[1] = exp_N_range[1]
     if exp_N_range[0] == -1:
         #change to full range
         exp_N_range[0] = len(det_snr)+1
-    return detection_curve, exp_N_range, exp_k_range, snr_thresh
+    return detection_curve, exp_N_range, exp_k_range, snr_thresh, flux_cal
 
 def plot_fit_exp(max_mu,max_std,dets,sigma_det):
     fit_x = np.linspace(1e-9,50,10000)
@@ -113,17 +118,16 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    detection_curve, exp_N_range, exp_k_range, snr_thresh_user = read_config(config_det,det_snr)
+    detection_curve, exp_N_range, exp_k_range, snr_thresh_user, flux_cal = read_config(config_det,det_snr)
+    det_snr = det_snr*flux_cal
     if snr_thresh_user > 1.6:
         snr_thresh = snr_thresh_user
     else:
         snr_thresh = 1.6
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh,flux_cal=flux_cal)
     print("snr_thresh",snr_thresh)
 
     import statistics
-    from statistics import mean_var_to_mu_std
-    from statistics import mu_std_to_mean_var
     import statistics_exp
     #filter the det_snr
     det_error = statistics.det_error
