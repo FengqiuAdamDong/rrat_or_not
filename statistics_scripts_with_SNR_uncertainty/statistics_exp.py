@@ -197,11 +197,11 @@ def total_p_exp(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=
             raise Exception(" N<n")
 
         sigma_snr = cp.array(det_error)
-        f = first_exp_cupy(snr_arr, k)
+        f = first_exp_cupy(snr_arr, k,xlim=xlim)
         if cp.isnan(f):
             print("f is nan")
             return -cp.inf
-        s = second_exp_cupy(len(snr_arr), k, N)
+        s = second_exp_cupy(len(snr_arr), k, N,xlim=xlim)
         if cp.isnan(s):
             print("s is nan")
             return -cp.inf

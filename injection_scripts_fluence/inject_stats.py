@@ -82,11 +82,19 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
 def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom):
     # make a copy to plot the waterfall
     waterfall_dat = copy.deepcopy(data)
+    #make sure the length of waterfall_dat is a multiple of downsamp
+    nsamps = waterfall_dat.shape[1]
+    nsamps = nsamps - nsamps % downsamp
+    waterfall_dat = waterfall_dat[:,0:nsamps]
     waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
     dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
 
-    waterfall_dat = waterfall_dat.downsample(ffactor=8)
+    #make sure that waterfall_dat is a multiple of 4
+    nsamps = waterfall_dat.shape[1]
+    nsamps = nsamps - nsamps % 4
+    waterfall_dat = waterfall_dat[:,0:nsamps]
+    waterfall_dat = waterfall_dat.downsample(ffactor=16, tfactor=4)
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[
         :, int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)
@@ -423,8 +431,8 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
     fig,axes = plt.subplots(1,3,figsize=(10,10))
-    cmap = plt.get_cmap("magma")
-    axes[0].imshow(ds_data, aspect="auto", cmap=cmap)
+    cmap = plt.get_cmap("YlGnBu")
+    axes[0].imshow(ds_data, aspect="auto",extent=[0,max(x),0,1], cmap=cmap)
     #plot the polyfit
     axes[2].plot(x, np.interp(x,x_std,poly(x_std)), lw=5, alpha=0.7)
     axes[2].scatter(x_std,ts_std,alpha=0.5,s=4)

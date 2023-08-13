@@ -118,12 +118,8 @@ if __name__ == "__main__":
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
-    detection_curve, exp_N_range, exp_k_range, snr_thresh_user, flux_cal = read_config(config_det,det_snr)
+    detection_curve, exp_N_range, exp_k_range, snr_thresh, flux_cal = read_config(config_det,det_snr)
     det_snr = det_snr*flux_cal
-    if snr_thresh_user > 1.6:
-        snr_thresh = snr_thresh_user
-    else:
-        snr_thresh = 1.6
     snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh,flux_cal=flux_cal)
     print("snr_thresh",snr_thresh)
 
@@ -137,8 +133,8 @@ if __name__ == "__main__":
     nDims = 2
     def pt_Uniform_N(x,max_det):
         #jeffrey's prior for ptk
-        max_k = np.log(2)/(max_det/50)
-        min_k = np.log(2)/max_det
+        max_k = 2* np.log(2)/(max_det/50)
+        min_k = np.log(2)/max_det/2
         # ptk = exp_k_range[1]**x[0] / (exp_k_range[0]**(x[0]-1))
         ptk = (max_k**x[0]) / (min_k**(x[0]-1))
         ptN = (exp_N_range[1] - exp_N_range[0]) * x[1] + exp_N_range[0]
