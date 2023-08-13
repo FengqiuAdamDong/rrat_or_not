@@ -119,7 +119,8 @@ class det_stats:
             print(i,"out of ",len(self.sorted_pulses))
             try:
                 s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
-            except:
+            except Exception as e:
+                print(e)
                 continue
             #move the refitted png to the original fit_plots folder
             os.system(f"mv refit/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}_autofit.png {plot_name}.png")
