@@ -11,7 +11,7 @@ import scipy
 from cupyx.scipy.special import gammaln as cupy_gammaln
 from cupyx.scipy.special import erf as cupy_erf
 import statistics_basic
-from statistics_basic import load_detection_fn, p_detect, p_detect_cupy, p_detect_cpu
+from statistics_basic import load_detection_fn, p_detect_cupy, p_detect_cpu
 global det_error
 det_error = statistics_basic.det_error
 print("det_error for LN",det_error)
@@ -92,8 +92,8 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
     return pdf
 
 def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
-    x_len = 10000
-    xlim = 100
+    x_len = 100000
+    xlim = 500
     x_lims = [-xlim,xlim]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
@@ -103,7 +103,7 @@ def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
     conv_lims = [-xlim*2,xlim*2]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)+a
     #interpolate the values for amp
-    p_det = p_detect(conv_amp_array)
+    p_det = p_detect_cpu(conv_amp_array)
     likelihood_conv = conv*p_det
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     return likelihood, p_det, conv_amp_array, conv

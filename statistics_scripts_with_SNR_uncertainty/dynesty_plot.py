@@ -272,35 +272,37 @@ class dynesty_plot:
             yaml_file = '_'.join(split[:-1])+'.yaml'
             real_det = '_'.join(split[:-1])+'.dill'
             #load the yaml file
-            with open(yaml_file) as f:
-                data = yaml.safe_load(f)
+            with open(yaml_file) as yamlf:
+                data = yaml.safe_load(yamlf)
             detection_curve = data['detection_curve']
             snr_thresh = data['snr_thresh']
-            if snr_thresh < 1.6:
-                snr_thresh = 1.6
             #load the detection curve
             snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+            print(snr_thresh)
             import statistics
             from bayes_factor_NS_LN_no_a_single import process_detection_results
             #load the detections
             det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
             det_snr = det_snr[det_snr > snr_thresh]
-            fit_x = np.linspace(1e-9, 10, 10000)
+            fit_x = np.linspace(1e-9, np.max(det_snr)*2, 10000)
             mu = m[0]
             std = m[1]
             det_error = statistics.det_error
             fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, det_error, a=0)
-            fit_y = smoothTriangle(fit_y, 100)
+            # fit_y = smoothTriangle(fit_y, 100)
             fit_y = fit_y / np.trapz(fit_y, fit_x)
             fig, ax = plt.subplots(1, 1)
-            ax.hist(det_snr, bins='auto', density=True, label=f"max_mu={m[0]:.2f}, max_std={m[1]:.2f}")
+            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$")
             ax.plot(fit_x, fit_y, label="fit")
+            ax.set_xlim(0, np.max(det_snr)*2)
             # ax.plot(conv_amp_array, conv, label="convolution")
-            # ax.plot(conv_amp_array, p_det, label="p_det")
+            ax.plot(conv_amp_array, p_det, label="p_det")
             ax.set_xlabel("SNR")
             ax.set_ylabel("Probability")
-            # plt.legend()
-            plt.show()
+            plt.legend(loc=1)
+            plt.savefig(f"{f}_fit.pdf")
+            plt.savefig(f"{f}_fit.png")
+            # plt.show()
 
 if __name__=="__main__":
     import argparse
@@ -331,7 +333,7 @@ if __name__=="__main__":
 
     else:
         dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
-        #dp.plot_fit_logn()
+        dp.plot_fit_logn()
         if plot_accuracy:
             dp.plot_accuracy_logn()
         if args.bayes_ratio:

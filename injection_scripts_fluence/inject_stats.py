@@ -89,7 +89,6 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
     dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
-
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
     nsamps = nsamps - nsamps % 4
@@ -97,7 +96,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     waterfall_dat = waterfall_dat.downsample(ffactor=16, tfactor=4)
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[
-        :, int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)
+        :, int(nsamps_start_zoom / (downsamp*4)) : int(nsamps_end_zoom / (downsamp*4))
     ]
     return waterfall_dat,dat_ts
 
@@ -316,7 +315,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     mamplitude = np.max(ts_sub)
     max_time = nsamps * tsamp
     # x axis of the fit
-    xind = np.array(list(range(len(ts_sub)))) * tsamp
+    xind = x
     print(f"initial width guess {fit_width_guess}, amp {mamplitude}, max_time {max_time}")
     max_l = minimize(
         log_likelihood,
@@ -416,7 +415,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     max_time = nsamps * tsamp
     # x axis of the fit
 
-    xind = np.array(list(range(len(ts_sub)))) * tsamp
+    xind = x
     # print("init values",[mamplitude, max_time, width * 0.1, np.mean(ts_sub)])
     max_l = minimize(
         log_likelihood,
@@ -431,7 +430,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
     fig,axes = plt.subplots(1,3,figsize=(10,10))
-    cmap = plt.get_cmap("YlGnBu")
+    cmap = plt.get_cmap("YlGnBu_r")
     axes[0].imshow(ds_data, aspect="auto",extent=[0,max(x),0,1], cmap=cmap)
     #plot the polyfit
     axes[2].plot(x, np.interp(x,x_std,poly(x_std)), lw=5, alpha=0.7)
@@ -439,7 +438,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     axes[2].scatter(x,ts,alpha=0.5)
 
     (k, )  = axes[1].plot(xind, ts_sub)
-    (my_plot,) = axes[1].plot(xind_fit, y_fit, lw=5,alpha=0.7)
+    (my_plot,) = axes[1].plot(xind_fit, y_fit,'r', lw=3,alpha=0.7)
 
     #make a copy of ts_sub
     ts_sub_copy = copy.deepcopy(ts_sub)
@@ -451,7 +450,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     ts_sub_copy = np.mean(ts_sub_copy.reshape(-1, 4), axis=1)
     xind_copy = np.mean(xind_copy.reshape(-1, 4), axis=1)
     #plot the downsampled versio
-    my_plot2 = axes[1].scatter(xind_copy, ts_sub_copy, lw=5,alpha=0.7,marker='x',s=5)
+    my_plot2 = axes[1].plot(xind_copy, ts_sub_copy, lw=2,alpha=0.7)
 
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
