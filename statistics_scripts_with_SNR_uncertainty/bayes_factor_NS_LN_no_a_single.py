@@ -145,10 +145,10 @@ if __name__ == "__main__":
 
     # for real_det,config_det in zip(dill_files,config_files):
     #check if png already made
-    png_fp = f"{real_det}_logn_a_corner.png"
-    if os.path.exists(png_fp):
-        print(f"skipping {png_fp}")
-        sys.exit(1)
+    #png_fp = f"{real_det}_logn_a_corner.png"
+    #if os.path.exists(png_fp):
+    #    print(f"skipping {png_fp}")
+    #    sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     print(real_det,config_det)
     detection_curve, logn_N_range, logn_mu_range, logn_std_range, snr_thresh, flux_cal = read_config(config_det,det_snr)
