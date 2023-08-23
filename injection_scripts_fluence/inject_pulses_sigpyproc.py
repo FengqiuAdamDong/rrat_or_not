@@ -29,7 +29,7 @@ TRIAL_SNR = np.linspace(0.1,6,20)
 #B1905 is 0.013s
 #J2044+4614 is 0.014s
 #J1541+47 is 0.006
-pulse_width = [0.011]  # 11ms pulse width
+pulse_width = [0.013]  # 11ms pulse width
 
 TRIAL_DMS = [
     100,
