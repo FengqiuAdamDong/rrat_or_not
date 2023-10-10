@@ -133,8 +133,8 @@ if __name__ == "__main__":
     nDims = 2
     def pt_Uniform_N(x,max_det):
         #jeffrey's prior for ptk
-        max_k = 2* np.log(2)/(max_det/50)
-        min_k = np.log(2)/max_det/2
+        max_k = np.log(2)/(max_det/50)
+        min_k = np.log(2)/max_det
         # ptk = exp_k_range[1]**x[0] / (exp_k_range[0]**(x[0]-1))
         ptk = (max_k**x[0]) / (min_k**(x[0]-1))
         ptN = (exp_N_range[1] - exp_N_range[0]) * x[1] + exp_N_range[0]
