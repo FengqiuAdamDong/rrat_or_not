@@ -89,7 +89,6 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
     dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
-
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
     nsamps = nsamps - nsamps % 4
@@ -97,7 +96,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     waterfall_dat = waterfall_dat.downsample(ffactor=16, tfactor=4)
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[
-        :, int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)
+        :, int(nsamps_start_zoom / (downsamp*4)) : int(nsamps_end_zoom / (downsamp*4))
     ]
     return waterfall_dat,dat_ts
 
@@ -258,26 +257,41 @@ def grab_spectra_manual(
     approximate_toa = g.header.tstart + ((te+ts)/2)/86400
     return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR, approximate_toa
 
-def find_polynomial_fit(x_std, ts_std):
+def find_polynomial_fit(x_std, ts_std, order = None):
     rchi2 = 100
     i = 1
     rchi2_arr = []
     poly_arr = []
     coeffs_arr = []
-    for i in range(10):
-        coeffs = np.polyfit(x_std, ts_std, i)
+    std_arr = []
+    if order is None:
+        for i in range(1,10):
+
+            coeffs = np.polyfit(x_std, ts_std, i)
+            poly = np.poly1d(coeffs)
+            # Calculate the reduced chi2 of the fit
+            ts_diff = ts_std - poly(x_std)
+            std_arr.append(np.std(ts_diff))
+            rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:500]) ** 2)) / (len(ts_std) - i)
+            # print("rchi2", rchi2, "i", i)
+            rchi2_arr.append(rchi2)
+            poly_arr.append(poly)
+            coeffs_arr.append(coeffs)
+        # find the minimum rchi2
+        rchi2_arr = (np.array(rchi2_arr)-1)**2
+        ind = np.argmin(rchi2_arr)
+        print(std_arr)
+        std_diff = np.abs(np.diff(std_arr))
+        print(std_diff)
+        #find where std_diff first is smaller than 0.0003
+        ind_std = np.where(std_diff < 0.0002)[0][0]
+        print(ind_std)
+        poly = poly_arr[ind_std+1]
+        coeffs = coeffs_arr[ind_std+1]
+    else:
+        coeffs = np.polyfit(x_std, ts_std, order)
         poly = np.poly1d(coeffs)
-        # Calculate the reduced chi2 of the fit
-        rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:500]) ** 2)) / (len(ts_std) - i)
-        # print("rchi2", rchi2, "i", i)
-        rchi2_arr.append(rchi2)
-        poly_arr.append(poly)
-        coeffs_arr.append(coeffs)
-    # find the minimum rchi2
-    rchi2_arr = (np.array(rchi2_arr)-1)**2
-    ind = np.argmin(rchi2_arr)
-    poly = poly_arr[ind]
-    coeffs = coeffs_arr[ind]
+
     # coeffs = np.polyfit(x_std, ts_std, 10)
     # poly = np.poly1d(coeffs)
 
@@ -301,7 +315,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     mamplitude = np.max(ts_sub)
     max_time = nsamps * tsamp
     # x axis of the fit
-    xind = np.array(list(range(len(ts_sub)))) * tsamp
+    xind = x
     print(f"initial width guess {fit_width_guess}, amp {mamplitude}, max_time {max_time}")
     max_l = minimize(
         log_likelihood,
@@ -394,19 +408,19 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # subtract the mean
     ts_sub = ts - np.interp(x,x_std,poly(x_std))
     ts_std_sub = ts_std - poly(x_std)
-    std = np.std(ts_std_sub)
+    std = [np.std(ts_std_sub)]
     # remove rms
     # fit this to a gaussian using ML
     mamplitude = np.max(ts_sub)
     max_time = nsamps * tsamp
     # x axis of the fit
 
-    xind = np.array(list(range(len(ts_sub)))) * tsamp
+    xind = x
     # print("init values",[mamplitude, max_time, width * 0.1, np.mean(ts_sub)])
     max_l = minimize(
         log_likelihood,
         [mamplitude, max_time, 1e-2, np.mean(ts_sub)],
-        args=(xind, ts_sub, std),
+        args=(xind, ts_sub, std[0]),
         bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
         method="Nelder-Mead",
     )
@@ -416,15 +430,15 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
     fig,axes = plt.subplots(1,3,figsize=(10,10))
-    cmap = plt.get_cmap("YlGnBu")
+    cmap = plt.get_cmap("YlGnBu_r")
     axes[0].imshow(ds_data, aspect="auto",extent=[0,max(x),0,1], cmap=cmap)
     #plot the polyfit
     axes[2].plot(x, np.interp(x,x_std,poly(x_std)), lw=5, alpha=0.7)
     axes[2].scatter(x_std,ts_std,alpha=0.5,s=4)
     axes[2].scatter(x,ts,alpha=0.5)
 
-    k = axes[1].scatter(xind, ts_sub,marker='.',s=5)
-    (my_plot,) = axes[1].plot(xind_fit, y_fit, lw=5,alpha=0.7)
+    (k, )  = axes[1].plot(xind, ts_sub)
+    (my_plot,) = axes[1].plot(xind_fit, y_fit,'r', lw=3,alpha=0.7)
 
     #make a copy of ts_sub
     ts_sub_copy = copy.deepcopy(ts_sub)
@@ -436,16 +450,20 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     ts_sub_copy = np.mean(ts_sub_copy.reshape(-1, 4), axis=1)
     xind_copy = np.mean(xind_copy.reshape(-1, 4), axis=1)
     #plot the downsampled versio
-    my_plot2 = axes[1].scatter(xind_copy, ts_sub_copy, lw=5,alpha=0.7,marker='x',s=5)
+    my_plot2 = axes[1].plot(xind_copy, ts_sub_copy, lw=2,alpha=0.7)
 
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
     p_ax = plt.axes([0.1, 0.1, 0.78, 0.03], facecolor=axcolor)
     w_ax = plt.axes([0.1, 0.15, 0.78, 0.03], facecolor=axcolor)
+    fit_order_ax = plt.axes([0.1, 0.2, 0.78, 0.03], facecolor=axcolor)
+
     pl = Slider(pl_ax, "peak loc", 0.0, np.max(x), valinit=fitx[1], valstep=1e-3)
     p = Slider(p_ax, "peak", 0.0, 1, valinit=fitx[0], valstep=1e-5)
     w = Slider(w_ax, "width", 0.0, 0.05, valinit=fitx[2], valstep=1e-3)
+    w = Slider(w_ax, "width", 0.0, 0.05, valinit=fitx[2], valstep=1e-3)
+    fit_order = Slider(fit_order_ax, "fit order", 0, 10, valinit=len(coeffs)-1, valstep=1)
     but_ax = plt.axes([0.1, 0.02, 0.3, 0.03], facecolor=axcolor)
     but_save = plt.axes([0.5, 0.02, 0.3, 0.03], facecolor=axcolor)
 
@@ -458,16 +476,23 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     x_new = [-1, -1, -1, -1]
 
     def update(val):
+        poly, coeffs = find_polynomial_fit(x_std, ts_std,fit_order.val)
+        # subtract the mean
+        ts_sub = ts - np.interp(x,x_std,poly(x_std))
+        ts_std_sub = ts_std - poly(x_std)
+        std[0] = np.std(ts_std_sub)
+        print(f"new std {std}")
         peak_loc = pl.val
         peak = p.val
         sigma = w.val
         a = np.mean(ts_sub)
+
         # refit with new values
         max_l = minimize(
             log_likelihood,
             [peak, peak_loc, sigma, a],
             bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
-            args=(xind, ts_sub, std),
+            args=(xind, ts_sub, std[0]),
             method="Nelder-Mead",
         )
         for i, v in enumerate(max_l.x):
@@ -476,6 +501,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
         # print("new fit: ", x_new)
         new_fit = gaussian(xind_fit, x_new[0], x_new[1], x_new[2], x_new[3])
         my_plot.set_ydata(new_fit)
+        k.set_ydata(ts_sub)
         fig.canvas.draw_idle()
 
     class skip_class:
@@ -494,6 +520,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     pl.on_changed(update)
     p.on_changed(update)
     w.on_changed(update)
+    fit_order.on_changed(update)
     plt.show()
     if skip.skip:
         print("skipping")
@@ -513,10 +540,10 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     loc = fitx[1]
     sigma_width = fitx[2]
 
-    SNR = Amplitude / std
+    SNR = Amplitude / std[0]
     # once we have calculated the location
-    print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width}")
-    return Amplitude, std, loc, sigma_width
+    print(f"Fitted loc:{loc} amp:{Amplitude} std:{std[0]} width sigma:{sigma_width}")
+    return Amplitude, std[0], loc, sigma_width
 
 
 def logistic(x, k, x0):

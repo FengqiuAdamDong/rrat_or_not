@@ -11,7 +11,7 @@ from scipy.stats import expon
 from cupyx.scipy.special import gammaln as cupy_gammaln
 import time
 import statistics_basic
-from statistics_basic import load_detection_fn, p_detect, p_detect_cupy
+from statistics_basic import load_detection_fn, p_detect_cpu, p_detect_cupy
 global det_error
 det_error = statistics_basic.det_error
 print("det_error for exp",det_error)
@@ -91,7 +91,7 @@ def first_exp_plot(amp,k, sigma_snr=0.4):
     conv_lims = [-xlim*2,xlim*2]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
     #interpolate the values for amp
-    p_det = p_detect(conv_amp_array)
+    p_det = p_detect_cpu(conv_amp_array)
     # p_det = inj_stats.predict_poly(conv_amp_array,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
 
     likelihood_conv = conv*p_det
@@ -102,7 +102,7 @@ def first_exp_plot(amp,k, sigma_snr=0.4):
     # plt.plot(amp_arr,LN_dist)
     # plt.show()
     # import pdb; pdb.set_trace()
-    return likelihood
+    return likelihood, p_det, conv_amp_array, conv
 
 def first_exp(amp,k, sigma_snr=0.4):
     x_len = 10000
@@ -118,7 +118,7 @@ def first_exp(amp,k, sigma_snr=0.4):
     conv_lims = [-xlim*2,xlim*2]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
     #interpolate the values for amp
-    p_det = p_detect(conv_amp_array)
+    p_det = p_detect_cpu(conv_amp_array)
     # p_det = inj_stats.predict_poly(conv_amp_array,inj_stats.detected_bin_midpoints,inj_stats.detected_det_frac)
 
     likelihood_conv = conv*p_det

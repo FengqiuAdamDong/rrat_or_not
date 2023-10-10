@@ -192,7 +192,7 @@ if __name__ == "__main__":
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
     max_det = np.max(det_snr)
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=256,ptform_args=[max_det])
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=512,ptform_args=[max_det])
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 

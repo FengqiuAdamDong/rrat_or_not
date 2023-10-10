@@ -40,8 +40,10 @@ class dynesty_plot:
     def __init__(self, filenames):
         self.filename = filenames
         #strip the .h5 from the filename and all .dill
-        self.detections = [f.strip(".h5")+".dill" for f in self.filename]
-
+        #remove the last element of the filename
+        splits = [f.split('_')[:-1] for f in self.filename]
+        self.detections = ['_'.join(s)+'.dill' for s in splits]
+        self.yaml_files = ['_'.join(s)+'.yaml' for s in splits]
     def load_filenames(self):
         """
         Load the filenames into a list of data objects
@@ -74,6 +76,7 @@ class dynesty_plot:
 
             simp_selection_corrected_height = bin_heights/statistics_basic.p_detect_cpu(bin_midpoints)
             self.simp_selection_corrected_heights.append(simp_selection_corrected_height)
+            #cut off values after snr_bin_midpoints > 1.6
             # plt.figure()
             # plt.plot(bin_midpoints, simp_selection_corrected_height, label="corrected")
             # plt.plot(bin_midpoints, bin_heights, label="No correction")
@@ -113,13 +116,8 @@ class dynesty_plot:
         Plot the accuracy of the results
         """
         true_centres = []
-
-        for fn,centre,errors in zip(self.filename,self.means,self.stds):
+        for fn,centre,errors,yaml_file in zip(self.filename,self.means,self.stds,self.yaml_files):
             #get the mu and sigma from the filename
-            split = fn.split('.')
-            #join all but the last element
-            yaml_file = '.'.join(split[:-1])+'.yaml'
-            #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
                 true_centres.append(np.array([yaml_data['mu'],yaml_data['std'],yaml_data['N']]))
@@ -134,34 +132,95 @@ class dynesty_plot:
         true_Ns = [r[2] for r in true_centres]
         Ns = [r[2] for r in self.means]
         N_errs = [r[2] for r in self.stds]
+        fitted_mu = []
+        fitted_mu_err = []
+        fitted_sigma = []
+        fitted_sigma_err = []
+        fitted_Ns = []
+        #estimate k for each set of bins
+        from scipy.optimize import curve_fit
+        import scipy
+
+        for i,(bin_centers,corrected_heights) in enumerate(zip(self.snr_bin_midpoints,self.simp_selection_corrected_heights)):
+            #fit an exponential to the data
+            def lognorm_dist(x, A, mu, sigma, lower_c=0, upper_c=np.inf):
+                #lower and upper cutoff parameters added
+                pdf = np.zeros(x.shape)
+                mask = (x > lower_c) & (x < upper_c)
+                pdf[mask] = np.exp(-((np.log(x[mask]) - mu) ** 2) / (2 * sigma**2)) / (
+                    (x[mask]) * sigma * np.sqrt(2 * np.pi)
+                )
+                def argument(c,mu,sigma):
+                    if c==0:
+                        return -np.inf
+                    return (np.log(c)-mu)/(sigma*np.sqrt(2))
+                pdf = 2*pdf / (scipy.special.erf(argument(upper_c,mu,sigma))-scipy.special.erf(argument(lower_c,mu,sigma)))
+                pdf = A*pdf
+                return pdf
+            corrected_heights = np.array(corrected_heights)
+            bin_centers = np.array(bin_centers)
+            corrected_heights = corrected_heights[bin_centers>2]
+            bin_centers = bin_centers[bin_centers>2]
+            popt,pcov = curve_fit(lognorm_dist,bin_centers,corrected_heights,p0=[100,0,9.5],bounds=([0,-4,0.001],[np.inf,5,10]),maxfev=1000000)
+            #plot the fits
+            plt.figure()
+            plt.scatter(bin_centers,corrected_heights)
+            plt.plot(bin_centers,lognorm_dist(bin_centers,*popt))
+            plt.savefig(f"lognorm_fit_debug_{i}.png")
+            plt.close()
+
+            if popt[1] > -2:
+                fitted_mu.append(popt[1])
+                fitted_mu_err.append(np.sqrt(np.diag(pcov))[1])
+                fitted_sigma.append(popt[2])
+                fitted_sigma_err.append(np.sqrt(np.diag(pcov))[2])
+                #integrate under the fitted k line
+                print(popt)
+                print(np.sqrt(np.diag(pcov)))
+            else:
+                fitted_mu.append(np.nan)
+                fitted_mu_err.append(np.nan)
+                fitted_sigma.append(np.nan)
+                fitted_sigma_err.append(np.nan)
+
+
 
         plt.figure()
         max_mu = max([max(true_mus),max(mus)])
         min_mu = min([min(true_mus),min(mus)])
-        plt.errorbar(true_mus,mus,yerr=mu_errs,label="mu",linestyle='None',marker='o')
+        plt.errorbar(true_mus,mus,yerr=mu_errs,label=r"$\mu$ (This method)",linestyle='None',marker='o')
+        plt.errorbar(true_mus,fitted_mu,yerr=fitted_mu_err,label=r"$\mu$ (simple correction)",linestyle='None',marker='x')
         x = np.linspace(min_mu,max_mu,100)
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $\mu$")
         plt.ylabel(r"recovered $\mu$")
+        plt.legend()
         plt.savefig('mus.png')
+        plt.close()
         plt.figure()
-        plt.errorbar(true_sigmas,sigmas,yerr=sigma_errs,label="sigma",linestyle='None',marker='o')
+        plt.errorbar(true_sigmas,sigmas,yerr=sigma_errs,label=r"$\sigma$ (This method)",linestyle='None',marker='o')
+        plt.errorbar(true_sigmas,fitted_sigma,yerr=fitted_sigma_err,label=r"$\sigma$ (simple correction)",linestyle='None',marker='x')
         max_sigma = max([max(true_sigmas),max(sigmas)])
         x = np.linspace(0,max_sigma,100)
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $\sigma$")
         plt.ylabel(r"recovered $\sigma$")
+        plt.legend()
         plt.savefig('sigmas.png')
+        plt.close()
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
-        plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
+        plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N (This method)",linestyle='None',marker='o')
+        plt.errorbar(true_Ns,self.simp_total_N,label="N (simple correction)",linestyle='None',marker='x')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
         plt.plot(x,x,'r--')
+
+        plt.legend()
         plt.savefig('N.png')
         #plt.scatter(true_Ns,N_ratios,label="N")
-        plt.legend()
+
 
     def plot_accuracy_exp(self):
         """
@@ -169,11 +228,7 @@ class dynesty_plot:
         """
         true_centres = []
 
-        for fn,centre,errors in zip(self.filename,self.means,self.stds):
-            #get the mu and sigma from the filename
-            split = fn.split('.')
-            #join all but the last element
-            yaml_file = '.'.join(split[:-1])+'.yaml'
+        for fn,centre,errors,yaml_file in zip(self.filename,self.means,self.stds,self.yaml_files):
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
@@ -212,7 +267,7 @@ class dynesty_plot:
         plt.xlabel(r"True $k$")
         plt.ylabel(r"recovered $k$")
         plt.savefig('ks.png')
-        plt.show()
+        # plt.show()
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)

@@ -139,10 +139,14 @@ class dynesty_plot:
                 corner = dyplot.cornerplot(d.results, labels=labels)
                 if (period > 0) & (obs_time > 0):
                     #if these two global variables are set
-                    N_ax = corner[1][2][2]
-                    N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
-                    N_sax.set_xlabel(r"Nulling fraction")
-
+                    try:
+                        N_ax = corner[1][2][2]
+                        N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
+                        N_sax.set_xlabel(r"Nulling fraction")
+                    except:
+                        N_ax = corner[1][1][1]
+                        N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
+                        N_sax.set_xlabel(r"Nulling fraction")
                 plt.savefig(f.strip(".h5")+"_corner.pdf")
 
                 plt.savefig(f.strip(".h5")+"_corner.png")
@@ -196,12 +200,14 @@ class dynesty_plot:
         plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.savefig(f"{self.dets}_mus.pdf")
         plt.figure()
-        plt.errorbar(true_sigmas,sigmas,yerr=sigma_errs,label="sigma",linestyle='None',marker='o')
+        true_sigmas = np.array(true_sigmas)
+        sigmas = np.array(sigmas)
+        plt.errorbar(range(len(sigmas)),sigmas/true_sigmas,yerr=sigma_errs/true_sigmas,label="sigma",linestyle='None',marker='o')
         max_sigma = max([max(true_sigmas),max(sigmas)])
-        x = np.linspace(0,max_sigma,100)
-        plt.plot(x,x,'r--')
-        plt.xlabel(r"True $\sigma$")
-        plt.ylabel(r"recovered $\sigma$")
+        # x = np.linspace(0,max_sigma,100)
+        # plt.plot(x,x,'r--')
+        plt.xlabel(r"index")
+        plt.ylabel(r"recovered $\sigma$/True $\sigma$")
         plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.savefig(f"{self.dets}_sigmas.pdf")
         plt.figure()
@@ -263,6 +269,53 @@ class dynesty_plot:
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
+    def plot_fit_exp(self):
+        import statistics_basic
+        for f,m in zip(self.filename,self.means):
+            #get the mu and sigma from the filename
+            split = f.split('_')
+            #join all but the last element
+            yaml_file = '_'.join(split[:-1])+'.yaml'
+            real_det = '_'.join(split[:-1])+'.dill'
+            #load the yaml file
+            with open(yaml_file) as yamlf:
+                data = yaml.safe_load(yamlf)
+            detection_curve = data['detection_curve']
+            snr_thresh = data['snr_thresh']
+            #load the detection curve
+            snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+            print(snr_thresh)
+            import statistics_exp
+            from bayes_factor_NS_LN_no_a_single import process_detection_results
+            #load the detections
+            det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
+            det_snr = det_snr[det_snr > snr_thresh]
+            fit_x = np.linspace(1e-9, np.max(det_snr)*2, 10000)
+            k = m[0]
+            det_error = statistics_exp.det_error
+            fit_y, p_det, conv_amp_array, conv = statistics_exp.first_exp_plot(fit_x, k, det_error )
+            # fit_y = smoothTriangle(fit_y, 100)
+            fit_y = fit_y / np.trapz(fit_y, fit_x)
+            fig, ax = plt.subplots(1, 1)
+            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$")
+            ax.plot(fit_x, fit_y, label="fit",linewidth=2)
+            ax.set_xlim(-(np.max(det_snr)*0.01), np.max(det_snr)*1.2)
+            ax.set_ylim(0, 1.2*np.max(fit_y))
+
+            # ax.set_xlim(-5, 5)
+            # ax.plot(conv_amp_array, conv, label="convolution")
+            ax2 = ax.twinx()
+            ax2.set_ylim(0, 1.01)
+            ax2.plot(conv_amp_array, p_det, label=r"P(det|$S_{det}$)", color='b',linewidth=2,alpha=0.6)
+            ax2.set_xlabel(r"$S_{det}$")
+            ax2.set_ylabel(r"P(det|$S_{det}$)")
+            ax.set_ylabel("Probability density")
+            ax.legend(loc=1)
+            ax2.legend(loc=2)
+            plt.savefig(f"{f}_exp_fit.pdf")
+            plt.savefig(f"{f}_exp_fit.png")
+            # plt.show()
+
     def plot_fit_logn(self):
         import statistics_basic
         for f,m in zip(self.filename,self.means):
@@ -272,35 +325,44 @@ class dynesty_plot:
             yaml_file = '_'.join(split[:-1])+'.yaml'
             real_det = '_'.join(split[:-1])+'.dill'
             #load the yaml file
-            with open(yaml_file) as f:
-                data = yaml.safe_load(f)
+            with open(yaml_file) as yamlf:
+                data = yaml.safe_load(yamlf)
             detection_curve = data['detection_curve']
             snr_thresh = data['snr_thresh']
-            if snr_thresh < 1.6:
-                snr_thresh = 1.6
             #load the detection curve
             snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
+            print(snr_thresh)
             import statistics
             from bayes_factor_NS_LN_no_a_single import process_detection_results
             #load the detections
             det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
             det_snr = det_snr[det_snr > snr_thresh]
-            fit_x = np.linspace(1e-9, 10, 10000)
+            fit_x = np.linspace(1e-9, np.max(det_snr)*2, 10000)
             mu = m[0]
             std = m[1]
             det_error = statistics.det_error
             fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, det_error, a=0)
-            fit_y = smoothTriangle(fit_y, 100)
+            # fit_y = smoothTriangle(fit_y, 100)
             fit_y = fit_y / np.trapz(fit_y, fit_x)
             fig, ax = plt.subplots(1, 1)
-            ax.hist(det_snr, bins='auto', density=True, label=f"max_mu={m[0]:.2f}, max_std={m[1]:.2f}")
-            ax.plot(fit_x, fit_y, label="fit")
+            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$")
+            ax.plot(fit_x, fit_y, label="fit",linewidth=2)
+            ax.set_xlim(-(np.max(det_snr)*0.01), np.max(det_snr)*1.2)
+            ax.set_ylim(0, 1.2*np.max(fit_y))
+
+            # ax.set_xlim(-5, 5)
             # ax.plot(conv_amp_array, conv, label="convolution")
-            # ax.plot(conv_amp_array, p_det, label="p_det")
-            ax.set_xlabel("SNR")
-            ax.set_ylabel("Probability")
-            # plt.legend()
-            plt.show()
+            ax2 = ax.twinx()
+            ax2.set_ylim(0, 1.01)
+            ax2.plot(conv_amp_array, p_det, label=r"P(det|$S_{det}$)", color='b',linewidth=2,alpha=0.6)
+            ax2.set_xlabel("SNR")
+            ax2.set_ylabel(r"P(det|$S_{det}$)")
+            ax.set_ylabel("Probability density")
+            ax.legend(loc=1)
+            ax2.legend(loc=2)
+            plt.savefig(f"{f}_logn_fit.pdf")
+            plt.savefig(f"{f}_logn_fit.png")
+            # plt.show()
 
 if __name__=="__main__":
     import argparse
@@ -324,14 +386,15 @@ if __name__=="__main__":
     dp.load_filenames()
     if args.exp:
         dp.plot_corner(labels=[r"$K$","N"],plot=True)
+        dp.plot_fit_exp()
         if plot_accuracy:
             dp.plot_accuracy_exp()
         if args.bayes_ratio:
             dp.plot_bayes_ratio_exp()
 
     else:
-        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
-        #dp.plot_fit_logn()
+        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=False)
+        # dp.plot_fit_logn()
         if plot_accuracy:
             dp.plot_accuracy_logn()
         if args.bayes_ratio:
