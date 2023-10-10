@@ -14,6 +14,69 @@ from scipy.stats import truncnorm
 import statistics_basic
 import dill
 import argparse
+import dill
+from inject_stats import inject_obj
+
+def process_data(dill_file,detected_data,output_fn, plot=True):
+    """
+    Process the data from a Dill file and create a fake data file.
+
+    Args:
+        dill_file (str): Path to the Dill file containing the data.
+        plot (bool, optional): Whether to generate a histogram plot. Defaults to True.
+
+    Returns:
+        None
+    """
+
+    with open(dill_file, "rb") as inf:
+        det_class = dill.load(inf)
+
+    det_snr = []
+    for pulse_obj in det_class.sorted_pulses:
+        if pulse_obj.det_snr != -1:
+            det_snr.append(pulse_obj.det_snr)
+
+    if plot:
+        plt.figure()
+        plt.hist(det_snr, bins="auto", density=True, label="real data")
+        plt.hist(detected_data, bins="auto", density=True, label="fake data",alpha=0.5)
+        plt.legend()
+
+    filfiles = np.full(len(det_snr), "abc", dtype=str)
+    maskfn = np.full(len(det_snr), "abc", dtype=str)
+    dms = np.full(len(det_snr), 123, dtype=float)
+    toas = np.full(len(det_snr), 123, dtype=float)
+
+    inject_obj_arr = []
+    for snr in detected_data:
+        #create a new inject_obj and just fill with fake data
+        temp = inject_obj()
+        temp.det_snr = snr
+        temp.det_fluence = snr
+        temp.det_amp = snr
+        temp.fluence_amp = snr
+        temp.det_std = snr
+        temp.noise_std = snr
+        inject_obj_arr.append(temp)
+    inj_obj_arr = np.array(inject_obj_arr)
+
+    det_class.filfiles = filfiles
+    det_class.mask_fn = maskfn
+    det_class.dms = dms
+    det_class.toas = toas
+    det_class.sorted_pulses = inject_obj_arr
+
+    with open(output_fn, "wb") as of:
+        dill.dump(det_class, of)
+
+    det_snr = []
+    for pulse_obj in det_class.sorted_pulses:
+        if pulse_obj.det_snr != -1:
+            det_snr.append(pulse_obj.det_snr)
+    return det_snr
+
+
 
 parser = argparse.ArgumentParser(description="Simulate some pulses")
 parser.add_argument(
@@ -51,13 +114,13 @@ inj_file = args.inj_file
 cutoff = args.cutoff
 lower = cutoff[0]
 upper = cutoff[1]
-
-statistics_basic.load_detection_fn(inj_file)
-print("mu", mu, "std", std)
+statistics_basic.load_detection_fn(inj_file,plot=False)
 from statistics import lognorm_dist
 from statistics import mean_var_to_mu_std
 
 mu, std = mean_var_to_mu_std(mu, std**2)
+
+print("mu", mu, "std", std)
 if __name__ == "__main__":
 
     from numpy.random import normal
@@ -67,7 +130,7 @@ if __name__ == "__main__":
     sigma_snr = statistics.det_error
     # save the detection function with the detection error
     n = []
-
+    print(f"lower {lower} upper {upper}")
     mode = args.mode
     if mode == "Exp":
         pulses = simulate_pulses_exp(obs_t, p, f, mu, a, random=False)
@@ -89,56 +152,12 @@ if __name__ == "__main__":
 
     print("generated", len(pulses))
     print("mean", np.mean(pulses), "variance", np.std(pulses) ** 2)
-    plt.hist(n, bins="auto")
-    plt.xlabel("Number of pulses detected")
+    print("detection error", sigma_snr)
+    # plt.hist(n, bins="auto")
+    # plt.xlabel("Number of pulses detected")
     print("detected",len(detected_pulses))
-    import dill
-
-    with open(dill_file, "rb") as inf:
-        det_class = dill.load(inf)
-
-    det_snr = []
-    for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_snr != -1:
-            # -1 means that the snr could not be measured well
-            det_snr.append(pulse_obj.det_snr)
-
-    # plt.figure()
-    # plt.hist(detected_pulses,bins= "auto",density=True,label="fake data")
-    # plt.hist(pulses,bins= "auto",density=True,alpha=0.6,label="fake data no selection")
-    # plt.hist(det_snr,bins="auto",density=True,alpha=0.5,label="real data")
-    # plt.legend()
-    # create a fake det_classes
-    filfiles = np.full(len(detected_pulses), "abc", dtype=str)
-    maskfn = np.full(len(detected_pulses), "abc", dtype=str)
-    dms = np.full(len(detected_pulses), 123, dtype=float)
-    toas = np.full(len(detected_pulses), 123, dtype=float)
-    from inject_stats import inject_obj
-
-    inject_obj_arr = []
-    for snr in detected_pulses:
-        temp = inject_obj()
-        temp.det_snr = snr
-        temp.det_fluence = snr
-        temp.det_amp = snr
-        temp.fluence_amp = snr
-        temp.det_std = snr
-        temp.noise_std = snr
-        inject_obj_arr.append(temp)
-    inj_obj_arr = np.array(inject_obj_arr)
-    det_class.filfiles = filfiles
-    det_class.mask_fn = maskfn
-    det_class.dms = dms
-    det_class.toas = toas
-    det_class.sorted_pulses = inject_obj_arr
-    with open("fake_data.dill", "wb") as of:
-        dill.dump(det_class, of)
-
-    det_snr = []
-    for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_snr != -1:
-            # -1 means that the snr could not be measured well
-            det_snr.append(pulse_obj.det_snr)
+    out_fn = "fake_data.dill"
+    detected_pulses = process_data(dill_file,detected_pulses,out_fn,plot=True)
 
     snr_array = np.linspace(0, 20, 10000)
     if mode == "Lognorm":
@@ -153,7 +172,7 @@ if __name__ == "__main__":
     # shift the distribution to the right
     p_dist = p_dist / np.trapz(p_dist, snr_array)
     plt.figure()
-    plt.hist(det_snr, bins="auto", density=True, alpha=0.5, label="new fake data")
+    plt.hist(detected_pulses, bins="auto", density=True, alpha=0.5, label="new fake data")
     plt.plot(snr_array, statistics.p_detect(snr_array), label="det_prob")
     plt.plot(snr_array, lognorm_dist(snr_array, mu, std), label="lognorm")
     plt.plot(snr_array, p_dist, label="detection function")

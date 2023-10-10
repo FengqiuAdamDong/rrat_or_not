@@ -40,7 +40,7 @@ from sklearn.cluster import DBSCAN
 import numpy as np
 
 features = np.column_stack((dm_arr, tcand_arr, tstart_arr))
-errors = np.array([20, 0.1, 0.1])
+errors = np.array([12, 0.2, 0.1])
 features = features / errors
 db = DBSCAN(eps=1, min_samples=2).fit(features)
 
@@ -79,6 +79,14 @@ if not os.path.exists("filtered"):
     os.mkdir("filtered")
 import shutil
 for fn in unique_fn:
-    shutil.copy(os.path.join(folder_path, fn), os.path.join("filtered", fn))
+    try:
+        print(f"coping {fn}")
+        shutil.copy(os.path.join(folder_path, fn), os.path.join("filtered", fn))
+    except Exception as e:
+        import traceback; print(traceback.format_exc())
+        import pdb; pdb.set_trace()
 #also move the csv file
-shutil.copy(folder_path.replace("/",".csv"), "filtered.csv")
+try:
+    shutil.copy(folder_path.replace("/",".csv"), "filtered.csv")
+except Exception as e:
+    shutil.copy(folder_path+".csv", "filtered.csv")

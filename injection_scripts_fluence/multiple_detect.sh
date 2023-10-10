@@ -11,6 +11,7 @@ done
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 for f in *.fil
 do
+    echo $f
     #strip the extension
     FOL="${f%.*}"
     #get the maskfile
@@ -27,7 +28,7 @@ do
     if [ "$LOCAL" != true ]; then
         sbatch $SOURCEDIR/detect_one_fil.sh -i $FOL -a $SOURCEDIR
     else
-        $SOURCEDIR/detect_one_fil.sh -i $FOL -l -a $SOURCEDIR &
+        $SOURCEDIR/detect_one_fil.sh -i $FOL -l -a $SOURCEDIR
     fi
     cd ..
 done

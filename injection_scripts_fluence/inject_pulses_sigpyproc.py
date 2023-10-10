@@ -22,11 +22,14 @@ from inject_stats import autofit_pulse
 # TRIAL_SNR = [10]
 # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0.1,5,20)
+TRIAL_SNR = np.linspace(0.1,6,20)
 # TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
-pulse_width = [0.016]  # 11ms pulse width
+#B1905 is 0.013s
+#J2044+4614 is 0.014s
+#J1541+47 is 0.006
+pulse_width = [0.013]  # 11ms pulse width
 
 TRIAL_DMS = [
     100,
@@ -219,7 +222,7 @@ def inject_pulses(
         # get the data to do statistics
         if p_toa < stats_window:
             stats_window = p_toa
-
+        print("calculating stats prior to injection")
         SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
         #scale stats std by the sqrt of number of masked channel and the number of channels
         print(f"stats std: {stats_std}")
@@ -228,6 +231,9 @@ def inject_pulses(
         total_inj_pow = p_SNR * stats_std
         print(f"total power:{total_inj_pow}")
         data = add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top)
+        # SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
+        # print(f"fitted SNR: {SNR}, stats std: {stats_std}")
+
     # data = data.astype("uint8")
     # np.savez('data',data = data,masked_chans = masked_chans)
     # for i, p in enumerate(pulse_attrs):
@@ -363,7 +369,7 @@ def get_pazi_mask(pazi_fn):
     return masks
 
 
-def get_filterbank_data_window(fn, maskfn, duration=20):
+def get_filterbank_data_window(fn, maskfn, duration=20, pazi=False):
     """Load a window of filterbank data from a .fil file, after applying a mask to discard some of the data.
 
     Parameters
@@ -396,7 +402,10 @@ def get_filterbank_data_window(fn, maskfn, duration=20):
     #find the archive filename
     pazi_fn = fn.replace(".fil", "") + "_1000.00ms_Cand.pfd.pazi"
     #load the archive
-    pazi_mask = get_pazi_mask(pazi_fn)
+    if pazi:
+        pazi_mask = get_pazi_mask(pazi_fn)
+    else:
+        pazi_mask = np.ones(1000)
     #load the weights
     print("getting filterbank data")
     filf = r.FilReader(fn)
@@ -405,7 +414,7 @@ def get_filterbank_data_window(fn, maskfn, duration=20):
     chunk_size = hdr.nsamples//len(pazi_mask)
     chunk_dur = chunk_size * tsamp
     #get required chunks
-    reuired_chunks = duration/chunk_dur
+    reuired_chunks = int(duration/chunk_dur)
     fil_dur = hdr.nsamples * tsamp
     # start in the middle of the data
     start_chunk = int(len(pazi_mask)//2 - reuired_chunks//2)
@@ -505,8 +514,9 @@ def process(pool_arr):
 
     header = rawdata.header
     freqs = np.array(range(header.nchans)) * header.foff + header.fch1
+    plot = False
     injdata, statistics = inject_pulses(
-        rawdata, masked_chans, header, freqs, pulses_to_add, downsamp, stats_window
+        rawdata, masked_chans, header, freqs, pulses_to_add, downsamp, stats_window, plot=plot
     )
     s = np.array(statistics)
     SNR_4 = str(np.around(SNR, 4)).zfill(6)
@@ -549,11 +559,17 @@ if __name__ == "__main__":
         help="enable multiprocessing with 10 cores",
         action="store_true",
     )
+    parser.add_argument(
+        "--pazi",
+        action="store_true",
+        help="enable pazi masking",
+        )
     args = parser.parse_args()
 
     duration = args.d
     ifn = args.fil
     maskfn = args.m
+    pazi = args.pazi
     if args.injection_file:
         injection_sample = np.load(args.injection_file)
         npul = len(injection_sample)
@@ -598,7 +614,7 @@ if __name__ == "__main__":
                 p.map(multiprocess, pool_arr)
     else:
         rawdata, masked_chans, presto_header = get_filterbank_data_window(
-            ifn, duration=duration, maskfn=maskfn
+            ifn, duration=duration, maskfn=maskfn, pazi=pazi
         )
         for dm in TRIAL_DMS:
             pool_arr = []

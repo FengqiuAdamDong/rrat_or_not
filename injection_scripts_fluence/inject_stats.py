@@ -63,8 +63,6 @@ def get_mask_arr(gfb):
 
 
 def maskfile(maskfn, data, start_bin, nbinsextra):
-    from presto import rfifind
-
     print("loading mask")
     rfimask = rfifind.rfifind(maskfn)
     print("getting mask")
@@ -84,20 +82,27 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
 def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom):
     # make a copy to plot the waterfall
     waterfall_dat = copy.deepcopy(data)
+    #make sure the length of waterfall_dat is a multiple of downsamp
+    nsamps = waterfall_dat.shape[1]
+    nsamps = nsamps - nsamps % downsamp
+    waterfall_dat = waterfall_dat[:,0:nsamps]
     waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
     dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
-
-    waterfall_dat = waterfall_dat.downsample(ffactor=8)
+    #make sure that waterfall_dat is a multiple of 4
+    nsamps = waterfall_dat.shape[1]
+    nsamps = nsamps - nsamps % 4
+    waterfall_dat = waterfall_dat[:,0:nsamps]
+    waterfall_dat = waterfall_dat.downsample(ffactor=16, tfactor=4)
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[
-        :, int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)
+        :, int(nsamps_start_zoom / (downsamp*4)) : int(nsamps_end_zoom / (downsamp*4))
     ]
     return waterfall_dat,dat_ts
 
 
 def grab_spectra_manual(
-        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 50e-2
+        gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3,plot_name = "", guess_width = 0.01,
 ):
     # load the filterbank file
     g = r.FilReader(gf)
@@ -149,25 +154,27 @@ def grab_spectra_manual(
             downsamp=downsamp,
         )
 
-        while amp==-1:
-            #fit has failed, get a larger time window and try again
-            # make a copy to plot the waterfall
-            t_start = t_start - 1
-            t_dur = t_dur + 2
-            if (t_start<0)|((t_start+t_dur)>(te-ts)):
-                break
-            nsamps_start_zoom = int(t_start / tsamp)
-            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
-            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
-            amp, std, loc, sigma_width = fit_SNR_manual(
-                dat_ts,
-                tsamp * downsamp,
-                fit_del,
-                nsamps=int(t_dur/2 / tsamp / downsamp),
-                ds_data=waterfall_dat,
-                downsamp=downsamp,
-            )
-        if (loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2):
+#        while amp==-1:
+#            #fit has failed, get a larger time window and try again
+#            # make a copy to plot the waterfall
+#            t_start = t_start - 1
+#            t_dur = t_dur + 2
+#            print(t_start,t_dur)
+#            if (t_start<0)|((t_start+t_dur)>(te-ts)):
+#                break
+#            nsamps_start_zoom = int(t_start / tsamp)
+#            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
+#            print(nsamps_start_zoom,nsamps_end_zoom)
+#            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
+#            amp, std, loc, sigma_width = fit_SNR_manual(
+#                dat_ts,
+#                tsamp * downsamp,
+#                fit_del,
+#                nsamps=int(t_dur/2 / tsamp / downsamp),
+#                ds_data=waterfall_dat,
+#                downsamp=downsamp,
+#            )
+        if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width = fit_SNR_manual(
                 dat_ts,
@@ -187,28 +194,46 @@ def grab_spectra_manual(
             ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
             ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
             #scale the ts with the std so everythin is in units of noise
-            FLUENCE = fit_FLUENCE(
-                ts_no_ds/std,
-                tsamp,
-                3 * sigma_width,
-                nsamp=int(loc / tsamp),
-                ds_data=waterfall_dat,
-                plot=False,
-            )
+            #FLUENCE = fit_FLUENCE(
+            #    ts_no_ds/std,
+            #    tsamp,
+            #    3 * sigma_width,
+            #    nsamp=int(loc / tsamp),
+            #    ds_data=waterfall_dat,
+            #    plot=False,
+            #)
         else:
             FLUENCE = -1
     else:
         # fit using downsampled values
         # this is mostly used for the injections
-        amp, std, loc, sigma_width = autofit_pulse(
-            dat_ts,
-            tsamp * downsamp,
-            fit_del,
-            nsamps=int(0.9 / tsamp / downsamp),
-            ds_data=waterfall_dat,
-            downsamp=downsamp,
-            plot=False,
-        )
+        try:
+            amp, std, loc, sigma_width = autofit_pulse(
+                dat_ts,
+                tsamp * downsamp,
+                fit_del,
+                nsamps=int(t_dur / 2 / tsamp / downsamp),
+                ds_data=waterfall_dat,
+                downsamp=downsamp,
+                plot=False,
+                plot_name=plot_name,
+                fit_width_guess = guess_width
+            )
+            #refit with new initial params
+            amp, std, loc, sigma_width = autofit_pulse(
+                dat_ts,
+                tsamp * downsamp,
+                fit_del,
+                nsamps=int(loc / tsamp / downsamp),
+                ds_data=waterfall_dat,
+                downsamp=downsamp,
+                plot=True,
+                plot_name=plot_name,
+                fit_width_guess = sigma_width
+            )
+        except Exception as e:
+            print(e)
+            amp, std, loc, sigma_width = -1, -1, -1, -1
         #scale std by the sqrt of non masked chans
         std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
         SNR = amp / std
@@ -217,21 +242,62 @@ def grab_spectra_manual(
         ts_no_ds_zoom_end = int(5.9/tsamp)
         ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
         ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
-        FLUENCE = fit_FLUENCE(
-            ts_no_ds/std,
-            tsamp,
-            fit_del,
-            nsamp=int(loc / tsamp),
-            ds_data=waterfall_dat,
-            plot=False,
-        )
+        #FLUENCE = fit_FLUENCE(
+        #    ts_no_ds/std,
+        #    tsamp,
+        #    fit_del,
+        #    nsamp=int(loc / tsamp),
+        #    ds_data=waterfall_dat,
+        #    plot=False,
+        #)
+    FLUENCE = -1
     # recalculate the amplitude given a gaussian pulse shape
     gaussian_amp = FLUENCE / sigma_width / np.sqrt(2 * np.pi)
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)
-    return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR
+    approximate_toa = g.header.tstart + ((te+ts)/2)/86400
+    return FLUENCE, std, amp, gaussian_amp, sigma_width, SNR, approximate_toa
 
+def find_polynomial_fit(x_std, ts_std, order = None):
+    rchi2 = 100
+    i = 1
+    rchi2_arr = []
+    poly_arr = []
+    coeffs_arr = []
+    std_arr = []
+    if order is None:
+        for i in range(1,10):
 
-def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
+            coeffs = np.polyfit(x_std, ts_std, i)
+            poly = np.poly1d(coeffs)
+            # Calculate the reduced chi2 of the fit
+            ts_diff = ts_std - poly(x_std)
+            std_arr.append(np.std(ts_diff))
+            rchi2 = np.sum((ts_std - poly(x_std)) ** 2 / (np.std(ts_std[1:500]) ** 2)) / (len(ts_std) - i)
+            # print("rchi2", rchi2, "i", i)
+            rchi2_arr.append(rchi2)
+            poly_arr.append(poly)
+            coeffs_arr.append(coeffs)
+        # find the minimum rchi2
+        rchi2_arr = (np.array(rchi2_arr)-1)**2
+        ind = np.argmin(rchi2_arr)
+        print(std_arr)
+        std_diff = np.abs(np.diff(std_arr))
+        print(std_diff)
+        #find where std_diff first is smaller than 0.0003
+        ind_std = np.where(std_diff < 0.0002)[0][0]
+        print(ind_std)
+        poly = poly_arr[ind_std+1]
+        coeffs = coeffs_arr[ind_std+1]
+    else:
+        coeffs = np.polyfit(x_std, ts_std, order)
+        poly = np.poly1d(coeffs)
+
+    # coeffs = np.polyfit(x_std, ts_std, 10)
+    # poly = np.poly1d(coeffs)
+
+    return poly, coeffs
+
+def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", fit_width_guess = 0.01):
     # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
@@ -239,8 +305,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 1)
-    poly = np.poly1d(coeffs)
+    poly, coeffs = find_polynomial_fit(x_std, ts_std)
     # subtract the mean
     ts_sub = ts - poly(x)
     ts_std_sub = ts_std - poly(x_std)
@@ -250,11 +315,11 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     mamplitude = np.max(ts_sub)
     max_time = nsamps * tsamp
     # x axis of the fit
-    xind = np.array(list(range(len(ts_sub)))) * tsamp
-
+    xind = x
+    print(f"initial width guess {fit_width_guess}, amp {mamplitude}, max_time {max_time}")
     max_l = minimize(
         log_likelihood,
-        [mamplitude, max_time, 0.01, 0],
+        [mamplitude, max_time, fit_width_guess, 0],
         args=(xind, ts_sub, std),
         method="Nelder-Mead",
     )
@@ -271,6 +336,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
     # once we have calculated the location
     print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width}")
     if plot:
+        print(f"Making plot {plot_name}_autofit.png")
         fig, axs = plt.subplots(2, 2)
         axs[0, 0].plot(x_std, ts_std)
         axs[0, 0].plot(x, poly(x))
@@ -283,10 +349,9 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True):
         axs[1, 0].set_title("baseline subtracted")
         axs[1, 1].plot(x, ts)
         axs[1, 1].set_title("OG time series")
-        plt.show()
-
+        plt.savefig(f"{plot_name}_autofit.png")
+        plt.close()
     return Amplitude, std, loc, sigma_width
-
 
 def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
     # calculates the FLUENCE given a timeseries
@@ -339,24 +404,23 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
-    coeffs = np.polyfit(x_std, ts_std, 10)
-    poly = np.poly1d(coeffs)
+    poly, coeffs = find_polynomial_fit(x_std, ts_std)
     # subtract the mean
     ts_sub = ts - np.interp(x,x_std,poly(x_std))
     ts_std_sub = ts_std - poly(x_std)
-    std = np.std(ts_std_sub)
+    std = [np.std(ts_std_sub)]
     # remove rms
     # fit this to a gaussian using ML
     mamplitude = np.max(ts_sub)
     max_time = nsamps * tsamp
     # x axis of the fit
 
-    xind = np.array(list(range(len(ts_sub)))) * tsamp
+    xind = x
     # print("init values",[mamplitude, max_time, width * 0.1, np.mean(ts_sub)])
     max_l = minimize(
         log_likelihood,
         [mamplitude, max_time, 1e-2, np.mean(ts_sub)],
-        args=(xind, ts_sub, std),
+        args=(xind, ts_sub, std[0]),
         bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
         method="Nelder-Mead",
     )
@@ -365,24 +429,41 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # double the resolution
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
-    fig,axes = plt.subplots(1,3,figsize=(50,50))
-    cmap = plt.get_cmap("magma")
-    axes[0].imshow(ds_data, aspect="auto", cmap=cmap)
+    fig,axes = plt.subplots(1,3,figsize=(10,10))
+    cmap = plt.get_cmap("YlGnBu_r")
+    axes[0].imshow(ds_data, aspect="auto",extent=[0,max(x),0,1], cmap=cmap)
     #plot the polyfit
     axes[2].plot(x, np.interp(x,x_std,poly(x_std)), lw=5, alpha=0.7)
-    axes[2].scatter(x_std,ts_std,alpha=0.5)
+    axes[2].scatter(x_std,ts_std,alpha=0.5,s=4)
     axes[2].scatter(x,ts,alpha=0.5)
 
-    k = axes[1].plot(xind, ts_sub)
-    (my_plot,) = axes[1].plot(xind_fit, y_fit, lw=5,alpha=0.7)
+    (k, )  = axes[1].plot(xind, ts_sub)
+    (my_plot,) = axes[1].plot(xind_fit, y_fit,'r', lw=3,alpha=0.7)
+
+    #make a copy of ts_sub
+    ts_sub_copy = copy.deepcopy(ts_sub)
+    xind_copy = copy.deepcopy(xind)
+    #average every 4th sample of ts_sub_copy
+    #make sure ts_sub_copy has length multiple of 4
+    ts_sub_copy = ts_sub_copy[:int(len(ts_sub_copy)/4)*4]
+    xind_copy = xind_copy[:int(len(xind_copy)/4)*4]
+    ts_sub_copy = np.mean(ts_sub_copy.reshape(-1, 4), axis=1)
+    xind_copy = np.mean(xind_copy.reshape(-1, 4), axis=1)
+    #plot the downsampled versio
+    my_plot2 = axes[1].plot(xind_copy, ts_sub_copy, lw=2,alpha=0.7)
+
     # ax.margins(x=0)
     axcolor = "lightgoldenrodyellow"
     pl_ax = plt.axes([0.1, 0.05, 0.78, 0.03], facecolor=axcolor)
     p_ax = plt.axes([0.1, 0.1, 0.78, 0.03], facecolor=axcolor)
     w_ax = plt.axes([0.1, 0.15, 0.78, 0.03], facecolor=axcolor)
+    fit_order_ax = plt.axes([0.1, 0.2, 0.78, 0.03], facecolor=axcolor)
+
     pl = Slider(pl_ax, "peak loc", 0.0, np.max(x), valinit=fitx[1], valstep=1e-3)
     p = Slider(p_ax, "peak", 0.0, 1, valinit=fitx[0], valstep=1e-5)
     w = Slider(w_ax, "width", 0.0, 0.05, valinit=fitx[2], valstep=1e-3)
+    w = Slider(w_ax, "width", 0.0, 0.05, valinit=fitx[2], valstep=1e-3)
+    fit_order = Slider(fit_order_ax, "fit order", 0, 10, valinit=len(coeffs)-1, valstep=1)
     but_ax = plt.axes([0.1, 0.02, 0.3, 0.03], facecolor=axcolor)
     but_save = plt.axes([0.5, 0.02, 0.3, 0.03], facecolor=axcolor)
 
@@ -395,24 +476,32 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     x_new = [-1, -1, -1, -1]
 
     def update(val):
+        poly, coeffs = find_polynomial_fit(x_std, ts_std,fit_order.val)
+        # subtract the mean
+        ts_sub = ts - np.interp(x,x_std,poly(x_std))
+        ts_std_sub = ts_std - poly(x_std)
+        std[0] = np.std(ts_std_sub)
+        print(f"new std {std}")
         peak_loc = pl.val
         peak = p.val
         sigma = w.val
         a = np.mean(ts_sub)
+
         # refit with new values
         max_l = minimize(
             log_likelihood,
             [peak, peak_loc, sigma, a],
             bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
-            args=(xind, ts_sub, std),
+            args=(xind, ts_sub, std[0]),
             method="Nelder-Mead",
         )
         for i, v in enumerate(max_l.x):
             x_new[i] = v
 
-        print("new fit: ", x_new)
+        # print("new fit: ", x_new)
         new_fit = gaussian(xind_fit, x_new[0], x_new[1], x_new[2], x_new[3])
         my_plot.set_ydata(new_fit)
+        k.set_ydata(ts_sub)
         fig.canvas.draw_idle()
 
     class skip_class:
@@ -431,6 +520,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     pl.on_changed(update)
     p.on_changed(update)
     w.on_changed(update)
+    fit_order.on_changed(update)
     plt.show()
     if skip.skip:
         print("skipping")
@@ -450,10 +540,10 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     loc = fitx[1]
     sigma_width = fitx[2]
 
-    SNR = Amplitude / std
+    SNR = Amplitude / std[0]
     # once we have calculated the location
-    print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width}")
-    return Amplitude, std, loc, sigma_width
+    print(f"Fitted loc:{loc} amp:{Amplitude} std:{std[0]} width sigma:{sigma_width}")
+    return Amplitude, std[0], loc, sigma_width
 
 
 def logistic(x, k, x0):
@@ -482,7 +572,9 @@ class inject_obj:
         self.fluence_amp = []
         self.noise_std = []
         self.det_snr = []
+        self.approximate_toa = []
         self.processed = False
+
 
     def repopulate(self, **kwargs):
         self.__dict__.update(kwargs)
@@ -497,19 +589,19 @@ class inject_obj:
         self.fluence_amp[ind] = -10
 
 
-    def calculate_fluence_single(self, mask=True, period = 2):
+    def calculate_fluence_single(self, mask=True, period = 2,manual=True,plot_name=""):
         ts = self.toas - 5
         te = self.toas + 5
         if period > 1.9:
             t_dur = 1.8
             t_start = 4.1
-            fit_del = 25e-2
+            fit_del = 15e-2
         else:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
 
-        fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
+        fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,
             te=te,
@@ -518,29 +610,37 @@ class inject_obj:
             subband=256,
             mask=True,
             downsamp=self.downsamp,
-            manual=True,
+            manual=manual,
             t_start = t_start,
             t_dur = t_dur,
             fit_del = fit_del,
+            plot_name = plot_name
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
+        self.approximate_toa = approximate_toa
         self.det_snr = det_snr
         self.det_fluence = fluence
         self.det_amp = amp
         self.fluence_amp = gaussian_amp
         self.det_std = sigma_width
         self.noise_std = std
-        self.processed = True
+        #if we get a negative det_amp then set the processed status to false
+        if self.det_amp==-1:
+            print("setting process to False")
+            self.processed = False
+        else:
+            print("set processed to true")
+            self.processed = True
         print(
             f"fitted_snr {det_snr} std {std} amp {amp}"
         )
         # print(fluence,amp,std,self.filfile)
 
     def calculate_fluence(self):
-        for t, dm, snr in zip(self.toas, self.dm, self.snr):
+        for t, dm, snr, width in zip(self.toas, self.dm, self.snr, self.width):
             ts = t - 5
             te = t + 5
-            fluence, std, amp, gaussian_amp, sigma_width, det_snr = grab_spectra_manual(
+            fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
                 gf=self.filfile,
                 ts=ts,
                 te=te,
@@ -549,24 +649,27 @@ class inject_obj:
                 subband=256,
                 mask=True,
                 downsamp=self.downsamp,
+                guess_width=width,
             )
             print(
                 f"inj_snr {snr} fitted_snr {det_snr} std {std} amp {amp}"
             )
             # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
+
             self.det_fluence.append(fluence)
             self.det_amp.append(amp)
             self.det_std.append(sigma_width)
             self.fluence_amp.append(gaussian_amp)
             self.noise_std.append(std)
             self.det_snr.append(det_snr)
-
+            self.approximate_toa.append(approximate_toa)
         self.det_fluence = np.array(self.det_fluence)
         self.det_amp = np.array(self.det_amp)
         self.det_std = np.array(self.det_std)
         self.fluence_amp = np.array(self.fluence_amp)
         self.noise_std = np.array(self.noise_std)
         self.det_snr = np.array(self.det_snr)
+        self.approximate_toa = np.array(self.approximate_toa)
 
 
 
@@ -631,6 +734,10 @@ class inject_stats:
             cur_toa = self.toa_arr[snr_ind]
             cur_dm = self.dm_arr[snr_ind]
             cur_width = self.width_arr[snr_ind]
+            if len(cur_snr)==0:
+                print("WARNING NO MATCHING SNR, THIS SHOULD NOT HAPPEN NORMALLY. IF YOU ARE NOT EXPECTING THIS WARNING THEN CHECK THE FILES CREATED")
+                continue
+
             self.sorted_inject.append(
                 inject_obj(
                     snr=cur_snr,
@@ -710,7 +817,8 @@ class inject_stats:
         self.inj_snr = inj_snr[ind]
         self.poly_snr = p_snr
         # take the average of the last 3 for the error
-        self.detect_error_snr = np.mean(self.det_snr_std[-3:])
+        self.detect_error_snr = np.sqrt(np.mean(self.det_snr_std[-3:]**2))
+        print(self.detect_error_snr)
 
     def calculate_fluence_statistics(self):
         det_fluence = []
@@ -754,7 +862,7 @@ class inject_stats:
         time_tol = 0.5
         dm_tol = 10
         snr_tol = 1e-3
-        for csv in fn:
+        for i,csv in enumerate(fn):
             (
                 dm,
                 burst_time,
@@ -762,6 +870,8 @@ class inject_stats:
                 inj_snr,
                 MJD,
             ) = read_positive_burst_inj(csv)
+            before_num = [sum(si.detected) for si in self.sorted_inject]
+
             for t, d, inj_s in zip(burst_time, dm, inj_snr):
                 # here we gotta match the values
                 t_low = t - time_tol
@@ -781,6 +891,10 @@ class inject_stats:
                         truth_t = (t_arr < t_hi) & (t_arr > t_low)
                         total_truth = truth_dm & truth_t
                         self.detected_truth(si, total_truth)
+            after_num = [sum(si.detected) for si in self.sorted_inject]
+            extra = np.array(after_num) - np.array(before_num)
+            if i>0:
+                print(csv,sum(extra))
         for si in self.sorted_inject:
             print(f"snr {np.mean(si.snr)}",'detection frac',sum(si.detected)/len(si.detected))
         # get lists to plot
@@ -851,8 +965,8 @@ class inject_stats:
 
     def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
         # set the number of data points per bin
-        num_points_per_bin = len(all_det_vals) // num_bins
-        print("number of points in each bin ", num_points_per_bin)
+        self.num_points_per_bin = len(all_det_vals) // num_bins
+        print("number of points in each bin ", self.num_points_per_bin)
 
         # calculate the bin edges based on the percentiles of the data
         bin_edges = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
@@ -885,26 +999,26 @@ class inject_stats:
         self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
         self.detected_det_frac = self.detected_det_frac[:-2]
 
-    def predict_poly(self,predict_x,x,p,poly=-99,plot=False,title="polynomial fit"):
+    def predict_poly(self,predict_x,x,p,poly=-99,start_point = 2.2,plot=False,title="polynomial fit"):
         if isinstance(poly,int):
             poly = self.poly_det_fit
-        ind_1 = np.argwhere(p==max(p))
-        ind_0 = np.argwhere(p==min(p))
-        ind_0 = max(ind_0)[0]-1
-        ind_1 = min(ind_1)[0]+1
-
-        set_0 = np.argwhere(predict_x<x[ind_0+1])
-        set_1 = np.argwhere(predict_x>x[ind_1-1])
 
         predict = np.poly1d(poly)
         p_pred = predict(predict_x)
-        p_pred[set_0] = np.min(p)
-        p_pred[set_1] = np.max(p)
-        #make sure 1 and 0 are the limits
-        p_pred[p_pred>1] = np.max(p)
-        p_pred[p_pred<0] = np.min(p)
-        #lowess smoothing
-        # p_pred = sm.nonparametric.lowess(p_pred, predict_x, frac = 0.10)[:,1]
+        #find the closest index of x to start_point
+        i = np.argmin(np.abs(predict_x-start_point))
+        while (p_pred[i]>np.min(p)) & (p_pred[i]>0):
+            i -= 1
+            if i==0:
+                break
+        set_0 = i+1
+        while (p_pred[i]<np.max(p)) & (p_pred[i]<1):
+            i += 1
+            if i==len(p_pred):
+                break
+        set_1 = i
+        p_pred[:set_0] = np.min(p)
+        p_pred[set_1:] = np.max(p)
         if plot:
             fig,axes = plt.subplots(1,1)
             axes.scatter(x,p,label="Raw",c='r')
@@ -926,8 +1040,6 @@ class inject_stats:
             ind_0 = 0
         if ind_1>(len(x)-1):
             ind_1 = len(x)-1
-        print("ind0",ind_0)
-        print("ind1",ind_1)
         poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
         return poly
 

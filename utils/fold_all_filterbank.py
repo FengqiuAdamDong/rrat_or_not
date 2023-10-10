@@ -14,6 +14,7 @@ if __name__=='__main__':
     #if no par file is give, fold at args.p
     if args.parfile is None:
         for f in all_files:
+            print(f)
             if f.endswith('.fil'):
                 maskfn = f.replace('.fil','_rfifind.mask')
                 print(f"folding with period {args.p}")
@@ -25,9 +26,18 @@ if __name__=='__main__':
                 #figure out how many subints to use
                 header = FilReader(f).header
                 obs_time = header.tobs
-                subints = int(obs_time/args.p)
+                #read the par file
+                with open(args.parfile, 'r') as parfile:
+                    lines = parfile.readlines()
+                for line in lines:
+                    if "F0" in line:
+                        f0 = float(line.split()[1])
+                        p = 1/f0
+                subints = int(obs_time/p)
                 print(f"folding with subint {subints}")
-                os.system(f"prepfold -mask {maskfn} -noxwin -nosearch -par {args.parfile} -nsub 128 -npart {subints} {f}")
+                command = f"prepfold -mask {maskfn} -noxwin -nosearch -par {args.parfile} -nsub 128 -npart {subints} {f}"
+                print(command)
+                os.system(command)
                 #run pazi on the folded files
 
     new_files = os.listdir(args.directory)

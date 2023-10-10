@@ -7,7 +7,7 @@ import statistics_basic
 
 def n_detect(snr_emit,inj_stats_fn=""):
     # snr emit is the snr that the emitted pulse has
-    p = statistics_basic.p_detect(snr_emit)
+    p = statistics_basic.p_detect_cpu(snr_emit)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
@@ -36,19 +36,24 @@ def simulate_pulses(obs_t, period, f, mu, std, a, lower, upper, random=True):
     return pulse_snr
 
 
-def simulate_pulses_exp(obs_t, period, f, k,a, random=True):
+def simulate_pulses_exp(obs_t, period, f, k,a,lower,upper, random=True):
     # we simulate the pulses as a power law instead of a log normal
     # number of pulses
     N = int(obs_t / period)
     # draw N random variables between 0 and 1
-    rands = np.random.rand(N)
     # cdf = 1-np.exp(-k*x)
     if random:
+        rands = np.random.rand(N)
         pulse_N = np.sum(rands < f)
     else:
         pulse_N = int(N * f)
-    rands = np.random.rand(pulse_N)
-    pulse_snr = expon.rvs(scale=1/k,size=pulse_N)+a
+    pulse_snr = []
+    while pulse_N > len(pulse_snr):
+        snr = expon.rvs(scale=1/k,size=pulse_N)+a
+        snr = snr[0]
+        if snr > (lower+a) and snr < (upper+a):
+            pulse_snr.append(snr)
+    pulse_snr = np.array(pulse_snr)
     return pulse_snr
 
 

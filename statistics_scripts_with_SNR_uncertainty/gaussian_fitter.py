@@ -1,1 +1,1 @@
-../injection_scripts/gaussian_fitter.py
+../injection_scripts_fluence/gaussian_fitter.py

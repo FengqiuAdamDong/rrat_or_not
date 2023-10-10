@@ -6,20 +6,19 @@ from math import comb
 from scipy.special import gammaln
 from multiprocessing import Pool
 import os
-import scipy.optimize as opt
 import dill
-from scipy.integrate import quad
 import scipy
 from cupyx.scipy.special import gammaln as cupy_gammaln
 from cupyx.scipy.special import erf as cupy_erf
 import statistics_basic
-from statistics_basic import load_detection_fn, p_detect, p_detect_cupy
+from statistics_basic import load_detection_fn, p_detect_cupy, p_detect_cpu
 global det_error
 det_error = statistics_basic.det_error
 print("det_error for LN",det_error)
-
+import time
 ###############################CUPY FUNCTIONS##################################
 import cupy as cp
+
 def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
     #lower and upper cutoff parameters added
     pdf = cp.zeros(x.shape)
@@ -40,7 +39,6 @@ def gaussian_cupy(x, mu, sigma):
 
 def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
      #xlim needs to be at least as large as 5 sigma_snrs though
-    wide_enough = False
     sigma_snr = det_error
     maximum_accuracy = 1/(N-n)
     x_lims = [-sigma_snr*10,xlim]
@@ -48,12 +46,6 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
     LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
     gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-    #convolve the two arrays
-    # plt.figure()
-    # plt.plot(amp_arr,LN_dist)
-    # plt.plot(amp_arr,gaussian_error)
-    # integral_ln = np.trapz(LN_dist,amp_arr)
-    # plt.title(f"xlen {x_len} xlim {xlim} integral {integral_ln}")
     conv = cp.convolve(LN_dist,gaussian_error)*cp.diff(amp_arr)[0]
     conv_lims = [2*x_lims[0],2*x_lims[1]]
     #shift the whole distribution by a at the end here
@@ -63,20 +55,11 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
     likelihood = conv*(1-p_det)
     # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     integral = cp.trapz(likelihood,conv_amp_array)
-    if integral >1.05:
-        #throw error and exit
-        import sys
-        print(f"integral is greater than 1.05, integral is {integral}")
-        sys.exit()
-    # print("second xlim",xlim)
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=20,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
+def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
-    if xlim<max(amp):
-        xlim = max(amp)+3
     sigma_snr = det_error
-    wide_enough = False
     x_lims = [-xlim,xlim]
     amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
     LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
@@ -109,8 +92,8 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
     return pdf
 
 def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
-    x_len = 10000
-    xlim = 100
+    x_len = 100000
+    xlim = 500
     x_lims = [-xlim,xlim]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
     gaussian_error = norm.pdf(amp_arr,0,sigma_snr)
@@ -120,71 +103,61 @@ def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
     conv_lims = [-xlim*2,xlim*2]
     conv_amp_array = np.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)+a
     #interpolate the values for amp
-    p_det = p_detect(conv_amp_array)
+    p_det = p_detect_cpu(conv_amp_array)
     likelihood_conv = conv*p_det
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     return likelihood, p_det, conv_amp_array, conv
 
-def total_p(X,snr_arr=None,use_a=False,use_cutoff=False,xlim=20):
+def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
     # print("starting loglike")
-    if isinstance(X,dict):
+    with cp.cuda.Device(cuda_device):
+        start = time.time()
+        snr_arr = cp.array(snr_arr)
+        transfer_time = time.time()
         mu = X["mu"]
         std = X["std"]
         N = X["N"]
-        snr_arr = X["snr_arr"]
         if use_a:
             a = X["a"]
         else:
             a = 0
-
-    else:
-        mu = X[0]
-        std = X[1]
-        N = X[2]
-        if use_a:
-            a = X[3]
-        else:
-            a = 0
         if use_cutoff:
-            lower_c = X[4]
-            upper_c = X[5]
+            lower_c = X["lower_c"]
+            upper_c = X["upper_c"]
         else:
             lower_c = 0
             upper_c = np.inf
         if lower_c>upper_c:
             print("lower_c is greater than upper_c")
             return -np.inf
+        if snr_arr is None:
+            snr_arr = X["snr_arr"]
+        if N < len(snr_arr):
+            raise Exception(" N<n")
 
-    if N < len(snr_arr):
-        raise Exception(" N<n")
-    sigma_snr = det_error
-    snr_arr = cp.array(snr_arr)
-    # mu = cp.array(mu)
-    # std = cp.array(std)
-    # N = cp.array(N)
-    # a = cp.array(a)
-    # sigma_snr = cp.array(sigma_snr)
-    # print("finished transfer")
-    f = first_cupy(snr_arr, mu, std,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
-    # print("finished f")
-    if np.isnan(f):
-        print("f is nan")
-        return -np.inf
-    # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
-    s = second_cupy(len(snr_arr), mu, std, N,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
-    # print("finished s")
-    if np.isnan(s):
-        print("s is nan")
-        return -np.inf
-    n = len(snr_arr)
-    log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
-    # print("finished log_NCn")
-    # print(mu,std,N)
-    # print(f,s,log_NCn)
-    loglike = f + s + log_NCn
-    loglike = np.array(loglike.get())
-    # import pdb; pdb.set_trace()
-    # print("ending loglike")
+        # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
+        sigma_snr = det_error
+        f = first_cupy(snr_arr, mu, std,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
+        first_time = time.time()
+        # print("finished f")
+        if cp.isnan(f):
+            print("f is nan")
+            return -np.inf
+        # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
+        s = second_cupy(len(snr_arr), mu, std, N,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
+        second_time = time.time()
+        # print("finished s")
+        if cp.isnan(s):
+            print("s is nan")
+            return -np.inf
+        n = len(snr_arr)
+        log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
+        # print("finished log_NCn")
+        loglike = f + s + log_NCn
+        loglike = np.array(loglike.get())
+        overall_time = time.time()
+        #print(f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}")
+        # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
     return loglike
 
 def negative_loglike(X, det_snr):
@@ -196,32 +169,42 @@ def mean_var_to_mu_std(mean, var):
     std = np.sqrt(np.log(var/mean**2+1))
     return mu, std
 
+def mu_std_to_mean_var(mu, std):
+    mean = np.exp(mu+std**2/2)
+    var = (np.exp(std**2)-1)*np.exp(2*mu+std**2)
+    return mean,var
+
 def likelihood_lognorm(mu_arr, std_arr, N_arr, det_snr, mesh_size=20):
     # # create a mesh grid of N, mu and stds
-    mat = np.zeros((mesh_size, mesh_size + 1, mesh_size + 2))
-    with Pool(10) as po:
-
-        X = []
-        Y = []
-        for i, mean_i in enumerate(mu_arr):
-            for j, sigma_i in enumerate(std_arr):
-                for k, N_i in enumerate(N_arr):
-                    #change the mu to a different definition
-                    mu_i, std_i = mean_var_to_mu_std(mean_i, sigma_i**2)
-                    X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr})
-                    Y.append([mu_i,std_i,N_i])
-        Y = np.array(Y)
-        # m = np.array(po.map(total_p, X))
-        m = []
-        for ind,v in enumerate(X):
-            print(f"{ind}/{len(X)}")
-            m.append(total_p(v))
-        m = np.array(m)
-        for i, mean_i in enumerate(mu_arr):
-            for j, sigma_i in enumerate(std_arr):
-                for k, N_i in enumerate(N_arr):
-                    mu_i, std_i = mean_var_to_mu_std(mean_i, sigma_i**2)
-                    ind = np.sum((Y==[mu_i,std_i,N_i]),axis=1)==3
-                    mat[i,j,k] = m[ind]
+    mat = np.zeros((len(mu_arr), len(std_arr), len(N_arr)))
+    if max(det_snr)>100:
+        xlim = max(det_snr)*2
+    else:
+        xlim = 100
+    #with Pool(2) as po:
+    X = []
+    Y = []
+    with cp.cuda.Device(0):
+        det_snr = cp.array(det_snr)
+    for i, mu_i in enumerate(mu_arr):
+        for j, std_i in enumerate(std_arr):
+            for k, N_i in enumerate(N_arr):
+                #change the mu to a different definition
+                mean_i, var_i = mu_std_to_mean_var(mu_i, std_i)
+                upper_c = mean_i * 50
+                X.append({"mu": mu_i, "std": std_i, "N": N_i, "snr_arr": det_snr, "lower_c": 0, "upper_c": upper_c})
+                Y.append([mu_i,std_i,N_i])
+    Y = np.array(Y)
+    # m = np.array(po.map(total_p, X))
+    m = []
+    for ind,v in enumerate(X):
+        print(f"{ind}/{len(X)}")
+        m.append(total_p(v,det_snr,use_cutoff=True,cuda_device=0,xlim=xlim))
+    m = np.array(m)
+    for i, mu_i in enumerate(mu_arr):
+        for j, std_i in enumerate(std_arr):
+            for k, N_i in enumerate(N_arr):
+                ind = np.sum((Y==[mu_i,std_i,N_i]),axis=1)==3
+                mat[i,j,k] = m[ind]
 
     return mat

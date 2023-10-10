@@ -38,7 +38,7 @@ def pfrac_to_N(x):
     total = obs_t / p
     return total * x
 
-def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
+def plot_mat_exp(mat, N_arr, k_arr):
     max_likelihood_exp = np.max(mat)
     mat = np.exp(mat - np.max(mat))
     fig, axes = plt.subplots(2, 2)
@@ -62,8 +62,7 @@ def plot_mat_exp(mat, N_arr, k_arr, fluences, dets):
     return max_k, max_N
 
 def plot_mat_ln(
-    mat, N_arr, mu_arr, std_arr, fluences, dets, true_mu, true_std, title="plot"
-):
+    mat, N_arr, mu_arr, std_arr,title="plot"):
     # plot corner plot
     max_likelihood_ln = np.max(mat)
     mat = np.exp(mat - np.max(mat))  # *np.exp(max_likelihood_ln)
@@ -253,7 +252,7 @@ if __name__ == "__main__":
         # log normal original distribution
         mu_arr = np.linspace(logn_mu_range[0], logn_mu_range[1], logn_mesh_size)
         std_arr = np.linspace(logn_std_range[0], logn_std_range[1], logn_mesh_size + 1)
-        N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size + 2)
+        N_arr = np.linspace(logn_N_range[0], logn_N_range[1], logn_mesh_size +2)
 
         mat = statistics.likelihood_lognorm(
             mu_arr, std_arr, N_arr, det_snr, mesh_size=logn_mesh_size
@@ -263,20 +262,18 @@ if __name__ == "__main__":
             N_arr,
             mu_arr,
             std_arr,
-            det_snr,
-            det_snr,
-            0,
-            0,
             title=f"Lnorm num det:{len(det_snr)}",
         )
+
+        np.savez("bayes_factor_data", mu_arr=mu_arr, std_arr=std_arr, N_arr=N_arr, mat=mat)
         plot_fit_ln(max_mu, max_std, det_snr, statistics.det_error)
         plt.show()
-
+        import pdb; pdb.set_trace()
     if calculate_exp:
         # Exponential distributions start here#####################
         k_arr = np.linspace(exp_k_range[0], exp_k_range[1], exp_mesh_size)
         N_arr_exp = np.linspace(exp_N_range[0], exp_N_range[1], exp_mesh_size + 1)
-        mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp, det_snr)
+        mat_exp = statistics_exp.likelihood_exp(k_arr, N_arr_exp)
 
         max_k,max_N = plot_mat_exp(mat_exp, N_arr_exp, k_arr, det_snr, det_snr)
         plot_fit_exp(max_k, det_snr, statistics.det_error)
