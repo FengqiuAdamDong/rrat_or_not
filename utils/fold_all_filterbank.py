@@ -8,7 +8,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Fold all filterbank files in a directory')
     parser.add_argument('directory', type=str, help='Directory containing filterbank files')
     parser.add_argument('-par', '--parfile',default=None, type=str, help='Parfile to use for folding')
-    parser.add_argument('-p',type=float, help='Period')
+    parser.add_argument('-p',type=float, help='Period (seconds)')
     args = parser.parse_args()
     all_files = os.listdir(args.directory)
     #if no par file is give, fold at args.p

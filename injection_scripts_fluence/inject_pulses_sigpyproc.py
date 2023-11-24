@@ -22,14 +22,14 @@ from inject_stats import autofit_pulse
 # TRIAL_SNR = [10]
 # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0.1,6,20)
+TRIAL_SNR = np.linspace(0.5,6,10)
 # TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
 #B1905 is 0.013s
 #J2044+4614 is 0.014s
 #J1541+47 is 0.006
-pulse_width = [0.013]  # 11ms pulse width
+pulse_width = np.linspace(1,20,10)*1e-3
 
 TRIAL_DMS = [
     100,
@@ -237,7 +237,7 @@ def inject_pulses(
     # data = data.astype("uint8")
     # np.savez('data',data = data,masked_chans = masked_chans)
     # for i, p in enumerate(pulse_attrs):
-        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
+    #     statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
 
     return data, statistics
 
@@ -285,7 +285,6 @@ def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
     stats_data = stats_data.dedisperse(p_dm)
     #downsample stats_data to the downsample that I will use for detection
     print(f"downmsampling with {downsamp}")
-
     stats_data = stats_data.downsample(tfactor=downsamp)
     stats_data = stats_data[~masked_chans,:]
     #get the window
@@ -296,7 +295,7 @@ def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
     #get the mean of the window
     stats_mean = np.mean(stats_data, axis=0)
     amp,std,loc,sigma_width =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp)
-                                                    ,data,downsamp,plot=plot)
+                                                    ,data,downsamp,plot=plot,fit_width_guess = p_width)
     std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
     SNR = amp/std
     print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width} inj amp: {p_SNR*std}")
@@ -455,6 +454,7 @@ def multiprocess(arr):
     (
         dm,
         s,
+        w,
         ifn,
         duration,
         maskfn,
@@ -469,6 +469,7 @@ def multiprocess(arr):
     p_arr = (
         dm,
         s,
+        w,
         ifn,
         duration,
         maskfn,
@@ -488,6 +489,7 @@ def process(pool_arr):
     (
         dm,
         SNR,
+        width,
         ifn,
         duration,
         maskfn,
@@ -507,6 +509,7 @@ def process(pool_arr):
         add_mask = np.logical_and(
             injection_sample[:, 2] == dm, injection_sample[:, 1] == SNR
         )
+        add_mask = np.logical_and(add_mask, injection_sample[:, 3] == width)
 
         pulses_to_add = injection_sample[add_mask]
     else:
@@ -520,7 +523,8 @@ def process(pool_arr):
     )
     s = np.array(statistics)
     SNR_4 = str(np.around(SNR, 4)).zfill(6)
-    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_SNR{SNR_4}.fil")
+    width_4 = str(np.around(width, 4)).zfill(6)
+    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_SNR{SNR_4}_width{width_4}.fil")
     print(f"creating output file: {ofn}")
     presto_header["nbits"] = 8
     create_filterbank_file(
@@ -597,19 +601,21 @@ if __name__ == "__main__":
         for dm in TRIAL_DMS:
             pool_arr = []
             for s in TRIAL_SNR:
-                pool_arr.append(
-                    (
-                        dm,
-                        s,
-                        ifn,
-                        duration,
-                        maskfn,
-                        injection_sample,
-                        stats_window,
-                        downsamp,
-                        True,
+                for w in pulse_width:
+                    pool_arr.append(
+                        (
+                            dm,
+                            s,
+                            w,
+                            ifn,
+                            duration,
+                            maskfn,
+                            injection_sample,
+                            stats_window,
+                            downsamp,
+                            True,
+                        )
                     )
-                )
             with Pool(5) as p:
                 p.map(multiprocess, pool_arr)
     else:
@@ -619,21 +625,23 @@ if __name__ == "__main__":
         for dm in TRIAL_DMS:
             pool_arr = []
             for s in TRIAL_SNR:
-                pool_arr.append(
-                    (
-                        dm,
-                        s,
-                        ifn,
-                        duration,
-                        maskfn,
-                        injection_sample,
-                        rawdata,
-                        masked_chans,
-                        presto_header,
-                        downsamp,
-                        stats_window,
-                        True,
+                for w in pulse_width:
+                    pool_arr.append(
+                        (
+                            dm,
+                            s,
+                            w,
+                            ifn,
+                            duration,
+                            maskfn,
+                            injection_sample,
+                            rawdata,
+                            masked_chans,
+                            presto_header,
+                            downsamp,
+                            stats_window,
+                            True,
+                        )
                     )
-                )
             for p in pool_arr:
                 process(p)

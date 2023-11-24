@@ -280,12 +280,12 @@ def find_polynomial_fit(x_std, ts_std, order = None):
         # find the minimum rchi2
         rchi2_arr = (np.array(rchi2_arr)-1)**2
         ind = np.argmin(rchi2_arr)
-        print(std_arr)
+        # print(std_arr)
         std_diff = np.abs(np.diff(std_arr))
-        print(std_diff)
+        # print(std_diff)
         #find where std_diff first is smaller than 0.0003
         ind_std = np.where(std_diff < 0.0002)[0][0]
-        print(ind_std)
+        # print(ind_std)
         poly = poly_arr[ind_std+1]
         coeffs = coeffs_arr[ind_std+1]
     else:
@@ -726,16 +726,26 @@ class inject_stats:
         self.sorted_inject = []
         for f, m in zip(self.filfiles, self.mask_fn):
             sp_ = f.split("_")
-            snr_str = sp_[-1]
+            #find the snr str and width str
+            for s in sp_:
+                if "SNR" in s:
+                    snr_str = s
+                if "width" in s:
+                    width_str = s
             snr_str = snr_str.strip(".fil").strip("SNR")
+            width_str = width_str.strip(".fil").strip("width")
             snr = np.round(float(snr_str), 4)
+            width = np.round(float(width_str), 4)
             snr_ind = np.round(self.snr_arr, 4) == snr
-            cur_snr = self.snr_arr[snr_ind]
-            cur_toa = self.toa_arr[snr_ind]
-            cur_dm = self.dm_arr[snr_ind]
-            cur_width = self.width_arr[snr_ind]
+            width_ind = np.round(self.width_arr, 4) == width
+
+            cur_ind = snr_ind & width_ind
+            cur_snr = self.snr_arr[cur_ind]
+            cur_toa = self.toa_arr[cur_ind]
+            cur_dm = self.dm_arr[cur_ind]
+            cur_width = self.width_arr[cur_ind]
             if len(cur_snr)==0:
-                print("WARNING NO MATCHING SNR, THIS SHOULD NOT HAPPEN NORMALLY. IF YOU ARE NOT EXPECTING THIS WARNING THEN CHECK THE FILES CREATED")
+                print(f"WARNING NO MATCHING SNR, THIS SHOULD NOT HAPPEN NORMALLY. IF YOU ARE NOT EXPECTING THIS WARNING THEN CHECK THE FILES CREATED {f}")
                 continue
 
             self.sorted_inject.append(
@@ -773,20 +783,33 @@ class inject_stats:
     def amplitude_statistics(self):
         det_snr = []
         inj_snr = []
+        det_width = []
+        inj_width = []
         det_snr_std = []
+        det_width_std = []
         noise_std = []
         det_amp = []
         det_amp_std = []
+
         for s in self.sorted_inject:
             det_snr.append(np.mean(s.det_snr))
             det_snr_std.append(np.std(s.det_snr))
+
+            det_width.append(np.mean(s.det_std))
+            det_width_std.append(np.std(s.det_std))
+
+            inj_width.append(np.mean(s.width))
             inj_snr.append(np.mean(s.snr))
+
             noise_std.append(np.mean(s.noise_std))
             det_amp.append(np.mean(s.det_amp))
             det_amp_std.append(np.std(s.det_amp))
 
         noise_std = np.array(noise_std)
         det_snr = np.array(det_snr)
+        det_width = np.array(det_width)
+        det_amp = np.array(det_amp)
+        det_width_std = np.array(det_width_std)
         inj_snr = np.array(inj_snr)
         det_snr_std = np.array(det_snr_std)
         try:
@@ -795,17 +818,62 @@ class inject_stats:
             p_snr = np.polyfit(det_snr, inj_snr, deg=1)
         poly_snr = np.poly1d(p_snr)
 
+        def create_matrix(x, y, z, norm=1):
+            #create the detection matrix
+            unique_widths = np.unique(y)
+            unique_snrs = np.unique(x)
+            det_matrix = np.zeros((len(unique_snrs), len(unique_widths)))
+            for i, s in enumerate(unique_snrs):
+                for j, w in enumerate(unique_widths):
+                    ind = (inj_snr == s) & (inj_width == w)
+                    if sum(ind)>1:
+                        import pdb; pdb.set_trace()
+                    if norm==1:
+                        det_matrix[i, j] = z[ind]/w
+                    elif norm==0:
+                        det_matrix[i, j] = z[ind]/s
+                    else:
+                        det_matrix[i, j] = z[ind]
+            return unique_snrs, unique_widths, det_matrix
+        unique_snrs, unique_widths, det_matrix_width = create_matrix(inj_snr, inj_width, det_width,norm=1)
+        unique_snrs, unique_widths, det_matrix_snr = create_matrix(inj_snr, inj_width, det_snr,norm=0)
+        unique_snrs, unique_widths, det_matrix_width_std = create_matrix(inj_snr, inj_width, det_width_std,norm=-1)
+        unique_snrs, unique_widths, det_matrix_snr_std = create_matrix(inj_snr, inj_width, det_snr_std,norm=-1)
 
-        fig, axes = plt.subplots(1, 3)
-        x = np.linspace(0,10)
-        axes[0].plot(x, poly_snr(x))
-        axes[0].errorbar(det_snr, inj_snr, xerr=np.array(det_snr_std), fmt=".")
-        axes[0].set_ylabel("Injected SNR")
-        axes[0].set_xlabel("Detected SNR")
-        axes[1].scatter(inj_snr,noise_std)
-        axes[1].set_xlabel("Injected SNR")
-        axes[1].set_ylabel("Detected noise")
-        axes[2].errorbar(inj_snr, det_amp, yerr=np.array(det_amp_std), fmt=".")
+        fig,axes = plt.subplots(2,2,figsize=(10,10))
+        #set maximum and minumum colors to 0.5 and 1.5
+        mesh = axes[0,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width)
+        mesh.set_clim(0.8,1.2)
+        plt.colorbar(mesh)
+        axes[0,0].set_xlabel("Injected Width")
+        axes[0,0].set_ylabel("Injected SNR")
+        axes[0,0].set_title("Detected Width")
+
+        mesh = axes[0,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr)
+        mesh.set_clim(0.5,1.5)
+        plt.colorbar(mesh)
+        axes[0,1].set_xlabel("Injected Width")
+        axes[0,1].set_ylabel("Injected SNR")
+        axes[0,1].set_title("Detected SNR")
+
+        mesh = axes[1,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width_std)
+        mesh.set_clim(0.001,0.005)
+        plt.colorbar(mesh)
+        axes[1,0].set_xlabel("Injected Width")
+        axes[1,0].set_ylabel("Injected SNR")
+        axes[1,0].set_title("Detected Width STD")
+
+        mesh = axes[1,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr_std)
+        mesh.set_clim(0,1)
+        plt.colorbar(mesh)
+        axes[1,1].set_xlabel("Injected Width")
+        axes[1,1].set_ylabel("Injected SNR")
+        axes[1,1].set_title("Detected SNR STD")
+
+
+
+
+        plt.show()
         if hasattr(self, "base_fn"):
             plt.savefig(self.base_fn + "_amp.png")
         else:
