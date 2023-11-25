@@ -21,7 +21,23 @@ from gaussian_fitter import log_likelihood
 from gaussian_fitter import gaussian
 from matplotlib.widgets import Slider, Button, RadioButtons
 import copy
-
+def create_matrix(x, y, z, norm=1):
+    #create the detection matrix
+    unique_widths = np.unique(y)
+    unique_snrs = np.unique(x)
+    det_matrix = np.zeros((len(unique_snrs), len(unique_widths)))
+    for i, s in enumerate(unique_snrs):
+        for j, w in enumerate(unique_widths):
+            ind = (x == s) & (y == w)
+            if sum(ind)>1:
+                import pdb; pdb.set_trace()
+            if norm==1:
+                det_matrix[i, j] = z[ind]/w
+            elif norm==0:
+                det_matrix[i, j] = z[ind]/s
+            else:
+                det_matrix[i, j] = z[ind]
+    return unique_snrs, unique_widths, det_matrix
 
 def get_mask_fn(filterbank):
     folder = filterbank.strip(".fil")
@@ -811,6 +827,7 @@ class inject_stats:
         det_amp = np.array(det_amp)
         det_width_std = np.array(det_width_std)
         inj_snr = np.array(inj_snr)
+        inj_width = np.array(inj_width)
         det_snr_std = np.array(det_snr_std)
         try:
             p_snr = np.polyfit(det_snr[1:], inj_snr[1:], deg=1)
@@ -818,58 +835,47 @@ class inject_stats:
             p_snr = np.polyfit(det_snr, inj_snr, deg=1)
         poly_snr = np.poly1d(p_snr)
 
-        def create_matrix(x, y, z, norm=1):
-            #create the detection matrix
-            unique_widths = np.unique(y)
-            unique_snrs = np.unique(x)
-            det_matrix = np.zeros((len(unique_snrs), len(unique_widths)))
-            for i, s in enumerate(unique_snrs):
-                for j, w in enumerate(unique_widths):
-                    ind = (inj_snr == s) & (inj_width == w)
-                    if sum(ind)>1:
-                        import pdb; pdb.set_trace()
-                    if norm==1:
-                        det_matrix[i, j] = z[ind]/w
-                    elif norm==0:
-                        det_matrix[i, j] = z[ind]/s
-                    else:
-                        det_matrix[i, j] = z[ind]
-            return unique_snrs, unique_widths, det_matrix
+
         unique_snrs, unique_widths, det_matrix_width = create_matrix(inj_snr, inj_width, det_width,norm=1)
         unique_snrs, unique_widths, det_matrix_snr = create_matrix(inj_snr, inj_width, det_snr,norm=0)
         unique_snrs, unique_widths, det_matrix_width_std = create_matrix(inj_snr, inj_width, det_width_std,norm=-1)
         unique_snrs, unique_widths, det_matrix_snr_std = create_matrix(inj_snr, inj_width, det_snr_std,norm=-1)
-
+        #convert to ms
+        unique_widths = unique_widths*1000
         fig,axes = plt.subplots(2,2,figsize=(10,10))
         #set maximum and minumum colors to 0.5 and 1.5
         mesh = axes[0,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width)
         mesh.set_clim(0.8,1.2)
-        plt.colorbar(mesh)
-        axes[0,0].set_xlabel("Injected Width")
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected Width / Injected Width")
+        axes[0,0].set_xlabel("Injected Width (ms)")
         axes[0,0].set_ylabel("Injected SNR")
         axes[0,0].set_title("Detected Width")
 
         mesh = axes[0,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr)
         mesh.set_clim(0.5,1.5)
-        plt.colorbar(mesh)
-        axes[0,1].set_xlabel("Injected Width")
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected SNR / Injected SNR")
+        axes[0,1].set_xlabel("Injected Width (ms)")
         axes[0,1].set_ylabel("Injected SNR")
         axes[0,1].set_title("Detected SNR")
 
-        mesh = axes[1,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width_std)
-        mesh.set_clim(0.001,0.005)
-        plt.colorbar(mesh)
-        axes[1,0].set_xlabel("Injected Width")
+        mesh = axes[1,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width_std*1000)
+        # mesh.set_clim(,0.005)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected Width STD (ms)")
+        axes[1,0].set_xlabel("Injected Width (ms)")
         axes[1,0].set_ylabel("Injected SNR")
         axes[1,0].set_title("Detected Width STD")
 
         mesh = axes[1,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr_std)
         mesh.set_clim(0,1)
-        plt.colorbar(mesh)
-        axes[1,1].set_xlabel("Injected Width")
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected SNR STD")
+        axes[1,1].set_xlabel("Injected Width (ms)")
         axes[1,1].set_ylabel("Injected SNR")
         axes[1,1].set_title("Detected SNR STD")
-
+        plt.tight_layout()
 
 
 
@@ -883,6 +889,11 @@ class inject_stats:
         self.det_snr = det_snr[ind]
         self.det_snr_std = det_snr_std[ind]
         self.inj_snr = inj_snr[ind]
+        self.det_width = det_width[ind]
+        self.det_width_std = det_width_std[ind]
+        self.inj_width = inj_width[ind]
+
+        self.sorted_inject = np.array(self.sorted_inject)[ind]
         self.poly_snr = p_snr
         # take the average of the last 3 for the error
         self.detect_error_snr = np.sqrt(np.mean(self.det_snr_std[-3:]**2))
@@ -930,17 +941,18 @@ class inject_stats:
         time_tol = 0.5
         dm_tol = 10
         snr_tol = 1e-3
+        width_tol = 1e-4
         for i,csv in enumerate(fn):
             (
                 dm,
                 burst_time,
                 boxcar_det_snr,
                 inj_snr,
+                inj_width,
                 MJD,
             ) = read_positive_burst_inj(csv)
             before_num = [sum(si.detected) for si in self.sorted_inject]
-
-            for t, d, inj_s in zip(burst_time, dm, inj_snr):
+            for t, d, inj_s, inj_w in zip(burst_time, dm, inj_snr, inj_width):
                 # here we gotta match the values
                 t_low = t - time_tol
                 t_hi = t + time_tol
@@ -952,7 +964,10 @@ class inject_stats:
                     t_snr = (np.mean(si.snr) > (inj_s - snr_tol)) & (
                         np.mean(si.snr) < (inj_s + snr_tol)
                     )
-                    if t_snr:
+                    t_width = (np.mean(si.width) > (inj_w - width_tol)) & (
+                        np.mean(si.width) < (inj_w + width_tol)
+                    )
+                    if t_snr&t_width:
                         dm_arr = si.dm
                         t_arr = si.toas
                         truth_dm = (dm_arr < dm_hi) & (dm_arr > dm_low)
@@ -963,109 +978,73 @@ class inject_stats:
             extra = np.array(after_num) - np.array(before_num)
             if i>0:
                 print(csv,sum(extra))
-        for si in self.sorted_inject:
-            print(f"snr {np.mean(si.snr)}",'detection frac',sum(si.detected)/len(si.detected))
-        # get lists to plot
-        snr = []
-        det_snr = []
         det_frac = []
-        detected_amplitudes = []
-        detected_amplitudes_mean = []
-        detected_pulses = []
-        for i,s in enumerate(self.sorted_inject):
-            snr.append(np.mean(s.snr))
-            det_snr.append(s.det_snr)
-            det_frac.append(sum(s.detected) / len(s.detected))
-            detected_amplitudes.append(s.det_amp[s.detected])
-            if sum(s.detected)==0:
-                detected_amplitudes_mean.append(0)
-            else:
-                detected_amplitudes_mean.append(np.mean(s.det_amp[s.detected]))
-            detected_pulses.append(s.detected)
-
-
-        snr = np.array(snr)
-        det_snr = np.array(det_snr)
+        for si in self.sorted_inject:
+            print(f"snr {np.mean(si.snr)}",f"width {np.mean(si.width)}",'detection frac',sum(si.detected)/len(si.detected))
+            det_frac.append(sum(si.detected)/len(si.detected))
         det_frac = np.array(det_frac)
-        #
 
-        detected_amplitudes = np.array(detected_amplitudes,dtype=object)
-        detected_amplitudes_mean = np.array(detected_amplitudes_mean)
-        detected_pulses = np.array(detected_pulses)
-
-        ind = np.argsort(snr)
-        self.det_frac = det_frac[ind]
-        self.snr = snr[ind]
-        self.detected_amplitudes = detected_amplitudes[ind]
-        self.detected_amplitudes_mean = detected_amplitudes_mean[ind]
-        self.det_snr = det_snr[ind]
-        self.detected_pulses = detected_pulses[ind]
-        #only take values of det_snr above snr of 1
-        self.det_snr = self.det_snr[self.snr > 1,:]
-        self.detected_pulses = self.detected_pulses[self.snr > 1,:]
-        #get an array of all detected snrs
-        detected_snr = self.det_snr[self.detected_pulses]
-        all_det_snr = self.det_snr.flatten()
+        # get lists to plot
+        unique_snrs, unique_widths, det_frac_matrix = create_matrix(self.inj_snr, self.inj_width, det_frac,norm=2)
 
 
-        # set the number of bins and the number of data points per bin
-        num_bins = 30
-        self.bin_detections(all_det_snr,detected_snr,num_bins)
+        detected_amplitudes = list(s.det_snr[s.detected] for s in self.sorted_inject)
+        detected_widths = list(s.det_std[s.detected] for s in self.sorted_inject)
+        all_det_amplitudes = list(s.det_snr for s in self.sorted_inject)
+        all_det_widths = list(s.det_std for s in self.sorted_inject)
+        #flatten the lists
+        detected_amplitudes = [item for sublist in detected_amplitudes for item in sublist]
+        detected_widths = [item for sublist in detected_widths for item in sublist]
+        all_det_amplitudes = [item for sublist in all_det_amplitudes for item in sublist]
+        all_det_widths = [item for sublist in all_det_widths for item in sublist]
+        self.bin_detections_2d(all_det_amplitudes, detected_amplitudes, all_det_widths, detected_widths, num_bins=10,plot=False)
 
+        fig,axes = plt.subplots(1,2,figsize=(10,10))
+        mesh = axes[0].pcolormesh(unique_widths*1000, unique_snrs, det_frac_matrix)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detection Fraction")
+        axes[0].set_xlabel("Width (ms)")
+        axes[0].set_ylabel("S/N")
 
-        predict_x_array = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
-        # self.interpolate(predict_x_array,self.det_frac,self.inj_amp)
-        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=7)
-        self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title=title)
-        if hasattr(self, "base_fn"):
-            plt.savefig(self.base_fn + "_fit_snr.png")
-        else:
-            plt.show()
-        plt.close()
-        inj_fit_x = np.linspace(0,np.max(self.detected_bin_midpoints),10000)
-        inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
-        self.predict_poly(inj_fit_x,x=self.snr,p=self.det_frac,poly=inj_snr_fit,plot=True,title=title)
-        if hasattr(self, "base_fn"):
-            plt.savefig(self.base_fn + "_inj_snr.png")
-        else:
-            plt.show()
-        plt.close()
+        mesh = axes[1].pcolormesh(self.detected_bin_midpoints[1]*1000,self.detected_bin_midpoints[0],self.detected_det_frac.T)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detection Fraction (binned)")
+        axes[1].set_xlabel("Width (ms)")
+        axes[1].set_ylabel("S/N")
+        plt.tight_layout()
+        plt.show()
 
-    def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
+    def bin_detections_2d(self,all_det_vals, detected_det_vals, all_width_vals, detected_width_vals, num_bins=20,plot=False):
         # set the number of data points per bin
-        self.num_points_per_bin = len(all_det_vals) // num_bins
-        print("number of points in each bin ", self.num_points_per_bin)
+        self.num_points_per_bin_snr = len(all_det_vals) // num_bins
+        self.num_points_per_bin_width = len(all_width_vals) // num_bins
+        print("number of points in each bin amplitude", self.num_points_per_bin_snr)
+        print("number of points in each bin width", self.num_points_per_bin_width)
 
         # calculate the bin edges based on the percentiles of the data
-        bin_edges = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
+        bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
+        bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins+1))
 
-        # use the digitize function to assign data points to bins
-        bin_assignments_all = np.digitize(all_det_vals, bin_edges)
-        bin_assignments_detected = np.digitize(detected_det_vals, bin_edges)
-
-        #count the number in each bin
-        hist_all, _ = np.histogram(all_det_vals, bins=bin_edges)
-        hist_detected, _ = np.histogram(detected_det_vals, bins=bin_edges)
-
-        detected_det_frac = hist_detected/hist_all
-        bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
-
-        #remove nans in detected_det_frac
-        bin_midpoints = bin_midpoints[~np.isnan(detected_det_frac)]
-        hist_all = hist_all[~np.isnan(detected_det_frac)]
-        hist_detected = hist_detected[~np.isnan(detected_det_frac)]
-        detected_det_frac = detected_det_frac[~np.isnan(detected_det_frac)]
+        all_2d_hist, xedges, yedges = np.histogram2d(all_det_vals, all_width_vals, bins=(bin_edges_snr,bin_edges_width))
+        detected_2d_hist, xedges, yedges = np.histogram2d(detected_det_vals, detected_width_vals, bins=(bin_edges_snr,bin_edges_width))
+        detected_2d_frac = detected_2d_hist/all_2d_hist
+        #plot detected 2d frac
         if plot:
-            fig,axes = plt.subplots(1,2)
-            axes[0].scatter(bin_midpoints,detected_det_frac,label="P(Detected|amplitude_detected)")
-            axes[1].scatter(bin_midpoints,hist_detected,label="the detected pulses")
-            axes[1].scatter(bin_midpoints,hist_all,alpha=0.5,label="all the pulses")
-            axes[1].legend()
-        self.detected_bin_midpoints = bin_midpoints
-        self.detected_det_frac = detected_det_frac
-        #remove the last 2 bins
-        self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
-        self.detected_det_frac = self.detected_det_frac[:-2]
+            fig,axes = plt.subplots(1,1,figsize=(10,10))
+            mesh = axes.pcolormesh(xedges, yedges, detected_2d_frac)
+            cbar = plt.colorbar(mesh)
+            cbar.set_label("Detection Fraction")
+            axes.set_xlabel("S/N")
+            axes.set_ylabel("Width (ms)")
+            plt.show()
+
+        #find bin midpoints
+        x_bin_midpoints = (xedges[1:] + xedges[:-1])/2
+        y_bin_midpoints = (yedges[1:] + yedges[:-1])/2
+
+
+        self.detected_bin_midpoints = (x_bin_midpoints,y_bin_midpoints)
+        self.detected_det_frac = detected_2d_frac
 
     def predict_poly(self,predict_x,x,p,poly=-99,start_point = 2.2,plot=False,title="polynomial fit"):
         if isinstance(poly,int):

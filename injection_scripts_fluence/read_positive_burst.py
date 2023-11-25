@@ -9,6 +9,7 @@ def read_positive_burst_inj(fn):
     time = []
     boxcar_det_snr = []
     inj_snr = []
+    inj_width = []
     MJD = []
     with open(fn, "r") as csvfile:
         reader = csv.reader(csvfile, delimiter=",")
@@ -16,15 +17,17 @@ def read_positive_burst_inj(fn):
             directory = row[0]
             candidate_file_name = directory.split("/")[-1]
             filterbank_filename = directory.split("/")[-3]
-            snr_field = filterbank_filename.split("_")[-1]
+            snr_field = filterbank_filename.split("_")[-2]
+            width_field = filterbank_filename.split("_")[-1]
             if "SNR" in snr_field:
                 inj_snr.append(float(snr_field.strip("SNR")))
+                inj_width.append(float(width_field.strip("width")))
                 fields = candidate_file_name.split("_")
                 boxcar_det_snr.append(float(fields[-1]))
                 MJD.append(float(fields[2]))
                 time.append(float(fields[4]))
                 dm.append(float(fields[6]))
-    return dm, time, boxcar_det_snr, inj_snr, MJD
+    return dm, time, boxcar_det_snr, inj_snr, inj_width, MJD
 
 
 def read_positive_burst(fn):
