@@ -23,7 +23,7 @@ do
     #cp -d $MASKFOL*.pazi $MASKFOL
     cd $MASKFOL
     if [ "$LOCAL" != true ]; then
-        module use /project/6004902/modulefiles
+        module use /project/6004902/chimepsr-software/v1/environment-modules
         module load presto
         module load chime-psr
         source ~/extract_snr/bin/activate

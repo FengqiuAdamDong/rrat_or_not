@@ -22,7 +22,7 @@ from inject_stats import autofit_pulse
 # TRIAL_SNR = [10]
 # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0.5,6,10)
+TRIAL_SNR = np.linspace(0.5,4,10)
 # TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
