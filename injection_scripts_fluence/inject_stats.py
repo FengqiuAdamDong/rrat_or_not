@@ -861,7 +861,7 @@ class inject_stats:
         axes[0,1].set_title("Detected SNR")
 
         mesh = axes[1,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width_std*1000)
-        # mesh.set_clim(,0.005)
+        mesh.set_clim(0,10)
         cbar = plt.colorbar(mesh)
         cbar.set_label("Detected Width STD (ms)")
         axes[1,0].set_xlabel("Injected Width (ms)")
@@ -987,32 +987,154 @@ class inject_stats:
         # get lists to plot
         unique_snrs, unique_widths, det_frac_matrix = create_matrix(self.inj_snr, self.inj_width, det_frac,norm=2)
 
+        # detected_sample = self.sorted_inject[(self.inj_snr>2)&(self.inj_width>10e-3)]
+        detected_sample = self.sorted_inject
 
-        detected_amplitudes = list(s.det_snr[s.detected] for s in self.sorted_inject)
-        detected_widths = list(s.det_std[s.detected] for s in self.sorted_inject)
-        all_det_amplitudes = list(s.det_snr for s in self.sorted_inject)
-        all_det_widths = list(s.det_std for s in self.sorted_inject)
+        detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
+        detected_widths = list(s.det_std[s.detected] for s in detected_sample)
+        all_det_amplitudes = list(s.det_snr for s in detected_sample)
+        all_det_widths = list(s.det_std for s in detected_sample)
         #flatten the lists
         detected_amplitudes = [item for sublist in detected_amplitudes for item in sublist]
         detected_widths = [item for sublist in detected_widths for item in sublist]
         all_det_amplitudes = [item for sublist in all_det_amplitudes for item in sublist]
         all_det_widths = [item for sublist in all_det_widths for item in sublist]
-        self.bin_detections_2d(all_det_amplitudes, detected_amplitudes, all_det_widths, detected_widths, num_bins=10,plot=False)
 
+
+        self.bin_detections_2d(all_det_amplitudes, detected_amplitudes, all_det_widths, detected_widths, num_bins=10,plot=False)
         fig,axes = plt.subplots(1,2,figsize=(10,10))
         mesh = axes[0].pcolormesh(unique_widths*1000, unique_snrs, det_frac_matrix)
+        mesh.set_clim(0,1)
         cbar = plt.colorbar(mesh)
         cbar.set_label("Detection Fraction")
         axes[0].set_xlabel("Width (ms)")
         axes[0].set_ylabel("S/N")
 
-        mesh = axes[1].pcolormesh(self.detected_bin_midpoints[1]*1000,self.detected_bin_midpoints[0],self.detected_det_frac.T)
+        mesh = axes[1].pcolormesh(self.detected_bin_midpoints[1]*1000,self.detected_bin_midpoints[0],self.detected_det_frac)
         cbar = plt.colorbar(mesh)
+        mesh.set_clim(0,1)
         cbar.set_label("Detection Fraction (binned)")
         axes[1].set_xlabel("Width (ms)")
         axes[1].set_ylabel("S/N")
         plt.tight_layout()
+        plt.savefig(f"{title}.png")
         plt.show()
+
+        #high width sample
+        unique_widths = np.unique(self.inj_width)
+        for uw in unique_widths:
+            detected_sample = self.sorted_inject[self.inj_width==uw]
+            true_inj_amplitude = list(np.mean(s.snr) for s in detected_sample)
+            true_inj_ampltiude_all = np.array(list(s.snr for s in detected_sample))
+            #flatten the list
+            true_inj_ampltiude_all = [item for sublist in true_inj_ampltiude_all for item in sublist]
+
+            detected_frac = list(sum(s.detected)/len(s.detected) for s in detected_sample)
+
+            detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
+            detected_widths = list(s.det_std[s.detected] for s in detected_sample)
+            all_det_amplitudes = list(s.det_snr for s in detected_sample)
+            all_det_widths = list(s.det_std for s in detected_sample)
+            #flatten the lists
+            detected_amplitudes = np.array([item for sublist in detected_amplitudes for item in sublist])
+            detected_widths = np.array([item for sublist in detected_widths for item in sublist])
+            all_det_amplitudes = np.array([item for sublist in all_det_amplitudes for item in sublist])
+            all_det_widths = np.array([item for sublist in all_det_widths for item in sublist])
+
+
+            self.bin_detections(all_det_amplitudes, detected_amplitudes)
+            fig,axes = plt.subplots(1,3,figsize=(10,10))
+            axes[0].plot(true_inj_amplitude,detected_frac)
+            axes[0].set_xlabel("True S/N")
+            axes[0].set_ylabel("Detection Fraction")
+            axes[1].plot(self.detected_bin_midpoints,self.detected_det_frac)
+            axes[1].set_xlabel("True S/N")
+            axes[1].set_ylabel("Detection Fraction")
+            sc = axes[2].scatter(np.arange(len(all_det_amplitudes)),all_det_amplitudes/true_inj_ampltiude_all,c=true_inj_ampltiude_all)
+            cbar = plt.colorbar(sc)
+            cbar.set_label("True S/N")
+            axes[2].set_xlabel("Detection Number")
+            axes[2].set_ylabel("Detected S/N/True S/N")
+            plt.title(f"Width {uw*1000} ms")
+            plt.tight_layout()
+            plt.savefig(f"width_{uw*1000}_ms.png")
+
+        unique_snrs = np.unique(self.inj_snr)
+        for us in unique_snrs:
+            detected_sample = self.sorted_inject[self.inj_snr==us]
+            true_inj_width = np.array(list(np.mean(s.width) for s in detected_sample))
+            true_inj_width_all = np.array(list(s.width for s in detected_sample))
+            #flatten the list
+            true_inj_width_all = np.array([item for sublist in true_inj_width_all for item in sublist])
+            detected_frac = list(sum(s.detected)/len(s.detected) for s in detected_sample)
+            detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
+            detected_widths = list(s.det_std[s.detected] for s in detected_sample)
+            all_det_amplitudes = list(s.det_snr for s in detected_sample)
+            all_det_widths = list(s.det_std for s in detected_sample)
+            #flatten the lists
+            detected_amplitudes = np.array([item for sublist in detected_amplitudes for item in sublist])
+            detected_widths = np.array([item for sublist in detected_widths for item in sublist])
+            all_det_amplitudes = np.array([item for sublist in all_det_amplitudes for item in sublist])
+            all_det_widths = np.array([item for sublist in all_det_widths for item in sublist])
+
+
+            self.bin_detections(all_det_widths, detected_widths)
+            fig,axes = plt.subplots(1,3,figsize=(10,10))
+            axes[0].scatter(true_inj_width*1e3,detected_frac)
+            axes[0].set_xlabel("True width")
+            axes[0].set_ylabel("Detection Fraction")
+            axes[1].scatter(self.detected_bin_midpoints*1e3,self.detected_det_frac)
+            axes[1].set_xlabel("True widths")
+            axes[1].set_ylabel("Detection Fraction")
+            sc = axes[2].scatter(np.arange(len(all_det_widths)),all_det_widths/true_inj_width_all,c=true_inj_width_all*1e3)
+            #set colorbar
+            cbar = plt.colorbar(sc)
+            cbar.set_label("True width (ms)")
+            axes[2].set_xlabel("index")
+            axes[2].set_ylabel("Detected width / True width")
+
+            plt.title(f"S/N {us}")
+            plt.tight_layout()
+            plt.savefig(f"snr_{us}_ms.png")
+
+
+
+
+    def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
+        # set the number of data points per bin
+        self.num_points_per_bin = len(all_det_vals) // num_bins
+        print("number of points in each bin ", self.num_points_per_bin)
+
+        # calculate the bin edges based on the percentiles of the data
+        bin_edges = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
+
+        # use the digitize function to assign data points to bins
+        bin_assignments_all = np.digitize(all_det_vals, bin_edges)
+        bin_assignments_detected = np.digitize(detected_det_vals, bin_edges)
+
+        #count the number in each bin
+        hist_all, _ = np.histogram(all_det_vals, bins=bin_edges)
+        hist_detected, _ = np.histogram(detected_det_vals, bins=bin_edges)
+
+        detected_det_frac = hist_detected/hist_all
+        bin_midpoints = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+        #remove nans in detected_det_frac
+        bin_midpoints = bin_midpoints[~np.isnan(detected_det_frac)]
+        hist_all = hist_all[~np.isnan(detected_det_frac)]
+        hist_detected = hist_detected[~np.isnan(detected_det_frac)]
+        detected_det_frac = detected_det_frac[~np.isnan(detected_det_frac)]
+        if plot:
+            fig,axes = plt.subplots(1,2)
+            axes[0].scatter(bin_midpoints,detected_det_frac,label="P(Detected|amplitude_detected)")
+            axes[1].scatter(bin_midpoints,hist_detected,label="the detected pulses")
+            axes[1].scatter(bin_midpoints,hist_all,alpha=0.5,label="all the pulses")
+            axes[1].legend()
+        self.detected_bin_midpoints = np.array(bin_midpoints)
+        self.detected_det_frac = detected_det_frac
+        #remove the last 2 bins
+        self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
+        self.detected_det_frac = self.detected_det_frac[:-2]
 
     def bin_detections_2d(self,all_det_vals, detected_det_vals, all_width_vals, detected_width_vals, num_bins=20,plot=False):
         # set the number of data points per bin
@@ -1023,7 +1145,10 @@ class inject_stats:
 
         # calculate the bin edges based on the percentiles of the data
         bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
-        bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins+1))
+        bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins))
+        #remove bin edges above max of self.inj_snr
+        bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_snr)+0.5]
+        bin_edges_width = bin_edges_width[bin_edges_width<max(self.inj_width)+5e-3]
 
         all_2d_hist, xedges, yedges = np.histogram2d(all_det_vals, all_width_vals, bins=(bin_edges_snr,bin_edges_width))
         detected_2d_hist, xedges, yedges = np.histogram2d(detected_det_vals, detected_width_vals, bins=(bin_edges_snr,bin_edges_width))
