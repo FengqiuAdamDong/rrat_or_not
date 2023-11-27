@@ -3,7 +3,7 @@
 #SBATCH --export=NONE
 #SBATCH --time=5:00:00
 #SBATCH --mem=24G
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=5
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
@@ -23,11 +23,11 @@ PULSAR=$(echo "$fil" | rev | cut -f2- -d '.' | rev)
 EXT="${fil##*.}"
 
 if [ "$LOCAL" != true ]; then
-    module use /project/6004902/modulefiles
+    module use /project/6004902/chimepsr-software/v1/environment-modules
     module load presto
     module load chime-psr
     module load psrchive
-    source ~/extract_snr/bin/activate
+    source ~/extract_snr_py310/bin/activate
 else
     SLURM_TMPDIR='/media/adam/d0fdb915-c69f-4fba-9759-ed1844c4685b/tmpdir/'$PULSAR
     echo $SLURM_TMPDIR
@@ -42,7 +42,7 @@ cp -r *rfifind* $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 150 --n 60 $fil
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 150 --n 60 $fil --multi
 #come back
 cd -
 cp $SLURM_TMPDIR/*SNR*.fil .

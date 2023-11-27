@@ -9,7 +9,12 @@ do
         l) LOCAL=true;;
     esac
 done
-
+if [ "$LOCAL" != true ]; then
+    module use /project/6004902/chimepsr-software/v1/environment-modules
+    module load presto
+    module load chime-psr
+    source ~/extract_snr_py310/bin/activate
+fi
 for f in *.fil
 do
     #strip the extension
@@ -22,15 +27,11 @@ do
     #copy the pazi file in
     #cp -d $MASKFOL*.pazi $MASKFOL
     cd $MASKFOL
-    if [ "$LOCAL" != true ]; then
-        module use /project/6004902/chimepsr-software/v1/environment-modules
-        module load presto
-        module load chime-psr
-        source ~/extract_snr/bin/activate
-    fi
+
     status=$(python $SOURCEDIR/detect_inject_status.py sample_injections.npz)
     if [ "$status" != 0 ]; then
         if [ "$LOCAL" != true ]; then
+            # echo $status
             sbatch $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -a $SOURCEDIR
         else
             $SOURCEDIR/Inject_one_fil.sh -i $f -m $MASK -l -a $SOURCEDIR &
