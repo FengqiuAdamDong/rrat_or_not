@@ -93,7 +93,7 @@ class dynesty_plot:
             evidence_diff_arr.append(logn_evidence-exp_evidence)
         plt.figure()
         plt.errorbar(mu_arr,evidence_diff_arr,yerr=evidence_error,linestyle='none')
-        plt.xlabel(r"$mu$")
+        plt.xlabel(r"$\mu$")
         plt.ylabel(r"$\ln(Z_{logn})-\ln(Z_{exp})$")
         plt.savefig(f"{self.dets}_evidence_diff_logn.pdf")
 
@@ -183,7 +183,8 @@ class dynesty_plot:
         Plot the accuracy of the results
         """
         true_centres = []
-
+        import matplotlib
+        matplotlib.rcParams.update({'font.size': 30})
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
             split = fn.split('_')
@@ -213,8 +214,8 @@ class dynesty_plot:
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $\mu$")
         plt.ylabel(r"recovered $\mu$")
-        plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
-        plt.savefig(f"{self.dets}_mus.pdf")
+        # plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
+        plt.savefig(f"{self.dets}_mus.pdf",bbox_inches='tight')
         plt.figure()
         true_sigmas = np.array(true_sigmas)
         sigmas = np.array(sigmas)
@@ -224,17 +225,17 @@ class dynesty_plot:
         # plt.plot(x,x,'r--')
         plt.xlabel(r"index")
         plt.ylabel(r"recovered $\sigma$/True $\sigma$")
-        plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
-        plt.savefig(f"{self.dets}_sigmas.pdf")
+        # plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
+        plt.savefig(f"{self.dets}_sigmas.pdf",bbox_inches='tight')
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
-        plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
+        # plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.plot(x,x,'r--')
-        plt.savefig(f"{self.dets}_logn_Ns.pdf")
+        plt.savefig(f"{self.dets}_logn_Ns.pdf",bbox_inches='tight')
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
@@ -242,6 +243,8 @@ class dynesty_plot:
         """
         Plot the accuracy of the results
         """
+        import matplotlib
+        matplotlib.rcParams.update({'font.size': 30})
         true_centres = []
 
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
@@ -270,8 +273,8 @@ class dynesty_plot:
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $k$")
         plt.ylabel(r"recovered $k$")
-        plt.title(f"{self.dets} detections")
-        plt.savefig(f"{self.dets}_ks.pdf")
+        # plt.title(f"{self.dets} detections")
+        plt.savefig(f"{self.dets}_ks.pdf",bbox_inches='tight')
 
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
@@ -279,9 +282,9 @@ class dynesty_plot:
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
-        plt.title(f"{self.dets} detections")
+        # plt.title(f"{self.dets} detections")
         plt.plot(x,x,'r--')
-        plt.savefig(f"{self.dets}_exp_Ns.pdf")
+        plt.savefig(f"{self.dets}_exp_Ns.pdf",bbox_inches='tight')
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
