@@ -69,13 +69,15 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     mask = get_mask(rfimask, start_bin, nbinsextra)[::-1]
     print("get mask finished")
     masked_chans = mask.all(axis=1)
+    # masked_chans = np.load("data.npz")['masked_chans']
     # mask the data but set to the mean of the channel
-    mask_vals = np.median(data, axis=1)
-    for i in range(len(mask_vals)):
-        _ = data[i, :]
-        _m = mask[i, :]
-        _[_m] = mask_vals[i]
-        data[i, :] = _
+    # mask_vals = np.median(data, axis=1)
+    # for i in range(len(mask_vals)):
+    #     _ = data[i, :]
+    #     _m = mask[i, :]
+    #     _[_m] = mask_vals[i]
+    #     data[i, :] = _
+    print(f"Masked channels {len(masked_chans)}: {sum(masked_chans)}")
     return data, masked_chans
 
 
@@ -86,8 +88,10 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     nsamps = waterfall_dat.shape[1]
     nsamps = nsamps - nsamps % downsamp
     waterfall_dat = waterfall_dat[:,0:nsamps]
+    waterfall_dat = waterfall_dat.dedisperse(dm)
     waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
-    dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
+    dat_ts = copy.deepcopy(waterfall_dat)[~masked_chans, :]
+    dat_ts = np.mean(dat_ts, axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
@@ -121,7 +125,6 @@ def grab_spectra_manual(
         t_start = t_start + ts*tsamp
         ts = 0
 
-
     print("start and end times", ts, te)
     nsamps = int((te - ts) / tsamp)
     nsamps = nsamps - nsamps % downsamp
@@ -130,7 +133,10 @@ def grab_spectra_manual(
     nsamps_start_zoom = int(t_start / tsamp)
     nsamps_end_zoom = int((t_dur+t_start) / tsamp)
     try:
+        import sigpyproc
         spec = g.read_block(ssamps, nsamps)
+        # spec = g.read_block(0, g.header.nsamples)
+        # spec = spec[:, ssamps : ssamps + nsamps]
     except Exception as e:
         print(e)
         import pdb; pdb.set_trace()
@@ -138,10 +144,9 @@ def grab_spectra_manual(
     # load mask
     if mask:
         print("masking data")
-        data, masked_chans = maskfile(mask_fn, spec, ssamps, nsamps)
-        print(sum(masked_chans))
-    data = data.dedisperse(dm)
+        data, masked_chans = maskfile(mask_fn, copy.deepcopy(spec), ssamps, nsamps)
     waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
+
 
     if manual:
         # this gives you the location of the peak
@@ -153,27 +158,6 @@ def grab_spectra_manual(
             ds_data=waterfall_dat,
             downsamp=downsamp,
         )
-
-#        while amp==-1:
-#            #fit has failed, get a larger time window and try again
-#            # make a copy to plot the waterfall
-#            t_start = t_start - 1
-#            t_dur = t_dur + 2
-#            print(t_start,t_dur)
-#            if (t_start<0)|((t_start+t_dur)>(te-ts)):
-#                break
-#            nsamps_start_zoom = int(t_start / tsamp)
-#            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
-#            print(nsamps_start_zoom,nsamps_end_zoom)
-#            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
-#            amp, std, loc, sigma_width = fit_SNR_manual(
-#                dat_ts,
-#                tsamp * downsamp,
-#                fit_del,
-#                nsamps=int(t_dur/2 / tsamp / downsamp),
-#                ds_data=waterfall_dat,
-#                downsamp=downsamp,
-#            )
         if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width = fit_SNR_manual(
@@ -193,21 +177,14 @@ def grab_spectra_manual(
             ts_no_ds_zoom_end = int(loc/tsamp + 0.9/tsamp)
             ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
             ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
-            #scale the ts with the std so everythin is in units of noise
-            #FLUENCE = fit_FLUENCE(
-            #    ts_no_ds/std,
-            #    tsamp,
-            #    3 * sigma_width,
-            #    nsamp=int(loc / tsamp),
-            #    ds_data=waterfall_dat,
-            #    plot=False,
-            #)
         else:
             FLUENCE = -1
     else:
         # fit using downsampled values
         # this is mostly used for the injections
         try:
+            # plt.plot(dat_ts)
+            # plt.show()
             amp, std, loc, sigma_width = autofit_pulse(
                 dat_ts,
                 tsamp * downsamp,
@@ -238,10 +215,10 @@ def grab_spectra_manual(
         std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
         SNR = amp / std
         # because loc is predetermined set start and end a predifined spot
-        ts_no_ds_zoom_start = int(4.1/tsamp)
-        ts_no_ds_zoom_end = int(5.9/tsamp)
-        ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
-        ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
+        # ts_no_ds_zoom_start = int(4.1/tsamp)
+        # ts_no_ds_zoom_end = int(5.9/tsamp)
+        # ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
+        # ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
         #FLUENCE = fit_FLUENCE(
         #    ts_no_ds/std,
         #    tsamp,
@@ -280,12 +257,12 @@ def find_polynomial_fit(x_std, ts_std, order = None):
         # find the minimum rchi2
         rchi2_arr = (np.array(rchi2_arr)-1)**2
         ind = np.argmin(rchi2_arr)
-        print(std_arr)
+        # print(std_arr)
         std_diff = np.abs(np.diff(std_arr))
-        print(std_diff)
+        # print(std_diff)
         #find where std_diff first is smaller than 0.0003
         ind_std = np.where(std_diff < 0.0002)[0][0]
-        print(ind_std)
+        # print(ind_std)
         poly = poly_arr[ind_std+1]
         coeffs = coeffs_arr[ind_std+1]
     else:
@@ -306,6 +283,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     # ts_std = ts
     poly, coeffs = find_polynomial_fit(x_std, ts_std)
+    print(len(coeffs),coeffs)
     # subtract the mean
     ts_sub = ts - poly(x)
     ts_std_sub = ts_std - poly(x_std)
@@ -324,6 +302,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         method="Nelder-Mead",
     )
     fitx = max_l.x
+    print(fitx)
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
     fitx[2] = abs(fitx[2])
@@ -600,7 +579,6 @@ class inject_obj:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
-
         fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,

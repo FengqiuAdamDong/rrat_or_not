@@ -31,6 +31,7 @@ class inject_stats_collection(inject_stats):
                 csv = f"{f}/positive_bursts_1.csv"
                 inst.get_base_fn()
                 inst.amplitude_statistics()
+                print(f"{f}")
                 inst.compare([csv], title=f)
                 self.det_snr.append(inst.det_snr)
                 self.detected_pulses.append(inst.detected_pulses)
@@ -62,16 +63,18 @@ class inject_stats_collection(inject_stats):
         # plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label=r"Measured $P(det|S_{det)$")
         plt.errorbar(self.detected_bin_midpoints,self.detected_det_frac,yerr=error_det_frac_d,fmt=".",label=r"Measured $P(det|S_{det})$")
         plt.legend()
-        plt.show()
-        plt.savefig("overall_detection_curve.png")
-        plt.close()
+        plt.xlim(0,5.5)
+        plt.savefig("det_frac_fit.pdf")
+        # plt.show()
+        # plt.savefig("overall_detection_curve.png")
+        # plt.close()
 
-        interp_p = np.interp(predict_x_array, self.detected_bin_midpoints, self.detected_det_frac)
-        plt.plot(predict_x_array, interp_p, label="interpolated")
-        plt.title("overall detection curve interp")
-        plt.legend()
-        plt.savefig("overall_detection_curve_interp.png")
-        plt.close()
+        # interp_p = np.interp(predict_x_array, self.detected_bin_midpoints, self.detected_det_frac)
+        # plt.plot(predict_x_array, interp_p, label="interpolated")
+        # plt.title("overall detection curve interp")
+        # plt.legend()
+        # plt.savefig("overall_detection_curve_interp.png")
+        # plt.close()
 
     def model(self,X, snr_fit, det_error, snr, det_frac, deg=5,plot=False):
         #create a model for the detection curve
@@ -85,14 +88,18 @@ class inject_stats_collection(inject_stats):
         interp_p = np.interp(snr, snr_fit, convolved)
         if plot:
             error_det_frac_i = np.sqrt(det_frac*(1-det_frac)/self.total_injections_per_snr)
-            plt.figure()
+            plt.figure(figsize=(8,5))
             plt.errorbar(snr,det_frac,yerr=error_det_frac_i,fmt=".",label=r"$P(det|S_T)$")
             # plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
-            plt.plot(snr,interp_p,label=r"Forward model $P(det|S_T)$")
             plt.plot(snr_fit,predict_y,label=r"Forward model $P(det|S_{det})$")
-            plt.xlabel("S")
+
+            plt.xlabel("S/N")
             plt.ylabel("Probability")
+            plt.axvline(2,linestyle="--",color="k")
+            plt.xlim(0,5.5)
             plt.legend()
+            plt.plot(snr,interp_p,label=r"Fitted $P(det|S_T)$")
+            plt.savefig("det_frac.pdf")
         return interp_p
 
     def loglikelihood(self, X, snr_fit, det_error, snr, det_frac, deg=10):
@@ -115,10 +122,12 @@ class inject_stats_collection(inject_stats):
         predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=res.x)
         self.model(res.x,snr_fit,det_error,snr,det_frac,plot=True)
 
-        plt.figure()
+        plt.figure(figsize=(8,5))
         plt.plot(snr_fit,predict_y,label="Forward model $P(det|S_{det})$")
+        #add a line at x=2
+        plt.axvline(x=2,linestyle="--",color="black")
         # plt.scatter(snr,det_frac,label=r"$P(det|S_t)$")
-        plt.xlabel("SNR")
+        plt.xlabel("S/N")
         plt.ylabel("Probability")
         self.detected_snr_fit = snr_fit
         self.detected_det_frac_fit = predict_y

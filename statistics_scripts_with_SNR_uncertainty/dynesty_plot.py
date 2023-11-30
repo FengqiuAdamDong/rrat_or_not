@@ -136,22 +136,38 @@ class dynesty_plot:
         stds = []
         for f,d in zip(self.filename,self.data):
             if plot:
-                corner = dyplot.cornerplot(d.results, labels=labels)
+                corner = dyplot.cornerplot(d.results, labels=labels,quantiles=[0.025,0.16,0.5,0.84,0.975],verbose=True)
                 if (period > 0) & (obs_time > 0):
                     #if these two global variables are set
                     try:
                         N_ax = corner[1][2][2]
                         N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
+                        #place a vertical line
+                        Nbursts = nulltoN(0.41)
+                        N_ax.axvline(Nbursts,color='r',linestyle='--')
+                        # Nbursts = nulltoN(0)
+                        #grey out ng et al for J2044
+                        # Nbursts_null_ng = nulltoN(0.09)
+                        # xlims = N_ax.get_xlim()
+                        # ylims = N_ax.get_ylim()
+                        # N_ax.fill_between([xlims[0],Nbursts_null_ng],ylims[1],ylims[0],color='red',alpha=0.2)
+                        #grew out upper regions
+                        # xlims = N_ax.get_xlim()
+                        # ylims = N_ax.get_ylim()
+                        # N_ax.fill_between([Nbursts,xlims[1]],ylims[0],ylims[1],color='grey',alpha=0.8)
+
                         N_sax.set_xlabel(r"Nulling fraction")
                     except:
                         N_ax = corner[1][1][1]
                         N_sax = N_ax.secondary_xaxis('top', functions=(Ntonull,nulltoN))
                         N_sax.set_xlabel(r"Nulling fraction")
                 plt.savefig(f.strip(".h5")+"_corner.pdf")
-
                 plt.savefig(f.strip(".h5")+"_corner.png")
                 plt.close()
-
+            #import quantiles
+            from dynesty.utils import quantile as _quantile
+            samples = d.results['samples']
+            weights = d.results.importance_weights()
             mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
             diag_cov = np.diag(cov)
             std = np.sqrt(diag_cov)
@@ -290,6 +306,7 @@ class dynesty_plot:
             #load the detections
             det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
             det_snr = det_snr[det_snr > snr_thresh]
+            print("# dets",len(det_snr))
             fit_x = np.linspace(1e-9, np.max(det_snr)*2, 10000)
             k = m[0]
             det_error = statistics_exp.det_error
@@ -297,7 +314,7 @@ class dynesty_plot:
             # fit_y = smoothTriangle(fit_y, 100)
             fit_y = fit_y / np.trapz(fit_y, fit_x)
             fig, ax = plt.subplots(1, 1)
-            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$")
+            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$",alpha=0.5)
             ax.plot(fit_x, fit_y, label="fit",linewidth=2)
             ax.set_xlim(-(np.max(det_snr)*0.01), np.max(det_snr)*1.2)
             ax.set_ylim(0, 1.2*np.max(fit_y))
@@ -310,6 +327,7 @@ class dynesty_plot:
             ax2.set_xlabel(r"$S_{det}$")
             ax2.set_ylabel(r"P(det|$S_{det}$)")
             ax.set_ylabel("Probability density")
+            ax.set_xlabel("S/N")
             ax.legend(loc=1)
             ax2.legend(loc=2)
             plt.savefig(f"{f}_exp_fit.pdf")
@@ -337,6 +355,7 @@ class dynesty_plot:
             #load the detections
             det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
             det_snr = det_snr[det_snr > snr_thresh]
+            print("# dets",len(det_snr))
             fit_x = np.linspace(1e-9, np.max(det_snr)*2, 10000)
             mu = m[0]
             std = m[1]
@@ -345,7 +364,7 @@ class dynesty_plot:
             # fit_y = smoothTriangle(fit_y, 100)
             fit_y = fit_y / np.trapz(fit_y, fit_x)
             fig, ax = plt.subplots(1, 1)
-            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$")
+            ax.hist(det_snr, bins='auto', density=True, label=r"$S_{det}$",alpha=0.5)
             ax.plot(fit_x, fit_y, label="fit",linewidth=2)
             ax.set_xlim(-(np.max(det_snr)*0.01), np.max(det_snr)*1.2)
             ax.set_ylim(0, 1.2*np.max(fit_y))
@@ -355,11 +374,12 @@ class dynesty_plot:
             ax2 = ax.twinx()
             ax2.set_ylim(0, 1.01)
             ax2.plot(conv_amp_array, p_det, label=r"P(det|$S_{det}$)", color='b',linewidth=2,alpha=0.6)
-            ax2.set_xlabel("SNR")
+            ax.set_xlabel("S/N")
             ax2.set_ylabel(r"P(det|$S_{det}$)")
             ax.set_ylabel("Probability density")
             ax.legend(loc=1)
             ax2.legend(loc=2)
+            # ax.set_xlim(0,30)
             plt.savefig(f"{f}_logn_fit.pdf")
             plt.savefig(f"{f}_logn_fit.png")
             # plt.show()
@@ -393,8 +413,8 @@ if __name__=="__main__":
             dp.plot_bayes_ratio_exp()
 
     else:
-        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=False)
-        # dp.plot_fit_logn()
+        dp.plot_corner(labels=[r"$\mu$",r"$\sigma$","N"],plot=True)
+        dp.plot_fit_logn()
         if plot_accuracy:
             dp.plot_accuracy_logn()
         if args.bayes_ratio:

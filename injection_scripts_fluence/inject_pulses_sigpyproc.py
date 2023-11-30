@@ -19,10 +19,10 @@ from inject_stats import autofit_pulse
 # define the random number generator
 # np.random.seed(12345)
 
-# TRIAL_SNR = [10]
+TRIAL_SNR = [10]
 # 0.8,
 # ]  # total S/N of pulse
-TRIAL_SNR = np.linspace(0.1,6,20)
+# TRIAL_SNR = np.linspace(0.1,6,20)
 # TRIAL_SNR=[1,2,3,4,5,6,7,8]
 # TRIAL_SNR = [0.003]
 # TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
@@ -234,11 +234,14 @@ def inject_pulses(
         # SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
         # print(f"fitted SNR: {SNR}, stats std: {stats_std}")
 
-    # data = data.astype("uint8")
-    # np.savez('data',data = data,masked_chans = masked_chans)
-    # for i, p in enumerate(pulse_attrs):
-        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
 
+    # data = data.astype("uint8")
+    np.savez('data',data = data,header=data.header,masked_chans = masked_chans,pulse_attrs=pulse_attrs,stats_window=stats_window,tsamp=tsamp,downsamp=downsamp)
+
+    for i, p in enumerate(pulse_attrs):
+        statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
+
+        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,1,copy.deepcopy(data),masked_chans,plot=True))
     return data, statistics
 
 
@@ -272,31 +275,32 @@ def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
         time_to_bin(p_toa + stats_window, tsamp),
     )
     #add 10 seconds extra time to the stats window
-    extra_time_bins = time_to_bin(5,tsamp)
+    extra_time_bins = time_to_bin(5-stats_window,tsamp)
     stats_start -= extra_time_bins
     stats_end += extra_time_bins
     #adjust so it's a multiple of downsamp
     stats_len = stats_end - stats_start
     stats_len = stats_len - stats_len%downsamp
     stats_end = stats_start + stats_len
-
     stats_data = copy.deepcopy(data[:,stats_start:stats_end])
     #dedisperse stats data
     stats_data = stats_data.dedisperse(p_dm)
     #downsample stats_data to the downsample that I will use for detection
     print(f"downmsampling with {downsamp}")
-
     stats_data = stats_data.downsample(tfactor=downsamp)
     stats_data = stats_data[~masked_chans,:]
     #get the window
-    focused_stats_start = time_to_bin(5,tsamp*downsamp)
-    focused_stats_end = time_to_bin(5+2*stats_window,tsamp*downsamp)
+    focused_stats_start = time_to_bin(5-stats_window,tsamp*downsamp)
+    focused_stats_end = time_to_bin(5-stats_window+2*stats_window,tsamp*downsamp)
     stats_data = stats_data[:, focused_stats_start:focused_stats_end]
     #fit a polynomial to the window
     #get the mean of the window
     stats_mean = np.mean(stats_data, axis=0)
-    amp,std,loc,sigma_width =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp)
-                                                    ,data,downsamp,plot=plot)
+    plt.plot(stats_mean)
+    plt.show()
+    amp,std,loc,sigma_width =  autofit_pulse(stats_mean,tsamp*downsamp,0.1,int(stats_window/tsamp/downsamp)
+                                                    ,data,downsamp,plot=plot,fit_width_guess=p_width)
+    print(f"Masked channels {len(masked_chans)}: {sum(masked_chans)}")
     std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
     SNR = amp/std
     print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width} inj amp: {p_SNR*std}")
@@ -340,36 +344,8 @@ def get_mask(rfimask, startsamp, N):
     return mask.T
 
 
-def get_pazi_mask(pazi_fn):
-    """
-    Loads a PAZI file using psrchive and returns a mask array that represents
-    the frequency and time bins that are not flagged in the data.
 
-    Args:
-    - pazi_fn: str, the filename of the PAZI file to load
-
-    Returns:
-    - masks: numpy.ndarray with shape (total_bins,), a 1D array that represents
-    the average mask across all subintegrations and channels in the PAZI file.
-    The values of the array are between 0 and 1, where 1 indicates that the
-    corresponding bin is not flagged (i.e., it should be included in data analysis),
-    and 0 indicates that the bin is flagged (i.e., it should be excluded).
-    """
-    import psrchive
-    arch = psrchive.Archive_load(pazi_fn)
-    #lets get the mask
-    total_subint = arch.get_nsubint()
-    total_chans = arch.get_nchan()
-    total_bins = arch.get_nbin()
-    mask_array = np.zeros((total_subint,1,total_chans,total_bins))
-    for i,integration in enumerate(arch):
-        for j in range(integration.get_nchan()):
-            mask_array[i,0,j,:] = integration.get_weight(j)
-    masks = np.mean(np.mean(np.mean(mask_array,axis=2),axis=1),axis=1)
-    return masks
-
-
-def get_filterbank_data_window(fn, maskfn, duration=20, pazi=False):
+def get_filterbank_data_window(fn, maskfn, duration=20):
     """Load a window of filterbank data from a .fil file, after applying a mask to discard some of the data.
 
     Parameters
@@ -400,55 +376,32 @@ def get_filterbank_data_window(fn, maskfn, duration=20, pazi=False):
     from sigpyproc import readers as r
     from sigpyproc.block import FilterbankBlock as fbb
     #find the archive filename
-    pazi_fn = fn.replace(".fil", "") + "_1000.00ms_Cand.pfd.pazi"
-    #load the archive
-    if pazi:
-        pazi_mask = get_pazi_mask(pazi_fn)
-    else:
-        pazi_mask = np.ones(1000)
     #load the weights
     print("getting filterbank data")
     filf = r.FilReader(fn)
     hdr = filf.header
     tsamp = hdr.tsamp
-    chunk_size = hdr.nsamples//len(pazi_mask)
-    chunk_dur = chunk_size * tsamp
-    #get required chunks
-    reuired_chunks = int(duration/chunk_dur)
     fil_dur = hdr.nsamples * tsamp
-    # start in the middle of the data
-    start_chunk = int(len(pazi_mask)//2 - reuired_chunks//2)
-    #recursively get the data and throw away if chunk is masked
-    acquired_chunks = 0
-    current_chunk = int(start_chunk)
-    channel_mask = np.zeros(hdr.nchans,dtype=bool)
-    while acquired_chunks < reuired_chunks:
-        #check if chunk is masked
-        if pazi_mask[current_chunk] == 0:
-            current_chunk += 1
-            continue
-        #get the data for this chunk
-        start_bin = current_chunk * chunk_size
-        _ = filf.read_block(start_bin, chunk_size)
-        masked_data, masked_chans = maskfile(maskfn, copy.deepcopy(_), start_bin, chunk_size)
-        #update the channel mask
-        channel_mask = np.logical_or(channel_mask,masked_chans)
-        #update the chunk counter
-        if acquired_chunks>0:
-            data = np.append(data,_,axis=1)
-        else:
-            data = _
-        acquired_chunks += 1
-        current_chunk += 1
+    #start in the middle of the data
+    start = fil_dur / 2 - duration / 2
+    stop = start + duration
+    print("start stop bins",start,stop)
+    start_bin = int(np.round(start / tsamp))
+    stop_bin = int(np.round(stop / tsamp))
+    nsamp = stop_bin-start_bin
+    # get the data
+    _ = filf.read_block(start_bin,nsamp)
+    masked_data, masked_chans = maskfile(maskfn, copy.deepcopy(_), start_bin, nsamp)
+
     # update the header so that it represents the windowed data
     presto_header = FilterbankFile(fn).header
-    hdr.tstart += (start_chunk * chunk_size * tsamp) / 86400.0  # add in MJD
-    hdr.nsamples = data.shape[1]  # total number of data samples (nchan * nspec)
-    hdr.nsamples_files = [data.shape[1]]
+    hdr.tstart += (start_bin * tsamp) / 86400.0  # add in MJD
+    hdr.nsamples = masked_data.shape[1]  # total number of data samples (nchan * nspec)
+    hdr.nsamples_files = [masked_data.shape[1]]
     hdr.tstart_files = [hdr.tstart]
-    data = fbb(data, hdr)
+    data = fbb(masked_data, hdr)
     #don't bother updating the presto header
-    return data, channel_mask, presto_header
+    return data, masked_chans, presto_header
 
 
 def multiprocess(arr):
@@ -559,17 +512,12 @@ if __name__ == "__main__":
         help="enable multiprocessing with 10 cores",
         action="store_true",
     )
-    parser.add_argument(
-        "--pazi",
-        action="store_true",
-        help="enable pazi masking",
-        )
+
     args = parser.parse_args()
 
     duration = args.d
     ifn = args.fil
     maskfn = args.m
-    pazi = args.pazi
     if args.injection_file:
         injection_sample = np.load(args.injection_file)
         npul = len(injection_sample)
@@ -614,7 +562,7 @@ if __name__ == "__main__":
                 p.map(multiprocess, pool_arr)
     else:
         rawdata, masked_chans, presto_header = get_filterbank_data_window(
-            ifn, duration=duration, maskfn=maskfn, pazi=pazi
+            ifn, duration=duration, maskfn=maskfn
         )
         for dm in TRIAL_DMS:
             pool_arr = []
