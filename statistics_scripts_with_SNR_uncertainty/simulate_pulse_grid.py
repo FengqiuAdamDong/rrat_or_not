@@ -16,10 +16,21 @@ import dill
 import argparse
 import os
 import yaml
-def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, lower, upper, sigma_snr, a, inj_file, dill_file,plot=True,out_fol="simulated_dir"):
-    detected_pulses = []
-    total_pulses = []
-    while len(detected_pulses) < detected_req:
+
+
+def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_ln, lower, upper, sb, a, inj_file, dill_file,plot=True,out_fol="simulated_dir"):
+    detected_pulses_snr = []
+    detected_pulses_width = []
+    detected_pulses_fluence = []
+    total_pulses_snr = []
+    total_pulses_width = []
+    total_pulses_fluence = []
+
+    sigma_snr = sb.detected_error_snr
+    sigma_width = sb.detected_error_width
+    sigma_fluence = sb.detected_error_fluence
+
+    while len(detected_pulses_snr) < detected_req:
         obs_t = 1
         p = 1
         f = 1
@@ -31,47 +42,109 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, lower, upper, si
             )
         elif mode == "Gauss":
             pulses, a, b = simulate_pulses_gauss(obs_t, p, f, mu_ln, std_ln, random=True)
-        rv = norm(loc=0, scale=sigma_snr).rvs(len(pulses))
-        d_pulses = rv + pulses
-        d = n_detect(d_pulses, inj_file)
-        if len(d) == 1:
-            detected_pulses.append(d[0])
-        total_pulses.append(pulses)
+        rv_snr = norm(loc=0, scale=sigma_snr).rvs(len(pulses))
+        d_pulses = rv_snr + pulses
+        pulses_width = simulate_pulses(
+            obs_t, p, f, w_mu_ln, w_std_ln, a, lower=0, upper=np.inf, random=False
+        )
+        rv_width = norm(loc=0, scale=sigma_width).rvs(len(pulses_width))
+        d_pulses_width = rv_width + pulses_width
 
-    print("len detected", len(detected_pulses))
-    print("generated", len(total_pulses))
-    print("mean", np.mean(total_pulses), "variance", np.std(total_pulses) ** 2)
-    print("detection error", sigma_snr)
-    print("detected", len(detected_pulses))
+        #calculate the fluence from the width and snr, assume it is a gaussian pulse
+        pulses_fluence = pulses_width * pulses/0.3989
+        rv_fluence = norm(loc=0, scale=sigma_fluence).rvs(len(pulses_fluence))
+        d_pulses_fluence = rv_fluence + pulses_fluence
+
+        d_snr,d_width = n_detect(d_pulses,d_pulses_width, sb)
+
+        if len(d_snr) > 0:
+            detected_pulses_snr.append(d_snr)
+            detected_pulses_width.append(d_width)
+            detected_pulses_fluence.append(d_pulses_fluence)
+        total_pulses_snr.append(pulses)
+        total_pulses_width.append(pulses_width)
+        total_pulses_fluence.append(pulses_fluence)
+
+
+    detected_pulses_snr = np.array(detected_pulses_snr).flatten()
+    detected_pulses_width = np.array(detected_pulses_width).flatten()
+    detected_pulses_fluence = np.array(detected_pulses_fluence).flatten()
+    total_pulses_snr = np.array(total_pulses_snr).flatten()
+    total_pulses_width = np.array(total_pulses_width).flatten()
+    total_pulses_fluence = np.array(total_pulses_fluence).flatten()
+    if plot:
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        axes[0].hist(detected_pulses_snr, bins="auto", density=True, label="fake data snr",alpha=0.5)
+        axes[1].hist(detected_pulses_width, bins="auto", density=True, label="fake data width",alpha=0.5)
+        axes[2].hist(detected_pulses_fluence, bins="auto", density=True, label="fake data fluence",alpha=0.5)
+
+    print("len detected", len(detected_pulses_snr))
+    print("generated", len(total_pulses_snr))
+    print("mean", np.mean(total_pulses_snr), "variance", np.std(total_pulses_snr) ** 2)
+    print("detection error snr", sigma_snr)
+    print("detection error width", sigma_width)
+    print("detection error fluence", sigma_fluence)
+
     out_fn = os.path.join(out_fol,f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.dill")
     if not os.path.exists(out_fol):
         os.makedirs(out_fol)
-    detected_pulses = process_data(dill_file, detected_pulses, out_fn, plot=True)
+    #dumps the data into a file
+    process_data(dill_file, detected_pulses_snr, detected_pulses_width,detected_pulses_fluence, out_fn)
     yaml_fn = os.path.join(out_fol,f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.yaml")
     if mode == "Lognorm":
-        write_yaml(mu_ln,std_ln,a,len(total_pulses),inj_file,yaml_fn)
+        write_yaml(mu_ln,std_ln,a,len(total_pulses_snr),inj_file,yaml_fn)
     elif mode == "Exp":
-        write_yaml_exp(mu_ln,a,len(total_pulses),inj_file,yaml_fn)
+        write_yaml_exp(mu_ln,a,len(total_pulses_snr),inj_file,yaml_fn)
+
     if plot:
-        snr_array = np.linspace(0, 20, 10000)
+        snr_array = np.linspace(0, 20, 1000)
+        width_array = np.linspace(2, 20, 1000) * 1e-3
 
-        plt.figure()
-        if mode == "Lognorm":
-            p_dist, p_det, conv_amp_array, conv = statistics.first_plot(
-                snr_array, mu_ln, std_ln, sigma_snr, a=a, lower_c=lower, upper_c=upper
-            )
+        likelihood, p_det, conv_amp_array, conv_w_array = sb.first_plot(snr_array, width_array,
+                                                                                                    mu_ln, std_ln,
+                                                                                                    w_mu_ln, w_std_ln,
+                                                                                                    sigma_amp = sigma_snr,
+                                                                                                    sigma_w = sigma_width,
+                                                                                                    a=a,
+                                                                                                    lower_c=lower,
+                                                                                                    upper_c=upper,)
 
-            plt.plot(snr_array+a, lognorm_dist(snr_array, mu_ln, std_ln), label="lognorm")
-        elif mode == "Exp":
-            import statistics_exp
-            print(statistics_exp.det_error)
-            p_dist = statistics_exp.first_exp_plot(snr_array, mu_ln, sigma_snr)
-            plt.plot(snr_array, expon.pdf(snr_array, scale=mu_ln), label="expon")
-        p_dist = p_dist / np.trapz(p_dist, snr_array)
-        plt.hist(detected_pulses, bins="auto", density=True, alpha=0.5, label="new fake data")
-        plt.plot(snr_array, statistics.p_detect(snr_array), label="det_prob")
-        plt.plot(snr_array, p_dist, label="detection function")
-        plt.legend()
+        likelihood_norm = likelihood / np.trapz(np.trapz(likelihood, conv_w_array, axis=0), conv_amp_array)
+        #make a 2d histogram of the detections
+        fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+        h, xedges, yedges, mesh = axes[0].hist2d(detected_pulses_snr, detected_pulses_width, bins=50, density=True)
+        #colorbar
+        cbar = fig.colorbar(mesh, ax=axes[0])
+        cbar.ax.set_ylabel("density")
+        axes[0].set_xlabel("snr")
+        axes[0].set_ylabel("width")
+        axes[0].set_title("detected pulses")
+        mesh = axes[1].pcolormesh(conv_amp_array, conv_w_array, likelihood_norm)
+        cbar = fig.colorbar(mesh, ax=axes[1])
+        cbar.ax.set_ylabel("likelihood")
+        axes[1].set_xlabel("snr")
+        axes[1].set_ylabel("width")
+        axes[1].set_title("likelihood")
+        #apply axes[0] limits to axes[1]
+        axes[1].set_xlim(axes[0].get_xlim())
+        axes[1].set_ylim(axes[0].get_ylim())
+
+        #plot the marginalised distributions
+        marg_l_amp = np.trapz(likelihood_norm, conv_w_array, axis=0)
+        marg_l_w = np.trapz(likelihood_norm, conv_amp_array, axis=1)
+        fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+        n,bins,ax = axes[0].hist(detected_pulses_width, bins="auto", density=True, label="detected")
+        axes[0].plot(conv_w_array, marg_l_w, label="likelihood")
+        axes[0].set_xlabel("width")
+        axes[0].set_ylabel("density")
+        axes[0].set_title("marginalised over amp")
+        axes[0].legend()
+        axes[1].hist(detected_pulses_snr, bins="auto", density=True, label="detected")
+        axes[1].plot(conv_amp_array, marg_l_amp, label="likelihood")
+        axes[1].set_xlabel("snr")
+        axes[1].set_ylabel("density")
+        axes[1].set_title("marginalised over width")
+        axes[1].legend()
         plt.show()
 
 def write_yaml(mu,std,a,N,inj_file,output_fn):
@@ -116,9 +189,7 @@ def write_yaml_exp(k,a,N,inj_file,output_fn):
     with open(output_fn,'w') as my_file:
         yaml.dump(data, my_file)
 
-
-
-def process_data(dill_file,detected_data,output_fn, plot=True):
+def process_data(dill_file,detected_snr,detected_width,detected_fluence,output_fn):
     """
     Process the data from a Dill file and create a fake data file.
 
@@ -132,32 +203,21 @@ def process_data(dill_file,detected_data,output_fn, plot=True):
 
     with open(dill_file, "rb") as inf:
         det_class = dill.load(inf)
-
-    det_snr = []
-    for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_snr != -1:
-            det_snr.append(pulse_obj.det_snr)
-
-    if plot:
-        plt.figure()
-        plt.hist(det_snr, bins="auto", density=True, label="real data")
-        plt.hist(detected_data, bins="auto", density=True, label="fake data",alpha=0.5)
-        plt.legend()
-
-    filfiles = np.full(len(det_snr), "abc", dtype=str)
-    maskfn = np.full(len(det_snr), "abc", dtype=str)
-    dms = np.full(len(det_snr), 123, dtype=float)
-    toas = np.full(len(det_snr), 123, dtype=float)
+    filfiles = np.full(len(detected_snr), "abc", dtype=str)
+    maskfn = np.full(len(detected_snr), "abc", dtype=str)
+    dms = np.full(len(detected_snr), 123, dtype=float)
+    toas = np.full(len(detected_snr), 123, dtype=float)
 
     inject_obj_arr = []
-    for snr in detected_data:
+    for snr,width,fluence in zip(detected_snr,detected_width,detected_fluence):
         #create a new inject_obj and just fill with fake data
         temp = inject_obj()
         temp.det_snr = snr
-        temp.det_fluence = snr
+        temp.det_fluence = fluence
+        temp.det_std = width
+
         temp.det_amp = snr
         temp.fluence_amp = snr
-        temp.det_std = snr
         temp.noise_std = snr
         inject_obj_arr.append(temp)
     inj_obj_arr = np.array(inject_obj_arr)
@@ -171,11 +231,6 @@ def process_data(dill_file,detected_data,output_fn, plot=True):
     with open(output_fn, "wb") as of:
         dill.dump(det_class, of)
 
-    det_snr = []
-    for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_snr != -1:
-            det_snr.append(pulse_obj.det_snr)
-    return det_snr
 
 
 
@@ -199,12 +254,12 @@ inj_file = args.inj_file
 output_fol = args.of
 mode = args.mode
 #load the detection file
-statistics_basic.load_detection_fn(inj_file,plot=False)
+# sb = statistics_basic.statistics_basic(inj_file,plot=True)
 if mode=="Lognorm":
-    mu_arr = np.linspace(-0.5,1,20)
+    mu_arr = np.linspace(0,1,5)
     std_arr = [args.s]
 elif mode=="Exp":
-    k_arr = np.linspace(0.5,2,20)
+    k_arr = np.linspace(0.5,2,5)
     #use mu as k_arr
     mu_arr = k_arr
     #the std arr is ignored for exp distribution
@@ -214,20 +269,21 @@ detected_req = args.detected_req
 print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
 from inject_stats import inject_obj
 from numpy.random import normal
-import statistics
-from statistics import lognorm_dist
-from statistics import mean_var_to_mu_std
-from statistics import mu_std_to_mean_var
-from statistics_exp import k_to_mean_var
+from statistics import statistics_ln
+# from statistics import lognorm_dist
+# from statistics import mean_var_to_mu_std
+# from statistics import mu_std_to_mean_var
+# from statistics_exp import k_to_mean_var
+#
 if __name__ == "__main__":
-    sigma_snr = statistics_basic.det_error
     #simulate pulses one at a time
+    sb = statistics_ln(inj_file,plot=False)
     for mu in mu_arr:
         std = std_arr[0]
         lower = 0
         if mode=="Lognorm":
             #use the upper cutoff to be 50x the mean
-            mean,var = mu_std_to_mean_var(mu,std)
+            mean,var = sb.mu_std_to_mean_var(mu,std)
             median = np.exp(mu)
             #set upper to 50x median
             upper = 50*median
@@ -235,4 +291,6 @@ if __name__ == "__main__":
             mean,var = k_to_mean_var(mu)
             median = np.log(2)/mu
             upper = 50*median
-        simulate_and_process_data(detected_req, mode,mu,std, lower, upper, sigma_snr, a, inj_file, dill_file,plot=False,out_fol=output_fol)
+        w_mu_ln = -5.3
+        w_std_ln = 0.1
+        simulate_and_process_data(detected_req, mode,mu,std, w_mu_ln, w_std_ln, lower, upper, sb, a, inj_file, dill_file, plot=True, out_fol=output_fol)

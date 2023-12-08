@@ -151,7 +151,7 @@ class dynesty_plot:
 
                 plt.savefig(f.strip(".h5")+"_corner.png")
                 plt.close()
-
+            import pdb; pdb.set_trace()
             mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
             diag_cov = np.diag(cov)
             std = np.sqrt(diag_cov)

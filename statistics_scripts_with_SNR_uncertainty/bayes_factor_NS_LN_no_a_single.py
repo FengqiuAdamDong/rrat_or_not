@@ -18,7 +18,7 @@ from dynesty import utils as dyfunc
 import glob
 import yaml
 import cupy as cp
-
+import scipy.stats as stats
 def read_config(filename,det_snr):
     with open(filename, 'r') as file:
         data = yaml.safe_load(file)
@@ -107,7 +107,9 @@ def pt_Uniform_N(x,max_det):
     max_mu = np.log(max_det)
     # ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
     ptmu = (max_mu - min_mu) * x[0] + min_mu
-    ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
+    # ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
+
+    ptN = stats.randint.ppf(x[2], logn_N_range[0], logn_N_range[1])
     return np.array([ptmu, ptsigma, ptN])
 
 def loglikelihood(theta, det_snr, xlim_interp):
