@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
-#SBATCH --time=5:00:00
+#SBATCH --time=10:00:00
 #SBATCH --mem=24G
-#SBATCH --cpus-per-task=5
+#SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
@@ -42,11 +42,13 @@ cp -r *rfifind* $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 150 --n 60 $fil --multi
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 150 --n 60 $fil
 #come back
 cd -
 cp $SLURM_TMPDIR/*SNR*.fil .
 cp $SLURM_TMPDIR/sample_injections.npz .
 #clean up tmpdir
-rm -r $SLURM_TMPDIR
+if [ "$LOCAL" != false ]; then
+    rm -r $SLURM_TMPDIR/
+fi
 # rm $fil

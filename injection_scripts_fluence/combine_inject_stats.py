@@ -10,7 +10,8 @@ from scipy.signal import deconvolve
 from scipy.signal import convolve
 from scipy.stats import norm
 import scipy.fft as fft
-import smplotlib
+# import smplotlib
+from inject_stats import create_matrix
 
 class inject_stats_collection(inject_stats):
     def __init__(self):
@@ -18,8 +19,10 @@ class inject_stats_collection(inject_stats):
         self.folder = []
         self.det_snr = []
         self.detected_pulses = []
-        self.snr = []
+        self.inj_snr = []
         self.det_frac = []
+        self.det_width = []
+        self.inj_width = []
     def calculate_detection_curve(self, csvs="1"):
         # build statistics
         snrs = []
@@ -29,99 +32,53 @@ class inject_stats_collection(inject_stats):
             if csvs != "all":
                 # only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
-                inst.get_base_fn()
-                inst.amplitude_statistics()
+                # inst.get_base_fn()
+                inst.amplitude_statistics(title=f)
                 inst.compare([csv], title=f)
-                self.det_snr.append(inst.det_snr)
-                self.detected_pulses.append(inst.detected_pulses)
-                self.snr.append(inst.snr)
-                self.det_frac.append(inst.det_frac)
-        self.snr = np.array(self.snr)
-        self.det_frac = np.array(self.det_frac)
-        #fit this to polynomial
-        #average along the 0th axis
-        self.snr = np.mean(self.snr,axis=0)
-        self.det_frac = np.mean(self.det_frac,axis=0)
-        self.det_snr = np.array(self.det_snr)
-        self.detected_pulses = np.array(self.detected_pulses)
+                for si in inst.sorted_inject:
+                    self.inj_snr.append(si.snr)
+                    self.inj_width.append(si.width)
+                    self.detected_pulses.append(si.detected)
+                    self.det_snr.append(si.det_snr)
+                    self.det_width.append(si.det_std)
 
-        self.total_injections_per_snr = self.det_snr.shape[0]*self.det_snr.shape[2]
-        self.inj_snr_fit = self.fit_poly(x=self.snr,p=self.det_frac,deg=7)
-        all_det_snr = self.det_snr.flatten()
-        detected_snr = self.det_snr[self.detected_pulses]
-        self.bin_detections(all_det_snr, detected_snr, num_bins=30)
-        self.poly_det_fit = self.fit_poly(x=self.detected_bin_midpoints,p=self.detected_det_frac,deg=7)
-        predict_x_array = np.linspace(0,10,10000)
-        self.predict_poly(predict_x_array,x=self.detected_bin_midpoints,p=self.detected_det_frac,plot=True,title="overall detection curve")
-        detect_errors = np.array(list(inj_stats.detect_error_snr for inj_stats in self.inj_stats))
-        self.detect_error_snr = np.sqrt(np.mean(detect_errors**2))
-        print(self.detect_error_snr)
-        self.deconvolve_response(self.det_frac, self.detect_error_snr, self.snr, self.inj_snr_fit)
 
-        error_det_frac_d = np.sqrt(self.detected_det_frac*(1-self.detected_det_frac)/self.num_points_per_bin)
-        # plt.scatter(self.detected_bin_midpoints,self.detected_det_frac,label=r"Measured $P(det|S_{det)$")
-        plt.errorbar(self.detected_bin_midpoints,self.detected_det_frac,yerr=error_det_frac_d,fmt=".",label=r"Measured $P(det|S_{det})$")
-        plt.legend()
+        self.det_snr = np.array(self.det_snr).flatten()
+        self.detected_pulses = np.array(self.detected_pulses).flatten()
+        self.inj_snr = np.array(self.inj_snr).flatten()
+        self.det_width = np.array(self.det_width).flatten()
+        self.inj_width = np.array(self.inj_width).flatten()
+        #create a matrix of the detection fraction
+        unique_snr = np.unique(self.inj_snr)
+        unique_width = np.unique(self.inj_width)
+        self.det_frac = np.zeros((len(unique_snr), len(unique_width)))
+        print(self.det_frac.shape)
+        for i, snr in enumerate(unique_snr):
+            for j, width in enumerate(unique_width):
+                mask = (self.inj_snr == snr) & (self.inj_width == width)
+                self.det_frac[i, j] = np.sum(self.detected_pulses[mask]) / np.sum(mask)
+        detected_det_vals = self.det_snr[self.detected_pulses]
+        detected_width_vals = self.det_width[self.detected_pulses]
+        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=10)
+
+        fig, axes = plt.subplots(1, 2, figsize=(10, 10))
+        mesh = axes[0].pcolormesh(unique_width*1000, unique_snr, self.det_frac, cmap="viridis")
+        mesh.set_clim(0, 1)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detection Fraction")
+        axes[0].set_xlabel("Injected Width (ms)")
+        axes[0].set_ylabel("Injected SNR")
+        axes[0].set_title("Detection Fraction inj")
+
+        mesh = axes[1].pcolormesh(self.detected_bin_midpoints[1]*1000,self.detected_bin_midpoints[0], self.detected_det_frac, cmap="viridis")
+        mesh.set_clim(0, 1)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detection Fraction")
+        axes[1].set_xlabel("Detected Width (ms)")
+        axes[1].set_ylabel("Detected SNR")
+        axes[1].set_title("Detection Fraction det")
+        plt.tight_layout()
         plt.show()
-        plt.savefig("overall_detection_curve.png")
-        plt.close()
-
-        interp_p = np.interp(predict_x_array, self.detected_bin_midpoints, self.detected_det_frac)
-        plt.plot(predict_x_array, interp_p, label="interpolated")
-        plt.title("overall detection curve interp")
-        plt.legend()
-        plt.savefig("overall_detection_curve_interp.png")
-        plt.close()
-
-    def model(self,X, snr_fit, det_error, snr, det_frac, deg=5,plot=False):
-        #create a model for the detection curve
-        predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=X)
-        #convolve with a gaussian
-        gaussian = norm.pdf(snr_fit,loc=0,scale=det_error)
-        convolved = convolve(predict_y,gaussian,mode="same")
-        #scale to the max of det_frac
-        convolved = convolved / np.max(convolved) * np.max(det_frac)
-        #then do an interp for snr
-        interp_p = np.interp(snr, snr_fit, convolved)
-        if plot:
-            error_det_frac_i = np.sqrt(det_frac*(1-det_frac)/self.total_injections_per_snr)
-            plt.figure()
-            plt.errorbar(snr,det_frac,yerr=error_det_frac_i,fmt=".",label=r"$P(det|S_T)$")
-            # plt.scatter(snr,det_frac,label=r"$P(det|SNR_t)$")
-            plt.plot(snr,interp_p,label=r"Forward model $P(det|S_T)$")
-            plt.plot(snr_fit,predict_y,label=r"Forward model $P(det|S_{det})$")
-            plt.xlabel("S")
-            plt.ylabel("Probability")
-            plt.legend()
-        return interp_p
-
-    def loglikelihood(self, X, snr_fit, det_error, snr, det_frac, deg=10):
-        interp_p = self.model(X, snr_fit, det_error, snr, det_frac, deg=deg)
-        #calculate the squared_difference
-        squared_difference = np.log(np.exp(-(det_frac - interp_p)**2/2))
-        return -np.sum(squared_difference)
-
-
-    def deconvolve_response(self,det_frac, det_error, snr, poly):
-
-        snr_fit = np.linspace(-10,10,1000)
-        spacing = snr_fit[1] - snr_fit[0]
-        #generate an array with the same spacing as the snr
-        p_det_predict = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=poly,plot=True,title="overall detection curve")
-        #minimize the loglikelihood
-        from scipy.optimize import minimize
-        res = minimize(self.loglikelihood, x0=poly, args=(snr_fit, det_error, snr, det_frac, len(poly)), method='nelder-mead', options={'xatol': 1e-8,'maxiter':10000000, 'disp': True})
-        print(res.x)
-        predict_y = self.predict_poly(snr_fit,x=snr,p=det_frac,poly=res.x)
-        self.model(res.x,snr_fit,det_error,snr,det_frac,plot=True)
-
-        plt.figure()
-        plt.plot(snr_fit,predict_y,label="Forward model $P(det|S_{det})$")
-        # plt.scatter(snr,det_frac,label=r"$P(det|S_t)$")
-        plt.xlabel("SNR")
-        plt.ylabel("Probability")
-        self.detected_snr_fit = snr_fit
-        self.detected_det_frac_fit = predict_y
 
 
 

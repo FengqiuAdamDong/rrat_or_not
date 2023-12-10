@@ -721,8 +721,7 @@ class inject_stats:
         splits = self.filfiles[0].split("_")
         #remove last index
         splits = splits[:-1]
-        self.base_fn = "_".join(splits)
-
+        # self.base_fn = "_".join(splits)
     def get_mask_fn(self):
         # get the filenames of all the masks
         self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
@@ -796,7 +795,7 @@ class inject_stats:
                 print(i,"out of",len(self.sorted_inject))
                 s.calculate_fluence()
 
-    def amplitude_statistics(self):
+    def amplitude_statistics(self,title="f"):
         det_snr = []
         inj_snr = []
         det_width = []
@@ -829,11 +828,6 @@ class inject_stats:
         inj_snr = np.array(inj_snr)
         inj_width = np.array(inj_width)
         det_snr_std = np.array(det_snr_std)
-        try:
-            p_snr = np.polyfit(det_snr[1:], inj_snr[1:], deg=1)
-        except:
-            p_snr = np.polyfit(det_snr, inj_snr, deg=1)
-        poly_snr = np.poly1d(p_snr)
 
 
         unique_snrs, unique_widths, det_matrix_width = create_matrix(inj_snr, inj_width, det_width,norm=1)
@@ -877,13 +871,7 @@ class inject_stats:
         axes[1,1].set_title("Detected SNR STD")
         plt.tight_layout()
 
-
-
-        plt.show()
-        if hasattr(self, "base_fn"):
-            plt.savefig(self.base_fn + "_amp.png")
-        else:
-            plt.show()
+        plt.savefig(f"{title}_amp.png")
         plt.close()
         ind = np.argsort(inj_snr)
         self.det_snr = det_snr[ind]
@@ -894,7 +882,6 @@ class inject_stats:
         self.inj_width = inj_width[ind]
 
         self.sorted_inject = np.array(self.sorted_inject)[ind]
-        self.poly_snr = p_snr
         # take the average of the last 3 for the error
         self.detect_error_snr = np.sqrt(np.mean(self.det_snr_std[-3:]**2))
         print(self.detect_error_snr)
@@ -989,12 +976,13 @@ class inject_stats:
 
         # detected_sample = self.sorted_inject[(self.inj_snr>2)&(self.inj_width>10e-3)]
         detected_sample = self.sorted_inject
-
+        # self.detected_pulses = np.array(list(s.detected for s in detected_sample))
         detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
         detected_widths = list(s.det_std[s.detected] for s in detected_sample)
         all_det_amplitudes = list(s.det_snr for s in detected_sample)
         all_det_widths = list(s.det_std for s in detected_sample)
         #flatten the lists
+        # self.detected_pulses = self.detected_pulses.flatten()
         detected_amplitudes = [item for sublist in detected_amplitudes for item in sublist]
         detected_widths = [item for sublist in detected_widths for item in sublist]
         all_det_amplitudes = [item for sublist in all_det_amplitudes for item in sublist]
@@ -1018,84 +1006,85 @@ class inject_stats:
         axes[1].set_ylabel("S/N")
         plt.tight_layout()
         plt.savefig(f"{title}.png")
-        plt.show()
+        plt.close()
+        # plt.show()
 
         #high width sample
-        unique_widths = np.unique(self.inj_width)
-        for uw in unique_widths:
-            detected_sample = self.sorted_inject[self.inj_width==uw]
-            true_inj_amplitude = list(np.mean(s.snr) for s in detected_sample)
-            true_inj_ampltiude_all = np.array(list(s.snr for s in detected_sample))
-            #flatten the list
-            true_inj_ampltiude_all = [item for sublist in true_inj_ampltiude_all for item in sublist]
+        # unique_widths = np.unique(self.inj_width)
+        # for uw in unique_widths:
+        #     detected_sample = self.sorted_inject[self.inj_width==uw]
+        #     true_inj_amplitude = list(np.mean(s.snr) for s in detected_sample)
+        #     true_inj_ampltiude_all = np.array(list(s.snr for s in detected_sample))
+        #     #flatten the list
+        #     true_inj_ampltiude_all = [item for sublist in true_inj_ampltiude_all for item in sublist]
 
-            detected_frac = list(sum(s.detected)/len(s.detected) for s in detected_sample)
+        #     detected_frac = list(sum(s.detected)/len(s.detected) for s in detected_sample)
 
-            detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
-            detected_widths = list(s.det_std[s.detected] for s in detected_sample)
-            all_det_amplitudes = list(s.det_snr for s in detected_sample)
-            all_det_widths = list(s.det_std for s in detected_sample)
-            #flatten the lists
-            detected_amplitudes = np.array([item for sublist in detected_amplitudes for item in sublist])
-            detected_widths = np.array([item for sublist in detected_widths for item in sublist])
-            all_det_amplitudes = np.array([item for sublist in all_det_amplitudes for item in sublist])
-            all_det_widths = np.array([item for sublist in all_det_widths for item in sublist])
-
-
-            self.bin_detections(all_det_amplitudes, detected_amplitudes)
-            fig,axes = plt.subplots(1,3,figsize=(10,10))
-            axes[0].plot(true_inj_amplitude,detected_frac)
-            axes[0].set_xlabel("True S/N")
-            axes[0].set_ylabel("Detection Fraction")
-            axes[1].plot(self.detected_bin_midpoints,self.detected_det_frac)
-            axes[1].set_xlabel("True S/N")
-            axes[1].set_ylabel("Detection Fraction")
-            sc = axes[2].scatter(np.arange(len(all_det_amplitudes)),all_det_amplitudes/true_inj_ampltiude_all,c=true_inj_ampltiude_all)
-            cbar = plt.colorbar(sc)
-            cbar.set_label("True S/N")
-            axes[2].set_xlabel("Detection Number")
-            axes[2].set_ylabel("Detected S/N/True S/N")
-            plt.title(f"Width {uw*1000} ms")
-            plt.tight_layout()
-            plt.savefig(f"width_{uw*1000}_ms.png")
-
-        unique_snrs = np.unique(self.inj_snr)
-        for us in unique_snrs:
-            detected_sample = self.sorted_inject[self.inj_snr==us]
-            true_inj_width = np.array(list(np.mean(s.width) for s in detected_sample))
-            true_inj_width_all = np.array(list(s.width for s in detected_sample))
-            #flatten the list
-            true_inj_width_all = np.array([item for sublist in true_inj_width_all for item in sublist])
-            detected_frac = list(sum(s.detected)/len(s.detected) for s in detected_sample)
-            detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
-            detected_widths = list(s.det_std[s.detected] for s in detected_sample)
-            all_det_amplitudes = list(s.det_snr for s in detected_sample)
-            all_det_widths = list(s.det_std for s in detected_sample)
-            #flatten the lists
-            detected_amplitudes = np.array([item for sublist in detected_amplitudes for item in sublist])
-            detected_widths = np.array([item for sublist in detected_widths for item in sublist])
-            all_det_amplitudes = np.array([item for sublist in all_det_amplitudes for item in sublist])
-            all_det_widths = np.array([item for sublist in all_det_widths for item in sublist])
+        #     detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
+        #     detected_widths = list(s.det_std[s.detected] for s in detected_sample)
+        #     all_det_amplitudes = list(s.det_snr for s in detected_sample)
+        #     all_det_widths = list(s.det_std for s in detected_sample)
+        #     #flatten the lists
+        #     detected_amplitudes = np.array([item for sublist in detected_amplitudes for item in sublist])
+        #     detected_widths = np.array([item for sublist in detected_widths for item in sublist])
+        #     all_det_amplitudes = np.array([item for sublist in all_det_amplitudes for item in sublist])
+        #     all_det_widths = np.array([item for sublist in all_det_widths for item in sublist])
 
 
-            self.bin_detections(all_det_widths, detected_widths)
-            fig,axes = plt.subplots(1,3,figsize=(10,10))
-            axes[0].scatter(true_inj_width*1e3,detected_frac)
-            axes[0].set_xlabel("True width")
-            axes[0].set_ylabel("Detection Fraction")
-            axes[1].scatter(self.detected_bin_midpoints*1e3,self.detected_det_frac)
-            axes[1].set_xlabel("True widths")
-            axes[1].set_ylabel("Detection Fraction")
-            sc = axes[2].scatter(np.arange(len(all_det_widths)),all_det_widths/true_inj_width_all,c=true_inj_width_all*1e3)
-            #set colorbar
-            cbar = plt.colorbar(sc)
-            cbar.set_label("True width (ms)")
-            axes[2].set_xlabel("index")
-            axes[2].set_ylabel("Detected width / True width")
+        #     self.bin_detections(all_det_amplitudes, detected_amplitudes)
+        #     fig,axes = plt.subplots(1,3,figsize=(10,10))
+        #     axes[0].plot(true_inj_amplitude,detected_frac)
+        #     axes[0].set_xlabel("True S/N")
+        #     axes[0].set_ylabel("Detection Fraction")
+        #     axes[1].plot(self.detected_bin_midpoints,self.detected_det_frac)
+        #     axes[1].set_xlabel("True S/N")
+        #     axes[1].set_ylabel("Detection Fraction")
+        #     sc = axes[2].scatter(np.arange(len(all_det_amplitudes)),all_det_amplitudes/true_inj_ampltiude_all,c=true_inj_ampltiude_all)
+        #     cbar = plt.colorbar(sc)
+        #     cbar.set_label("True S/N")
+        #     axes[2].set_xlabel("Detection Number")
+        #     axes[2].set_ylabel("Detected S/N/True S/N")
+        #     plt.title(f"Width {uw*1000} ms")
+        #     plt.tight_layout()
+        #     plt.savefig(f"width_{uw*1000}_ms.png")
 
-            plt.title(f"S/N {us}")
-            plt.tight_layout()
-            plt.savefig(f"snr_{us}_ms.png")
+        # unique_snrs = np.unique(self.inj_snr)
+        # for us in unique_snrs:
+        #     detected_sample = self.sorted_inject[self.inj_snr==us]
+        #     true_inj_width = np.array(list(np.mean(s.width) for s in detected_sample))
+        #     true_inj_width_all = np.array(list(s.width for s in detected_sample))
+        #     #flatten the list
+        #     true_inj_width_all = np.array([item for sublist in true_inj_width_all for item in sublist])
+        #     detected_frac = list(sum(s.detected)/len(s.detected) for s in detected_sample)
+        #     detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
+        #     detected_widths = list(s.det_std[s.detected] for s in detected_sample)
+        #     all_det_amplitudes = list(s.det_snr for s in detected_sample)
+        #     all_det_widths = list(s.det_std for s in detected_sample)
+        #     #flatten the lists
+        #     detected_amplitudes = np.array([item for sublist in detected_amplitudes for item in sublist])
+        #     detected_widths = np.array([item for sublist in detected_widths for item in sublist])
+        #     all_det_amplitudes = np.array([item for sublist in all_det_amplitudes for item in sublist])
+        #     all_det_widths = np.array([item for sublist in all_det_widths for item in sublist])
+
+
+        #     self.bin_detections(all_det_widths, detected_widths)
+        #     fig,axes = plt.subplots(1,3,figsize=(10,10))
+        #     axes[0].scatter(true_inj_width*1e3,detected_frac)
+        #     axes[0].set_xlabel("True width")
+        #     axes[0].set_ylabel("Detection Fraction")
+        #     axes[1].scatter(self.detected_bin_midpoints*1e3,self.detected_det_frac)
+        #     axes[1].set_xlabel("True widths")
+        #     axes[1].set_ylabel("Detection Fraction")
+        #     sc = axes[2].scatter(np.arange(len(all_det_widths)),all_det_widths/true_inj_width_all,c=true_inj_width_all*1e3)
+        #     #set colorbar
+        #     cbar = plt.colorbar(sc)
+        #     cbar.set_label("True width (ms)")
+        #     axes[2].set_xlabel("index")
+        #     axes[2].set_ylabel("Detected width / True width")
+
+        #     plt.title(f"S/N {us}")
+        #     plt.tight_layout()
+        #     plt.savefig(f"snr_{us}_ms.png")
 
 
 
@@ -1148,7 +1137,9 @@ class inject_stats:
         bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins))
         #remove bin edges above max of self.inj_snr
         bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_snr)+0.5]
+        bin_edges_snr = bin_edges_snr[bin_edges_snr>0]
         bin_edges_width = bin_edges_width[bin_edges_width<max(self.inj_width)+5e-3]
+        bin_edges_width = bin_edges_width[bin_edges_width>0]
 
         all_2d_hist, xedges, yedges = np.histogram2d(all_det_vals, all_width_vals, bins=(bin_edges_snr,bin_edges_width))
         detected_2d_hist, xedges, yedges = np.histogram2d(detected_det_vals, detected_width_vals, bins=(bin_edges_snr,bin_edges_width))
