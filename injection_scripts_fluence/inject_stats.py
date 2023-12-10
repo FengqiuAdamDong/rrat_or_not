@@ -29,6 +29,9 @@ def create_matrix(x, y, z, norm=1):
     for i, s in enumerate(unique_snrs):
         for j, w in enumerate(unique_widths):
             ind = (x == s) & (y == w)
+            if sum(ind)==0:
+                det_matrix[i, j] = np.nan
+                continue
             if sum(ind)>1:
                 import pdb; pdb.set_trace()
             if norm==1:
@@ -85,13 +88,17 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
     mask = get_mask(rfimask, start_bin, nbinsextra)[::-1]
     print("get mask finished")
     masked_chans = mask.all(axis=1)
+    # masked_chans = np.load("data.npz")['masked_chans']
+
     # mask the data but set to the mean of the channel
-    mask_vals = np.median(data, axis=1)
-    for i in range(len(mask_vals)):
-        _ = data[i, :]
-        _m = mask[i, :]
-        _[_m] = mask_vals[i]
-        data[i, :] = _
+    # mask_vals = np.median(data, axis=1)
+    # for i in range(len(mask_vals)):
+    #     _ = data[i, :]
+    #     _m = mask[i, :]
+    #     _[_m] = mask_vals[i]
+    #     data[i, :] = _
+    print(f"Masked channels {len(masked_chans)}: {sum(masked_chans)}")
+
     return data, masked_chans
 
 
@@ -102,8 +109,10 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     nsamps = waterfall_dat.shape[1]
     nsamps = nsamps - nsamps % downsamp
     waterfall_dat = waterfall_dat[:,0:nsamps]
+    waterfall_dat = waterfall_dat.dedisperse(dm)
     waterfall_dat = waterfall_dat.downsample(tfactor=downsamp)
-    dat_ts = np.mean(waterfall_dat[~masked_chans, :], axis=0)
+    dat_ts = copy.deepcopy(waterfall_dat)[~masked_chans, :]
+    dat_ts = np.mean(dat_ts, axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
@@ -155,8 +164,6 @@ def grab_spectra_manual(
     if mask:
         print("masking data")
         data, masked_chans = maskfile(mask_fn, spec, ssamps, nsamps)
-        print(sum(masked_chans))
-    data = data.dedisperse(dm)
     waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
 
     if manual:
@@ -170,29 +177,9 @@ def grab_spectra_manual(
             downsamp=downsamp,
         )
 
-#        while amp==-1:
-#            #fit has failed, get a larger time window and try again
-#            # make a copy to plot the waterfall
-#            t_start = t_start - 1
-#            t_dur = t_dur + 2
-#            print(t_start,t_dur)
-#            if (t_start<0)|((t_start+t_dur)>(te-ts)):
-#                break
-#            nsamps_start_zoom = int(t_start / tsamp)
-#            nsamps_end_zoom = int((t_dur+t_start) / tsamp)
-#            print(nsamps_start_zoom,nsamps_end_zoom)
-#            waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
-#            amp, std, loc, sigma_width = fit_SNR_manual(
-#                dat_ts,
-#                tsamp * downsamp,
-#                fit_del,
-#                nsamps=int(t_dur/2 / tsamp / downsamp),
-#                ds_data=waterfall_dat,
-#                downsamp=downsamp,
-#            )
         if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
-            amp, std, loc, sigma_width = fit_SNR_manual(
+            amp, std, loc, sigma_width, FLUENCE = fit_SNR_manual(
                 dat_ts,
                 tsamp * downsamp,
                 fit_del,
@@ -209,22 +196,13 @@ def grab_spectra_manual(
             ts_no_ds_zoom_end = int(loc/tsamp + 0.9/tsamp)
             ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
             ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
-            #scale the ts with the std so everythin is in units of noise
-            #FLUENCE = fit_FLUENCE(
-            #    ts_no_ds/std,
-            #    tsamp,
-            #    3 * sigma_width,
-            #    nsamp=int(loc / tsamp),
-            #    ds_data=waterfall_dat,
-            #    plot=False,
-            #)
         else:
             FLUENCE = -1
     else:
         # fit using downsampled values
         # this is mostly used for the injections
         try:
-            amp, std, loc, sigma_width = autofit_pulse(
+            amp, std, loc, sigma_width, FLUENCE = autofit_pulse(
                 dat_ts,
                 tsamp * downsamp,
                 fit_del,
@@ -236,7 +214,7 @@ def grab_spectra_manual(
                 fit_width_guess = guess_width
             )
             #refit with new initial params
-            amp, std, loc, sigma_width = autofit_pulse(
+            amp, std, loc, sigma_width, FLUENCE = autofit_pulse(
                 dat_ts,
                 tsamp * downsamp,
                 fit_del,
@@ -252,21 +230,14 @@ def grab_spectra_manual(
             amp, std, loc, sigma_width = -1, -1, -1, -1
         #scale std by the sqrt of non masked chans
         std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
+        FLUENCE = FLUENCE/std
         SNR = amp / std
         # because loc is predetermined set start and end a predifined spot
         ts_no_ds_zoom_start = int(4.1/tsamp)
         ts_no_ds_zoom_end = int(5.9/tsamp)
         ts_no_ds = data[:, ts_no_ds_zoom_start : ts_no_ds_zoom_end]
         ts_no_ds = np.mean(ts_no_ds[~masked_chans, :], axis=0)
-        #FLUENCE = fit_FLUENCE(
-        #    ts_no_ds/std,
-        #    tsamp,
-        #    fit_del,
-        #    nsamp=int(loc / tsamp),
-        #    ds_data=waterfall_dat,
-        #    plot=False,
-        #)
-    FLUENCE = -1
+    # FLUENCE = -1
     # recalculate the amplitude given a gaussian pulse shape
     gaussian_amp = FLUENCE / sigma_width / np.sqrt(2 * np.pi)
     print("filename:", gf, "downsample:", downsamp, "FLUENCE:", FLUENCE)
@@ -350,7 +321,6 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
 
     SNR = Amplitude / std
     # once we have calculated the location
-    print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width}")
     if plot:
         print(f"Making plot {plot_name}_autofit.png")
         fig, axs = plt.subplots(2, 2)
@@ -367,50 +337,10 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         axs[1, 1].set_title("OG time series")
         plt.savefig(f"{plot_name}_autofit.png")
         plt.close()
-    return Amplitude, std, loc, sigma_width
-
-def fit_FLUENCE(ts, tsamp, width, nsamp, ds_data, plot=False):
-    # calculates the FLUENCE given a timeseries
-    w_bin = int(width / tsamp)
-    x = np.linspace(0, tsamp * len(ts), len(ts))
-    if (nsamp+w_bin)>ts.shape[0]:
-        #if pulse is on very edge then just reset nsamp to the middle, unfortunately, can't do anything about that
-        nsamp = int(ts.shape[0]/2)
-    ts_std = np.delete(ts, range(int(nsamp - w_bin), int(nsamp + w_bin)))
-    x_std = np.delete(x, range(int(nsamp - w_bin), int(nsamp + w_bin)))
-    # fit a polynomial
-    coeffs = np.polyfit(x_std, ts_std, 10)
-    poly = np.poly1d(coeffs)
-    # subtract the mean
-    ts_sub = ts - poly(x)
-    ts_start = ts[: int(nsamp - w_bin)]
-    x_start = x[: int(nsamp - w_bin)]
-    ts_start = ts_start - poly(x_start)
-    ts_end = ts[int(nsamp + w_bin) :]
-    x_end = x[int(nsamp + w_bin) :]
-    ts_end = ts_end - poly(x_end)
-
-    fluence_noise = np.trapz(ts_start, x_start) + np.trapz(ts_end, x_end)
-    print("fluence noise", fluence_noise)
-    # grab just the window
-    ts_fluence = ts_sub[nsamp - w_bin : nsamp + w_bin]
-    x_fluence = x[nsamp - w_bin : nsamp + w_bin]
-    # fluence = np.trapz(ts_fluence,x_fluence)
-    # just integrate over the whole thing for fluence
+    #after the mean is subtracted calculate fluence ***this fluence is not normalised, ie. we haven't divided by the std
     fluence = np.trapz(ts_sub, x)
-    if plot:
-        fig, axs = plt.subplots(2, 2)
-        axs[0, 0].plot(x_start, ts_start)
-        axs[0, 0].plot(x_end, ts_end)
-        axs[0, 0].set_title("burst_removed")
-        axs[1, 0].plot(x, ts_sub)
-        axs[1, 0].set_title("baseline subtracted")
-        axs[1, 1].plot(x, ts)
-        axs[1, 1].set_title("OG time series")
-        plt.show()
-
-    return fluence
-
+    print(f"Fitted loc:{loc} amp:{Amplitude} std:{std} width sigma:{sigma_width} fluence:{fluence}")
+    return Amplitude, std, loc, sigma_width, fluence
 
 def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # calculates the SNR given a timeseries
@@ -557,9 +487,10 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     sigma_width = fitx[2]
 
     SNR = Amplitude / std[0]
+    fluence = np.trapz(ts_sub, dx=tsamp )
     # once we have calculated the location
     print(f"Fitted loc:{loc} amp:{Amplitude} std:{std[0]} width sigma:{sigma_width}")
-    return Amplitude, std[0], loc, sigma_width
+    return Amplitude, std[0], loc, sigma_width, fluence
 
 
 def logistic(x, k, x0):
@@ -800,8 +731,11 @@ class inject_stats:
         inj_snr = []
         det_width = []
         inj_width = []
+        det_fluence = []
+        inj_fluence =[]
         det_snr_std = []
         det_width_std = []
+        det_fluence_std = []
         noise_std = []
         det_amp = []
         det_amp_std = []
@@ -812,6 +746,9 @@ class inject_stats:
 
             det_width.append(np.mean(s.det_std))
             det_width_std.append(np.std(s.det_std))
+
+            det_fluence.append(np.mean(s.det_fluence))
+            det_fluence_std.append(np.std(s.det_fluence))
 
             inj_width.append(np.mean(s.width))
             inj_snr.append(np.mean(s.snr))
@@ -827,9 +764,12 @@ class inject_stats:
         det_width_std = np.array(det_width_std)
         inj_snr = np.array(inj_snr)
         inj_width = np.array(inj_width)
+
+        #calculate inj_fluence from snr and width
+        inj_fluence = inj_snr*inj_width/0.3989
+        det_fluence = np.array(det_fluence)
+        det_fluence_std = np.array(det_fluence_std)
         det_snr_std = np.array(det_snr_std)
-
-
         unique_snrs, unique_widths, det_matrix_width = create_matrix(inj_snr, inj_width, det_width,norm=1)
         unique_snrs, unique_widths, det_matrix_snr = create_matrix(inj_snr, inj_width, det_snr,norm=0)
         unique_snrs, unique_widths, det_matrix_width_std = create_matrix(inj_snr, inj_width, det_width_std,norm=-1)
@@ -870,8 +810,53 @@ class inject_stats:
         axes[1,1].set_ylabel("Injected SNR")
         axes[1,1].set_title("Detected SNR STD")
         plt.tight_layout()
+        unique_fluences, unique_width_fs, det_matrix_width_f = create_matrix(inj_fluence, inj_width, det_width,norm=1)
+        unique_fluences, unique_width_fs, det_matrix_fluence = create_matrix(inj_fluence, inj_width, det_fluence,norm=0)
+        unique_fluences, unique_width_fs, det_matrix_width_f_std = create_matrix(inj_fluence, inj_width, det_width_std,norm=-1)
+        unique_fluences, unique_width_fs, det_matrix_fluence_std = create_matrix(inj_fluence, inj_width, det_fluence_std,norm=-1)
+        #convert to ms
+        unique_width_fs = unique_width_fs*1000
+        fig,axes = plt.subplots(2,2,figsize=(10,10))
+        #set maximum and minumum colors to 0.5 and 1.5
+        mesh = axes[0,0].pcolormesh(unique_width_fs, unique_fluences, det_matrix_width_f)
+        mesh.set_clim(0.8,1.2)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected Width_F / Injected Width_F")
+        axes[0,0].set_xlabel("Injected Width_F (ms)")
+        axes[0,0].set_ylabel("Injected FLUENCE")
+        axes[0,0].set_title("Detected Width_F")
 
-        plt.savefig(f"{title}_amp.png")
+        mesh = axes[0,1].pcolormesh(unique_width_fs, unique_fluences, det_matrix_fluence)
+        mesh.set_clim(0.8,1.2)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected FLUENCE / Injected FLUENCE")
+        axes[0,1].set_xlabel("Injected Width_F (ms)")
+        axes[0,1].set_ylabel("Injected FLUENCE")
+        axes[0,1].set_title("Detected FLUENCE")
+
+        mesh = axes[1,0].pcolormesh(unique_width_fs, unique_fluences, det_matrix_width_f_std*1000)
+        mesh.set_clim(0,10)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected Width_F STD (ms)")
+        axes[1,0].set_xlabel("Injected Width_F (ms)")
+        axes[1,0].set_ylabel("Injected FLUENCE")
+        axes[1,0].set_title("Detected Width_F STD")
+
+        mesh = axes[1,1].pcolormesh(unique_width_fs, unique_fluences, det_matrix_fluence_std)
+        # mesh.set_clim(0,1)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detected FLUENCE STD")
+        axes[1,1].set_xlabel("Injected Width_F (ms)")
+        axes[1,1].set_ylabel("Injected FLUENCE")
+        axes[1,1].set_title("Detected FLUENCE STD")
+        plt.tight_layout()
+
+
+        plt.show()
+        if hasattr(self, "base_fn"):
+            plt.savefig(self.base_fn + "_amp.png")
+        else:
+            plt.show()
         plt.close()
         ind = np.argsort(inj_snr)
         self.det_snr = det_snr[ind]
@@ -880,39 +865,23 @@ class inject_stats:
         self.det_width = det_width[ind]
         self.det_width_std = det_width_std[ind]
         self.inj_width = inj_width[ind]
-
-        self.sorted_inject = np.array(self.sorted_inject)[ind]
-        # take the average of the last 3 for the error
-        self.detect_error_snr = np.sqrt(np.mean(self.det_snr_std[-3:]**2))
-        print(self.detect_error_snr)
-
-    def calculate_fluence_statistics(self):
-        det_fluence = []
-        det_fluence_std = []
-        inj_fluence = []
-        for s in self.sorted_inject:
-            det_fluence.append(np.mean(s.det_fluence))
-            det_fluence_std.append(np.std(s.det_fluence))
-            inj_fluence.append(np.mean(s.fluence))
-        det_fluence = np.array(det_fluence)
-        inj_fluence = np.array(inj_fluence)
-        det_fluence_std = np.array(det_fluence_std)
-        p = np.polyfit(det_fluence, inj_fluence, deg=1)
-        x = np.linspace(0, 0.004)
-        poly = np.poly1d(p)
-
-        plt.figure()
-        plt.plot(x, poly(x))
-        plt.errorbar(det_fluence, inj_fluence, xerr=np.array(det_fluence_std), fmt=".")
-        plt.ylabel("Injected FLUENCE")
-        plt.xlabel("Detected FLUENCE")
-        plt.show()
-        ind = np.argsort(inj_fluence)
         self.det_fluence = det_fluence[ind]
         self.det_fluence_std = det_fluence_std[ind]
         self.inj_fluence = inj_fluence[ind]
-        self.poly_fluence = p
-        self.detect_error_fluence = np.mean(self.det_fluence_std[-3:])
+
+        self.sorted_inject = np.array(self.sorted_inject)[ind]
+        # take the average of the last 3 for the error
+        #hardcode larger than widt 10ms
+        sm, wm = np.meshgrid(unique_snrs, unique_widths, indexing="ij")
+        mask = (wm > 12) & (wm < 18) & (sm > 3)
+
+        sfm, wfm = np.meshgrid(unique_fluences, unique_width_fs, indexing="ij")
+        fmask = (wfm > 12) & (wfm < 18) & (sfm > 0.14)
+        #add the errors in quadrature
+        self.detect_error_snr = np.sqrt(np.nanmean(det_matrix_snr_std[mask]**2))
+        self.detect_error_width = np.sqrt(np.nanmean(det_matrix_width_std[mask]**2))
+        self.detect_error_fluence = np.sqrt(np.nanmean(det_matrix_fluence_std[fmask]**2))
+        print(f"SNR error: {self.detect_error_snr}, width error: {self.detect_error_width}, fluence error: {self.detect_error_fluence}")
 
     def detected_truth(self, si, truth_arr):
         # if we have detected truth array then or the thing, if not then create
@@ -966,53 +935,97 @@ class inject_stats:
             if i>0:
                 print(csv,sum(extra))
         det_frac = []
-        for si in self.sorted_inject:
-            print(f"snr {np.mean(si.snr)}",f"width {np.mean(si.width)}",'detection frac',sum(si.detected)/len(si.detected))
+
+        #remove the lowest snr so that our statistics don't get ruined
+        mask = (self.inj_snr > 1)#&(self.inj_width>5e-3)
+        inj_snr = self.inj_snr[mask]
+        inj_width = self.inj_width[mask]
+        inj_fluence = self.inj_fluence[mask]
+        sorted_inject = self.sorted_inject[mask]
+
+
+        for si in sorted_inject:
+            # print(f"snr {np.mean(si.snr)}",f"width {np.mean(si.width)}",'detection frac',sum(si.detected)/len(si.detected))
             det_frac.append(sum(si.detected)/len(si.detected))
         det_frac = np.array(det_frac)
-
         # get lists to plot
-        unique_snrs, unique_widths, det_frac_matrix = create_matrix(self.inj_snr, self.inj_width, det_frac,norm=2)
+        unique_snrs, unique_widths, det_frac_matrix_snr = create_matrix(inj_snr, inj_width, det_frac,norm=2)
+        unique_fluence, unique_width_fs, det_matrix_fluence = create_matrix(inj_fluence, inj_width, det_frac,norm=2)
 
-        # detected_sample = self.sorted_inject[(self.inj_snr>2)&(self.inj_width>10e-3)]
-        detected_sample = self.sorted_inject
-        # self.detected_pulses = np.array(list(s.detected for s in detected_sample))
-        detected_amplitudes = list(s.det_snr[s.detected] for s in detected_sample)
+        # detected_sample = sorted_inject[(self.inj_snr>2)&(self.inj_width>10e-3)]
+        detected_sample = sorted_inject
+
+        detected_amplitudes_snr = list(s.det_snr[s.detected] for s in detected_sample)
+        detected_amplitudes_fluence = list(s.det_fluence[s.detected] for s in detected_sample)
         detected_widths = list(s.det_std[s.detected] for s in detected_sample)
-        all_det_amplitudes = list(s.det_snr for s in detected_sample)
+        all_det_amplitudes_snr = list(s.det_snr for s in detected_sample)
+        all_det_amplitudes_fluence = list(s.det_fluence for s in detected_sample)
         all_det_widths = list(s.det_std for s in detected_sample)
         #flatten the lists
-        # self.detected_pulses = self.detected_pulses.flatten()
-        detected_amplitudes = [item for sublist in detected_amplitudes for item in sublist]
+        detected_amplitudes_snr = [item for sublist in detected_amplitudes_snr for item in sublist]
+        detected_amplitudes_fluence = [item for sublist in detected_amplitudes_fluence for item in sublist]
         detected_widths = [item for sublist in detected_widths for item in sublist]
-        all_det_amplitudes = [item for sublist in all_det_amplitudes for item in sublist]
+        all_det_amplitudes_snr = [item for sublist in all_det_amplitudes_snr for item in sublist]
+        all_det_amplitudes_fluence = [item for sublist in all_det_amplitudes_fluence for item in sublist]
         all_det_widths = [item for sublist in all_det_widths for item in sublist]
 
+        self.all_det_amplitudes_snr = np.array(all_det_amplitudes_snr)
+        self.all_det_amplitudes_fluence = np.array(all_det_amplitudes_fluence)
+        self.all_det_widths = np.array(all_det_widths)
+        self.detected_widths = np.array(detected_widths)
+        self.detected_amplitudes_snr = np.array(detected_amplitudes_snr)
+        self.detected_amplitudes_fluence = np.array(detected_amplitudes_fluence)
 
-        self.bin_detections_2d(all_det_amplitudes, detected_amplitudes, all_det_widths, detected_widths, num_bins=10,plot=False)
-        fig,axes = plt.subplots(1,2,figsize=(10,10))
-        mesh = axes[0].pcolormesh(unique_widths*1000, unique_snrs, det_frac_matrix)
+        self.unique_snrs = unique_snrs
+        self.unique_widths = unique_widths
+        self.det_frac_matrix_snr = det_frac_matrix_snr
+        self.unique_fluence = unique_fluence
+        self.unique_width_fs = unique_width_fs
+        self.det_matrix_fluence = det_matrix_fluence
+
+        self.bin_detections_2d(self.all_det_amplitudes_snr, self.detected_amplitudes_snr, self.all_det_widths, self.detected_widths, num_bins=10,plot=False, fluence=False)
+        self.bin_detections_2d(self.all_det_amplitudes_fluence, self.detected_amplitudes_fluence, self.all_det_widths, self.detected_widths, num_bins=10,plot=False, fluence=True)
+        fig,axes = plt.subplots(2,2,figsize=(10,10))
+        mesh = axes[0,0].pcolormesh(unique_widths*1000, unique_snrs, det_frac_matrix_snr)
         mesh.set_clim(0,1)
         cbar = plt.colorbar(mesh)
         cbar.set_label("Detection Fraction")
-        axes[0].set_xlabel("Width (ms)")
-        axes[0].set_ylabel("S/N")
+        axes[0,0].set_xlabel("Width (ms)")
+        axes[0,0].set_ylabel("S/N")
 
-        mesh = axes[1].pcolormesh(self.detected_bin_midpoints[1]*1000,self.detected_bin_midpoints[0],self.detected_det_frac)
+        mesh = axes[0,1].pcolormesh(self.detected_bin_midpoints_snr[1]*1000,self.detected_bin_midpoints_snr[0],self.detected_det_frac_snr)
         cbar = plt.colorbar(mesh)
         mesh.set_clim(0,1)
         cbar.set_label("Detection Fraction (binned)")
-        axes[1].set_xlabel("Width (ms)")
-        axes[1].set_ylabel("S/N")
+        axes[1,0].set_xlabel("Width (ms)")
+        axes[1,0].set_ylabel("S/N")
         plt.tight_layout()
+
+        mesh = axes[1,0].pcolormesh(unique_width_fs*1000, unique_fluence, det_matrix_fluence)
+        mesh.set_clim(0,1)
+        cbar = plt.colorbar(mesh)
+        cbar.set_label("Detection Fraction")
+        axes[1,0].set_xlabel("Width (ms)")
+        axes[1,0].set_ylabel("Fluence (Jy s)")
+
+        mesh = axes[1,1].pcolormesh(self.detected_bin_midpoints_fluence[1]*1000,self.detected_bin_midpoints_fluence[0],self.detected_det_frac_fluence)
+        cbar = plt.colorbar(mesh)
+        mesh.set_clim(0,1)
+        cbar.set_label("Detection Fraction (binned)")
+        axes[1,1].set_xlabel("Width (ms)")
+        axes[1,1].set_ylabel("Fluence (Jy s)")
+        plt.tight_layout()
+
+
         plt.savefig(f"{title}.png")
         plt.close()
         # plt.show()
 
+
         #high width sample
         # unique_widths = np.unique(self.inj_width)
         # for uw in unique_widths:
-        #     detected_sample = self.sorted_inject[self.inj_width==uw]
+        #     detected_sample = self.sorted_inject[(self.inj_width==uw)&(self.inj_snr>1)]
         #     true_inj_amplitude = list(np.mean(s.snr) for s in detected_sample)
         #     true_inj_ampltiude_all = np.array(list(s.snr for s in detected_sample))
         #     #flatten the list
@@ -1032,24 +1045,24 @@ class inject_stats:
 
 
         #     self.bin_detections(all_det_amplitudes, detected_amplitudes)
-        #     fig,axes = plt.subplots(1,3,figsize=(10,10))
+        #     fig,axes = plt.subplots(1,2,figsize=(10,10))
         #     axes[0].plot(true_inj_amplitude,detected_frac)
         #     axes[0].set_xlabel("True S/N")
         #     axes[0].set_ylabel("Detection Fraction")
-        #     axes[1].plot(self.detected_bin_midpoints,self.detected_det_frac)
-        #     axes[1].set_xlabel("True S/N")
-        #     axes[1].set_ylabel("Detection Fraction")
-        #     sc = axes[2].scatter(np.arange(len(all_det_amplitudes)),all_det_amplitudes/true_inj_ampltiude_all,c=true_inj_ampltiude_all)
+        #     axes[0].plot(self.detected_bin_midpoints,self.detected_det_frac)
+        #     sc = axes[1].scatter(np.arange(len(all_det_amplitudes)),all_det_amplitudes/true_inj_ampltiude_all,c=true_inj_ampltiude_all)
         #     cbar = plt.colorbar(sc)
         #     cbar.set_label("True S/N")
-        #     axes[2].set_xlabel("Detection Number")
-        #     axes[2].set_ylabel("Detected S/N/True S/N")
+        #     axes[1].set_xlabel("Detection Number")
+        #     axes[1].set_ylabel("Detected S/N/True S/N")
         #     plt.title(f"Width {uw*1000} ms")
         #     plt.tight_layout()
         #     plt.savefig(f"width_{uw*1000}_ms.png")
 
         # unique_snrs = np.unique(self.inj_snr)
         # for us in unique_snrs:
+        #     if us<1:
+        #         continue
         #     detected_sample = self.sorted_inject[self.inj_snr==us]
         #     true_inj_width = np.array(list(np.mean(s.width) for s in detected_sample))
         #     true_inj_width_all = np.array(list(s.width for s in detected_sample))
@@ -1068,19 +1081,17 @@ class inject_stats:
 
 
         #     self.bin_detections(all_det_widths, detected_widths)
-        #     fig,axes = plt.subplots(1,3,figsize=(10,10))
+        #     fig,axes = plt.subplots(1,2,figsize=(10,10))
         #     axes[0].scatter(true_inj_width*1e3,detected_frac)
         #     axes[0].set_xlabel("True width")
         #     axes[0].set_ylabel("Detection Fraction")
-        #     axes[1].scatter(self.detected_bin_midpoints*1e3,self.detected_det_frac)
-        #     axes[1].set_xlabel("True widths")
-        #     axes[1].set_ylabel("Detection Fraction")
-        #     sc = axes[2].scatter(np.arange(len(all_det_widths)),all_det_widths/true_inj_width_all,c=true_inj_width_all*1e3)
+        #     axes[0].scatter(self.detected_bin_midpoints*1e3,self.detected_det_frac)
+        #     sc = axes[1].scatter(np.arange(len(all_det_widths)),all_det_widths/true_inj_width_all,c=true_inj_width_all*1e3)
         #     #set colorbar
         #     cbar = plt.colorbar(sc)
         #     cbar.set_label("True width (ms)")
-        #     axes[2].set_xlabel("index")
-        #     axes[2].set_ylabel("Detected width / True width")
+        #     axes[1].set_xlabel("index")
+        #     axes[1].set_ylabel("Detected width / True width")
 
         #     plt.title(f"S/N {us}")
         #     plt.tight_layout()
@@ -1125,21 +1136,33 @@ class inject_stats:
         self.detected_bin_midpoints = self.detected_bin_midpoints[:-2]
         self.detected_det_frac = self.detected_det_frac[:-2]
 
-    def bin_detections_2d(self,all_det_vals, detected_det_vals, all_width_vals, detected_width_vals, num_bins=20,plot=False):
+    def bin_detections_2d(self,all_det_vals, detected_det_vals, all_width_vals, detected_width_vals, num_bins=20,plot=False, fluence=False):
         # set the number of data points per bin
-        self.num_points_per_bin_snr = len(all_det_vals) // num_bins
-        self.num_points_per_bin_width = len(all_width_vals) // num_bins
-        print("number of points in each bin amplitude", self.num_points_per_bin_snr)
-        print("number of points in each bin width", self.num_points_per_bin_width)
+        # if fluence is set to true, all the "snr" things are supposed to be fluence
+        # self.num_points_per_bin_snr = len(all_det_vals) // num_bins
+        # self.num_points_per_bin_width = len(all_width_vals) // num_bins
+        # print("number of points in each bin amplitude", self.num_points_per_bin_snr)
+        # print("number of points in each bin width", self.num_points_per_bin_width)
 
         # calculate the bin edges based on the percentiles of the data
-        bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
-        bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins))
+        # bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
+        # bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins))
+        all_mask = (all_det_vals<(max(self.inj_snr)+0.5)) & (all_width_vals<(max(self.inj_width)+1e-3)) & (all_width_vals>2e-3)
+        det_mask = (detected_det_vals<(max(self.inj_snr)+0.5)) & (detected_width_vals<(max(self.inj_width)+1e-3))& (detected_width_vals>2e-3)
+        all_det_vals = all_det_vals[all_mask]
+        detected_det_vals = detected_det_vals[det_mask]
+        all_width_vals = all_width_vals[all_mask]
+        detected_width_vals = detected_width_vals[det_mask]
+
+
+        bin_edges_snr = np.histogram_bin_edges(all_det_vals, bins=num_bins)
+        bin_edges_width = np.histogram_bin_edges(all_width_vals, bins=num_bins)
         #remove bin edges above max of self.inj_snr
-        bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_snr)+0.5]
-        bin_edges_snr = bin_edges_snr[bin_edges_snr>0]
-        bin_edges_width = bin_edges_width[bin_edges_width<max(self.inj_width)+5e-3]
-        bin_edges_width = bin_edges_width[bin_edges_width>0]
+        # if fluence:
+        #     bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_fluence)+0.4]
+        # else:
+        #     bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_snr)+0.5]
+        # bin_edges_width = bin_edges_width[bin_edges_width<max(self.inj_width)+5e-3]
 
         all_2d_hist, xedges, yedges = np.histogram2d(all_det_vals, all_width_vals, bins=(bin_edges_snr,bin_edges_width))
         detected_2d_hist, xedges, yedges = np.histogram2d(detected_det_vals, detected_width_vals, bins=(bin_edges_snr,bin_edges_width))
@@ -1150,7 +1173,10 @@ class inject_stats:
             mesh = axes.pcolormesh(xedges, yedges, detected_2d_frac)
             cbar = plt.colorbar(mesh)
             cbar.set_label("Detection Fraction")
-            axes.set_xlabel("S/N")
+            if fluence:
+                axes.set_xlabel("fluence")
+            else:
+                axes.set_xlabel("S/N")
             axes.set_ylabel("Width (ms)")
             plt.show()
 
@@ -1158,76 +1184,12 @@ class inject_stats:
         x_bin_midpoints = (xedges[1:] + xedges[:-1])/2
         y_bin_midpoints = (yedges[1:] + yedges[:-1])/2
 
-
-        self.detected_bin_midpoints = (x_bin_midpoints,y_bin_midpoints)
-        self.detected_det_frac = detected_2d_frac
-
-    def predict_poly(self,predict_x,x,p,poly=-99,start_point = 2.2,plot=False,title="polynomial fit"):
-        if isinstance(poly,int):
-            poly = self.poly_det_fit
-
-        predict = np.poly1d(poly)
-        p_pred = predict(predict_x)
-        #find the closest index of x to start_point
-        i = np.argmin(np.abs(predict_x-start_point))
-        while (p_pred[i]>np.min(p)) & (p_pred[i]>0):
-            i -= 1
-            if i==0:
-                break
-        set_0 = i+1
-        while (p_pred[i]<np.max(p)) & (p_pred[i]<1):
-            i += 1
-            if i==len(p_pred):
-                break
-        set_1 = i
-        p_pred[:set_0] = np.min(p)
-        p_pred[set_1:] = np.max(p)
-        if plot:
-            fig,axes = plt.subplots(1,1)
-            axes.scatter(x,p,label="Raw",c='r')
-            axes.plot(predict_x,p_pred,label="poly_fit")
-            axes.set_xlabel("Amplitude")
-            axes.set_ylabel("Det Frac")
-            axes.set_title(title)
-            axes.set_ylim([-0.5,1.5])
-            axes.legend()
-
-        return p_pred
-
-    def fit_poly(self,x,p,deg=4,plot=False):
-        ind_1 = np.argwhere(p==max(p))
-        ind_0 = np.argwhere(p==min(p))
-        ind_0 = max(ind_0)[0]-1
-        ind_1 = min(ind_1)[0]+1
-        if ind_0<0:
-            ind_0 = 0
-        if ind_1>(len(x)-1):
-            ind_1 = len(x)-1
-        poly = np.polyfit(x[ind_0:ind_1],p[ind_0:ind_1],deg=deg)
-        return poly
-
-    def fit_gen_log(self,p,x):
-        x_pad_upper = np.linspace(0,10,1000)+np.max(x)
-        x_pad_lower = np.linspace(0,-10,1000)+np.min(x)
-        p_pad_upper = np.zeros(len(x_pad_upper))+1
-        p_pad_lower = np.zeros(len(x_pad_lower))
-
-        p_train = np.append(p,p_pad_lower)
-        p_train = np.append(p_train,p_pad_upper)
-        x_train = np.append(x,x_pad_lower)
-        x_train = np.append(x_train,x_pad_upper)
-        popt, pcov = opt.curve_fit(gen_log, x_train, p_train, [1, 1, 1, 1, 1,1], maxfev=int(1e6))
-        x_test = np.linspace(-10,10,10000)
-        y_mean = gen_log(x_test,popt[0],popt[1],popt[2],popt[3],popt[4],popt[5])
-        fig,axes = plt.subplots(1,1)
-        axes.scatter(x_train,p_train,label="Raw",c='r')
-        axes.plot(x_test,y_mean,label="genlog_fit")
-        axes.set_xlabel("Amplitude")
-        axes.set_ylabel("Det Frac")
-        axes.set_title("Gaussian Process fit")
-        axes.legend()
-        plt.show()
-
+        if fluence:
+            self.detected_bin_midpoints_fluence = (x_bin_midpoints,y_bin_midpoints)
+            self.detected_det_frac_fluence = detected_2d_frac
+        else:
+            self.detected_bin_midpoints_snr = (x_bin_midpoints,y_bin_midpoints)
+            self.detected_det_frac_snr = detected_2d_frac
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

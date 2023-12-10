@@ -42,7 +42,7 @@ cp -r *rfifind* $SLURM_TMPDIR
 echo $fil
 echo $mask
 cd $SLURM_TMPDIR
-python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 150 --n 60 $fil
+python "$SCRIPT_DIR"/inject_pulses_sigpyproc.py --m $mask --d 150 --n 60 $fil --multi 5
 #come back
 cd -
 cp $SLURM_TMPDIR/*SNR*.fil .

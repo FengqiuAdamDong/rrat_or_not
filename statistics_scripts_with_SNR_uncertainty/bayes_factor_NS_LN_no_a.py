@@ -18,6 +18,7 @@ from dynesty import utils as dyfunc
 import glob
 import yaml
 import cupy as cp
+from scipy import stats
 parser = argparse.ArgumentParser(description="Simulate some pulses")
 #add an argument for config file
 parser.add_argument("-f", default="simulated_dir", help="folder with the simulated pulses")
@@ -139,7 +140,9 @@ if __name__ == "__main__":
         def pt_Uniform_N(x):
             ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
             ptsigma = (logn_std_range[1] - logn_std_range[0]) * x[1] + logn_std_range[0]
-            ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
+            # ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
+            ptN = stats.randint.ppf(x[2], logn_N_range[0], logn_N_range[1])
+            # print(ptN)
             return np.array([ptmu, ptsigma, ptN])
 
         def loglikelihood(theta, det_snr, xlim_interp):
@@ -157,6 +160,8 @@ if __name__ == "__main__":
                 xlim = max(det_snr)*2
             # xlim=100
             X = {"mu": LN_mu, "std": LN_std, "N": theta[2], "a":0, "lower_c":lower_c, "upper_c":upper_c}
+
+            # print("X",X)
             return statistics.total_p(X, snr_arr = det_snr, use_a=False,use_cutoff=True,xlim=xlim,cuda_device=cuda_device)
 
         def plot_fit(ln_a_sresults):
@@ -184,14 +189,14 @@ if __name__ == "__main__":
         dill_fn = ".".join(dill_fn)
         checkpoint_fn = os.path.join(folder, f"{dill_fn}.h5")
         print("checkpoint_fn",checkpoint_fn)
-        with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
-            ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-                                                nlive=256,pool=pool, queue_size=pool.njobs)
-            ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+        # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
+            # ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
+                                                # nlive=256,pool=pool, queue_size=pool.njobs)
+            # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
-        # ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
-                                             # logl_args=[det_snr,xlim_interp], nlive=10000)
-        # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+        ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,
+                                             logl_args=[det_snr,xlim_interp], nlive=10000)
+        ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
         ln_a_sresults = ln_sampler_a.results
         fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue',labels=["mu","sigma","N"], truths=np.zeros(nDims),
                                 truth_color='black', show_titles=True,

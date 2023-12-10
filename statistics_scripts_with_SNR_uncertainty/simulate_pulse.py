@@ -5,14 +5,16 @@ import os
 from scipy.stats import expon
 import statistics_basic
 
-def n_detect(snr_emit,inj_stats_fn=""):
+def n_detect(snr_emit,width_emit,sb,fluence=False):
     # snr emit is the snr that the emitted pulse has
-    p = statistics_basic.p_detect_cpu(snr_emit)
+    points = (snr_emit,width_emit)
+    p = sb.p_detect_cpu(points,fluence=fluence)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
-    detected = snr_emit[rands < p]
-    return detected
+    detected_snr = snr_emit[rands < p]
+    detected_width = width_emit[rands < p]
+    return detected_snr,detected_width
 
 
 # so in this script we need to simulate N pulses from a pulsar
