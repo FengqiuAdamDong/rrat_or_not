@@ -92,15 +92,14 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
     process_data(dill_file, detected_pulses_snr, detected_pulses_width,detected_pulses_fluence, out_fn)
     yaml_fn = os.path.join(out_fol,f"simulated_{mode}_{detected_req}_{mu}_{std}_{a}.yaml")
     if mode == "Lognorm":
-        write_yaml(mu_ln,std_ln,a,len(total_pulses_snr),inj_file,yaml_fn)
+        write_yaml(mu_ln,std_ln,w_mu_ln,w_std_ln,a,len(total_pulses_snr),inj_file,yaml_fn)
     elif mode == "Exp":
         write_yaml_exp(mu_ln,a,len(total_pulses_snr),inj_file,yaml_fn)
 
     if plot:
         snr_array = np.linspace(0, 20, 1000)
-        width_array = np.linspace(2, 20, 1000) * 1e-3
-
-        likelihood, p_det, conv_amp_array, conv_w_array = sb.first_plot(snr_array, width_array,
+        width_array = np.linspace(0, 20, 1000) * 1e-3
+        likelihood, p_det = sb.first_plot(detected_pulses_snr, detected_pulses_width,
                                                                                                     mu_ln, std_ln,
                                                                                                     w_mu_ln, w_std_ln,
                                                                                                     sigma_amp = sigma_snr,
@@ -108,8 +107,15 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
                                                                                                     a=a,
                                                                                                     lower_c=lower,
                                                                                                     upper_c=upper,)
-
-        likelihood_norm = likelihood / np.trapz(np.trapz(likelihood, conv_w_array, axis=0), conv_amp_array)
+        # likelihood, p_det = sb.first_plot(snr_array, width_array,
+        #                                                                                             mu_ln, std_ln,
+        #                                                                                             w_mu_ln, w_std_ln,
+        #                                                                                             sigma_amp = sigma_snr,
+        #                                                                                             sigma_w = sigma_width,
+        #                                                                                             a=a,
+        #                                                                                             lower_c=lower,
+        #                                                                                             upper_c=upper,)
+        # likelihood_norm = likelihood / np.trapz(np.trapz(likelihood, snr_array, axis=1), width_array)
         #make a 2d histogram of the detections
         fig, axes = plt.subplots(1, 2, figsize=(15, 5))
         h, xedges, yedges, mesh = axes[0].hist2d(detected_pulses_snr, detected_pulses_width, bins=50, density=True)
@@ -119,7 +125,8 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
         axes[0].set_xlabel("snr")
         axes[0].set_ylabel("width")
         axes[0].set_title("detected pulses")
-        mesh = axes[1].pcolormesh(conv_amp_array, conv_w_array, likelihood_norm)
+        # mesh = axes[1].pcolormesh(snr_array, width_array, likelihood_norm)
+        axes[1].scatter(detected_pulses_snr, detected_pulses_width,c=likelihood,s=10)
         cbar = fig.colorbar(mesh, ax=axes[1])
         cbar.ax.set_ylabel("likelihood")
         axes[1].set_xlabel("snr")
@@ -128,40 +135,48 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
         #apply axes[0] limits to axes[1]
         axes[1].set_xlim(axes[0].get_xlim())
         axes[1].set_ylim(axes[0].get_ylim())
+        plt.show()
 
         #plot the marginalised distributions
-        marg_l_amp = np.trapz(likelihood_norm, conv_w_array, axis=0)
-        marg_l_w = np.trapz(likelihood_norm, conv_amp_array, axis=1)
+        marg_l_amp = np.trapz(likelihood_norm, width_array, axis=0)
+        marg_l_w = np.trapz(likelihood_norm, snr_array, axis=1)
         fig, axes = plt.subplots(1, 2, figsize=(15, 5))
         n,bins,ax = axes[0].hist(detected_pulses_width, bins="auto", density=True, label="detected")
-        axes[0].plot(conv_w_array, marg_l_w, label="likelihood")
+        axes[0].plot(width_array, marg_l_w, label="likelihood")
         axes[0].set_xlabel("width")
         axes[0].set_ylabel("density")
         axes[0].set_title("marginalised over amp")
         axes[0].legend()
         axes[1].hist(detected_pulses_snr, bins="auto", density=True, label="detected")
-        axes[1].plot(conv_amp_array, marg_l_amp, label="likelihood")
+        axes[1].plot(snr_array, marg_l_amp, label="likelihood")
         axes[1].set_xlabel("snr")
         axes[1].set_ylabel("density")
         axes[1].set_title("marginalised over width")
         axes[1].legend()
         plt.show()
 
-def write_yaml(mu,std,a,N,inj_file,output_fn):
+def write_yaml(mu,std,mu_w,std_w,a,N,inj_file,output_fn):
     mu = float(mu)
     mu_arr = [mu-1,mu+1]
+    mu_w = float(mu_w)
+    mu_w_arr = [mu_w-1,mu_w+1]
     data = {
         'logn_N_range': [-1,(N)*2],
         'logn_mu_range': list(mu_arr),
         'logn_std_range': [std-0.5, std+0.5],
+        'logn_mu_w_range': list(mu_w_arr),
+        'logn_std_w_range': [std_w-0.5, std_w+0.5],
         'exp_N_range': [-1,N*2],
         'exp_k_range': [0.1, 10],
         'detection_curve': inj_file,
-        'snr_thresh': 1.3,
+        'snr_thresh': 2.0,
+        'width_thresh': 0.005,
         'a': a,
         'N': N,
         'mu': mu,
+        'mu_w': mu_w,
         'std': std,
+        'std_w': std_w,
     }
     with open(output_fn,'w') as my_file:
         yaml.dump(data, my_file)
@@ -277,7 +292,8 @@ from statistics import statistics_ln
 #
 if __name__ == "__main__":
     #simulate pulses one at a time
-    sb = statistics_ln(inj_file,plot=False)
+    sb = statistics_ln(inj_file,plot=True)
+    sb.convolve_p_detect()
     for mu in mu_arr:
         std = std_arr[0]
         lower = 0
