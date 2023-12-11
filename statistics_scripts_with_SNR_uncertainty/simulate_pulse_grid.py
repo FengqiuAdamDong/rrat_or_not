@@ -5,6 +5,7 @@ import numpy as np
 import sys
 from simulate_pulse import simulate_pulses
 from simulate_pulse import n_detect
+from simulate_pulse import n_detect_true
 from simulate_pulse import simulate_pulses_exp
 from simulate_pulse import simulate_pulses_gauss
 import matplotlib.pyplot as plt
@@ -22,16 +23,21 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
     detected_pulses_snr = []
     detected_pulses_width = []
     detected_pulses_fluence = []
+    detected_pulses_snr_true = []
+    detected_pulses_width_true = []
+    detected_pulses_fluence_true = []
     total_pulses_snr = []
     total_pulses_width = []
     total_pulses_fluence = []
-
+    true_pulses_snr = []
+    true_pulses_width = []
+    true_pulses_fluence = []
     sigma_snr = sb.detected_error_snr
     sigma_width = sb.detected_error_width
     sigma_fluence = sb.detected_error_fluence
 
     while len(detected_pulses_snr) < detected_req:
-        obs_t = 1
+        obs_t = 1000
         p = 1
         f = 1
         if mode == "Exp":
@@ -55,15 +61,19 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
         rv_fluence = norm(loc=0, scale=sigma_fluence).rvs(len(pulses_fluence))
         d_pulses_fluence = rv_fluence + pulses_fluence
 
-        d_snr,d_width = n_detect(d_pulses,d_pulses_width, sb)
-
+        d_snr,d_width,index = n_detect(d_pulses,d_pulses_width, sb)
+        t_snr,t_width = n_detect_true(pulses,pulses_width, sb)
         if len(d_snr) > 0:
-            detected_pulses_snr.append(d_snr)
-            detected_pulses_width.append(d_width)
-            detected_pulses_fluence.append(d_pulses_fluence)
-        total_pulses_snr.append(pulses)
-        total_pulses_width.append(pulses_width)
-        total_pulses_fluence.append(pulses_fluence)
+            detected_pulses_snr.extend(d_snr)
+            detected_pulses_width.extend(d_width)
+            detected_pulses_fluence.extend(d_pulses_fluence)
+            detected_pulses_snr_true.extend(pulses[index])
+            detected_pulses_width_true.extend(pulses_width[index])
+            true_pulses_snr.extend(t_snr)
+            true_pulses_width.extend(t_width)
+        total_pulses_snr.extend(pulses)
+        total_pulses_width.extend(pulses_width)
+        total_pulses_fluence.extend(pulses_fluence)
 
 
     detected_pulses_snr = np.array(detected_pulses_snr).flatten()
@@ -72,11 +82,19 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
     total_pulses_snr = np.array(total_pulses_snr).flatten()
     total_pulses_width = np.array(total_pulses_width).flatten()
     total_pulses_fluence = np.array(total_pulses_fluence).flatten()
+    true_pulses_snr = np.array(true_pulses_snr).flatten()
+    true_pulses_width = np.array(true_pulses_width).flatten()
     if plot:
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
         axes[0].hist(detected_pulses_snr, bins="auto", density=True, label="fake data snr",alpha=0.5)
+        axes[0].hist(true_pulses_snr, bins="auto", density=True, label="true data snr",alpha=0.5)
+        axes[0].hist(detected_pulses_snr_true, bins="auto", density=True, label="detected true data snr",alpha=0.5)
         axes[1].hist(detected_pulses_width, bins="auto", density=True, label="fake data width",alpha=0.5)
+        axes[1].hist(true_pulses_width, bins="auto", density=True, label="true data width",alpha=0.5)
+        axes[1].hist(detected_pulses_width_true, bins="auto", density=True, label="detected true data width",alpha=0.5)
         axes[2].hist(detected_pulses_fluence, bins="auto", density=True, label="fake data fluence",alpha=0.5)
+        plt.legend()
+        plt.show()
 
     print("len detected", len(detected_pulses_snr))
     print("generated", len(total_pulses_snr))
@@ -98,16 +116,8 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
 
     if plot:
         snr_array = np.linspace(0, 20, 1000)
-        width_array = np.linspace(0, 20, 1000) * 1e-3
-        likelihood, p_det = sb.first_plot(detected_pulses_snr, detected_pulses_width,
-                                                                                                    mu_ln, std_ln,
-                                                                                                    w_mu_ln, w_std_ln,
-                                                                                                    sigma_amp = sigma_snr,
-                                                                                                    sigma_w = sigma_width,
-                                                                                                    a=a,
-                                                                                                    lower_c=lower,
-                                                                                                    upper_c=upper,)
-        # likelihood, p_det = sb.first_plot(snr_array, width_array,
+        width_array = np.linspace(0, 20, 1001) * 1e-3
+        # likelihood, p_det = sb.first_plot(detected_pulses_snr, detected_pulses_width,
         #                                                                                             mu_ln, std_ln,
         #                                                                                             w_mu_ln, w_std_ln,
         #                                                                                             sigma_amp = sigma_snr,
@@ -115,7 +125,15 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
         #                                                                                             a=a,
         #                                                                                             lower_c=lower,
         #                                                                                             upper_c=upper,)
-        # likelihood_norm = likelihood / np.trapz(np.trapz(likelihood, snr_array, axis=1), width_array)
+        likelihood, p_det = sb.first_plot(snr_array, width_array,
+                                                                                                    mu_ln, std_ln,
+                                                                                                    w_mu_ln, w_std_ln,
+                                                                                                    sigma_amp = sigma_snr,
+                                                                                                    sigma_w = sigma_width,
+                                                                                                    a=a,
+                                                                                                    lower_c=lower,
+                                                                                                    upper_c=upper,)
+        likelihood_norm = likelihood / np.trapz(np.trapz(likelihood, snr_array, axis=1), width_array)
         #make a 2d histogram of the detections
         fig, axes = plt.subplots(1, 2, figsize=(15, 5))
         h, xedges, yedges, mesh = axes[0].hist2d(detected_pulses_snr, detected_pulses_width, bins=50, density=True)
@@ -125,8 +143,8 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, w_mu_ln, w_std_l
         axes[0].set_xlabel("snr")
         axes[0].set_ylabel("width")
         axes[0].set_title("detected pulses")
-        # mesh = axes[1].pcolormesh(snr_array, width_array, likelihood_norm)
-        axes[1].scatter(detected_pulses_snr, detected_pulses_width,c=likelihood,s=10)
+        mesh = axes[1].pcolormesh(snr_array, width_array, likelihood_norm)
+        # axes[1].scatter(detected_pulses_snr, detected_pulses_width,c=likelihood,s=10)
         cbar = fig.colorbar(mesh, ax=axes[1])
         cbar.ax.set_ylabel("likelihood")
         axes[1].set_xlabel("snr")
@@ -308,5 +326,5 @@ if __name__ == "__main__":
             median = np.log(2)/mu
             upper = 50*median
         w_mu_ln = -5.3
-        w_std_ln = 0.1
+        w_std_ln = 0.3
         simulate_and_process_data(detected_req, mode,mu,std, w_mu_ln, w_std_ln, lower, upper, sb, a, inj_file, dill_file, plot=True, out_fol=output_fol)

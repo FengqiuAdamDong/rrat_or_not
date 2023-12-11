@@ -14,7 +14,20 @@ def n_detect(snr_emit,width_emit,sb,fluence=False):
     # probability the random number is less than p gives you an idea of what will be detected
     detected_snr = snr_emit[rands < p]
     detected_width = width_emit[rands < p]
+    index = np.where(rands < p)
+    return detected_snr,detected_width,index
+
+def n_detect_true(snr_true,width_true,sb,fluence=False):
+    # snr true is the snr that the trueted pulse has
+    points = (snr_true,width_true)
+    p = sb.p_detect_cpu_true(points,fluence=fluence)
+    # simulate random numbers between 0 and 1
+    rands = np.random.rand(len(p))
+    # probability the random number is less than p gives you an idea of what will be detected
+    detected_snr = snr_true[rands < p]
+    detected_width = width_true[rands < p]
     return detected_snr,detected_width
+
 
 
 # so in this script we need to simulate N pulses from a pulsar

@@ -99,7 +99,8 @@ class statistics_ln(sb):
         amp = cp.array(amp)
         width = cp.array(width)
         p_det = self.p_detect_cupy((amp, width))
-        self.p_det = p_det
+        self.p_det_cupy = p_det
+        self.p_det = p_det.get()
     def second_cupy(
         self,
         n,
@@ -114,26 +115,70 @@ class statistics_ln(sb):
         lower_c=0,
         upper_c=np.inf,
     ):
-        sigma_lim = 8
+        sigma_lim = 4
         true_upper = mu + (sigma_lim * std)
         true_lower = mu - (sigma_lim * std)
         true_amp_array = cp.linspace(true_lower, true_upper, 1000)
         true_upper = mu_w + (sigma_lim * std_w)
         true_lower = mu_w - (sigma_lim * std_w)
         true_width_array = cp.linspace(true_lower, true_upper, 1001)
-
         true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
         true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
         points = (cp.exp(true_amp_array[:, cp.newaxis]), cp.exp(true_width_array[cp.newaxis, :]))
-        p_ndet_st_wt = (1 - self.p_detect_cpu_true_cupy(points))*true_dist_amp[:, cp.newaxis]*true_dist_width[cp.newaxis, :]
+        pdet = self.p_detect_cpu_true_cupy(points)
+        # plt.figure()
+        # plt.pcolormesh( cp.exp(true_amp_array).get(),cp.exp(true_width_array).get(), pdet.get().T)
+        # plt.colorbar()
+        # plt.show()
+        p_ndet_st_wt = pdet*true_dist_amp[:, cp.newaxis]*true_dist_width[cp.newaxis, :]
 
 
-        p_ndet = cp.trapz(
+        p_ndet = 1 - cp.trapz(
             cp.trapz(p_ndet_st_wt, true_amp_array, axis=0), true_width_array
         )
         likelihood = cp.log(p_ndet) * (N - n)
-
+        print(p_ndet)
         return likelihood, p_ndet
+
+    def second(
+        self,
+        n,
+        mu,
+        std,
+        mu_w,
+        std_w,
+        N,
+        sigma_amp=0.4,
+        sigma_w=1e-3,
+        a=0,
+        lower_c=0,
+        upper_c=np.inf,
+    ):
+        sigma_lim = 4
+        true_upper = mu + (sigma_lim * std)
+        true_lower = mu - (sigma_lim * std)
+        true_amp_array = np.linspace(true_lower, true_upper, 1000)
+        true_upper = mu_w + (sigma_lim * std_w)
+        true_lower = mu_w - (sigma_lim * std_w)
+        true_width_array = np.linspace(true_lower, true_upper, 1001)
+
+        true_dist_amp = norm.pdf(true_amp_array, mu, std)
+        true_dist_width = norm.pdf(true_width_array, mu_w, std_w)
+        points = (np.exp(true_amp_array[:, np.newaxis]), np.exp(true_width_array[np.newaxis, :]))
+        pndet = (1 - self.p_detect_cpu_true(points))
+        # plt.figure()
+        # plt.pcolormesh(np.exp(true_width_array).get(), np.exp(true_amp_array).get(), pndet.get())
+        # plt.colorbar()
+        # plt.show()
+        p_ndet_st_wt = pndet*true_dist_amp[:, np.newaxis]*true_dist_width[np.newaxis, :]
+
+
+        p_ndet = np.trapz(
+            np.trapz(p_ndet_st_wt, true_amp_array, axis=0), true_width_array
+        )
+        likelihood = np.log(p_ndet) * (N - n)
+        return likelihood, p_ndet
+
 
     def first_cupy(
         self,
@@ -190,6 +235,77 @@ class statistics_ln(sb):
         # convolve the two arrays
         # interpolate the values for amp
         points = (amp[:,0],width[:,0])
+        likelihood = integral_amp * integral_w * self.p_det_cupy
+        # plt.figure()
+        # plt.scatter(width.get(),amp.get(),s=10, c=self.p_det.get())
+        # #set colorbar range from 0 - 1
+        # plt.clim(0,1)
+        # plt.xlabel("Amplitude")
+        # plt.ylabel("Width")
+
+        # plt.figure()
+        # plt.scatter(amp.get(), width.get(), s=10, c=likelihood.get())
+        # plt.xlabel("Amplitude")
+        # plt.ylabel("Width")
+        # plt.colorbar()
+        # plt.show()
+        return cp.sum(cp.log(likelihood)), self.p_det_cupy
+
+    def first(
+        self,
+        amp,
+        width,
+        mu,
+        std,
+        mu_w,
+        std_w,
+        sigma_amp=0.4,
+        sigma_w=1e-3,
+        a=0,
+        lower_c=0,
+        upper_c=np.inf,
+    ):
+        x_len = 1000
+        # amp is the detected amps
+        # width is the detected widths
+        # make an array of lower and upper limits for the true_log amp array
+        sigma_lim = 8
+        true_lower = amp - sigma_lim * sigma_amp
+        true_lower[true_lower < 0] = np.exp(-20)
+        true_upper = amp + sigma_lim * sigma_amp
+        # generate a mesh of amps
+        # true_amp_mesh = np.zeros((len(amp), x_len))
+        true_amp_mesh = np.linspace(np.log(true_lower),np.log(true_upper),x_len).T
+
+        # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
+            # true_amp_mesh[i, :] = np.linspace(np.log(l), np.log(u), x_len)
+
+        amp = amp[:, np.newaxis]
+        gaussian_error_amp = norm.pdf(amp, np.exp(true_amp_mesh), sigma_amp)
+        lognorm_amp_dist = norm.pdf(true_amp_mesh, mu, std)
+        mult_amp = gaussian_error_amp * lognorm_amp_dist
+        # integral over true_amp_mesh
+        integral_amp = np.trapz(mult_amp, true_amp_mesh, axis=1)
+        # now do the same for width
+        x_len = 1001
+        true_lower_w = width - sigma_lim * sigma_w
+        true_lower_w[true_lower_w < 0] = np.exp(-20)
+        true_upper_w = width + sigma_lim * sigma_w
+        # generate a mesh of widths
+        true_w_mesh = np.linspace(np.log(true_lower_w),np.log(true_upper_w),x_len).T
+        # true_w_mesh = np.zeros((len(width), x_len))
+        # for i, (l, u) in enumerate(zip(true_lower_w, true_upper_w)):
+            # true_w_mesh[i, :] = np.linspace(np.log(l), np.log(u), x_len)
+        width = width[:, np.newaxis]
+        gaussian_error_w = norm.pdf(width, np.exp(true_w_mesh), sigma_w)
+        lognorm_w_dist = norm.pdf(true_w_mesh, mu_w, std_w)
+        mult_w = gaussian_error_w * lognorm_w_dist
+        # integral over true_w_mesh
+        integral_w = np.trapz(mult_w, true_w_mesh, axis=1)
+        # #multiple against each other
+        # convolve the two arrays
+        # interpolate the values for amp
+        points = (amp[:,0],width[:,0])
         likelihood = integral_amp * integral_w * self.p_det
         # plt.figure()
         # plt.scatter(width.get(),amp.get(),s=10, c=self.p_det.get())
@@ -204,7 +320,8 @@ class statistics_ln(sb):
         # plt.ylabel("Width")
         # plt.colorbar()
         # plt.show()
-        return cp.sum(cp.log(likelihood)), self.p_det
+        return np.sum(np.log(likelihood)), self.p_det
+
 
     #################CUPY END#####################
 
@@ -259,17 +376,109 @@ class statistics_ln(sb):
         # integral over true_w_mesh
         integral_w = np.trapz(mult_w, true_w_mesh, axis=1)
         # #multiple against each other
-        # integral_amp_mesh, integral_w_mesh = np.meshgrid(integral_amp, integral_w)
-        # amp_mesh, w_mesh = np.meshgrid(amp, width)
-
+        integral_amp_mesh, integral_w_mesh = np.meshgrid(integral_amp, integral_w)
+        amp_mesh, w_mesh = np.meshgrid(amp, width)
         # convolve the two arrays
         # interpolate the values for amp
-        p_det = self.p_detect_cpu((amp[:,0], width[:,0]))
-        likelihood = integral_amp * integral_w * p_det
+        # p_det = self.p_detect_cpu((amp[:,0], width[:,0]))
+        p_det = self.p_detect_cpu((amp_mesh, w_mesh))
+        likelihood = integral_amp_mesh * integral_w_mesh * p_det
 
         return likelihood, p_det
 
     def total_p(
+        self,
+        X,
+        snr_arr=None,
+        width_arr=None,
+        use_a=False,
+        use_cutoff=True,
+        cuda_device=0,
+    ):
+    # print("starting loglike")
+        start = time.time()
+        snr_arr = np.array(snr_arr)
+        width_arr = np.array(width_arr)
+        transfer_time = time.time()
+        mu = X["mu"]
+        std = X["std"]
+        mu_w = X["mu_w"]
+        std_w = X["std_w"]
+        N = X["N"]
+        if use_a:
+            a = X["a"]
+        else:
+            a = 0
+        if use_cutoff:
+            lower_c = X["lower_c"]
+            upper_c = X["upper_c"]
+        else:
+            lower_c = 0
+            upper_c = np.inf
+        if lower_c > upper_c:
+            print("lower_c is greater than upper_c")
+            return -np.inf
+        if snr_arr is None:
+            snr_arr = X["snr_arr"]
+            width_arr = X["width_arr"]
+        if N < len(snr_arr):
+            raise Exception(" N<n")
+
+        # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
+        sigma_snr = self.detected_error_snr
+        sigma_width = self.detected_error_width
+        n = len(snr_arr)
+        f, p_det_f = self.first(
+            snr_arr,
+            width_arr,
+            mu,
+            std,
+            mu_w,
+            std_w,
+            sigma_amp=sigma_snr,
+            sigma_w=sigma_width,
+            a=a,
+            lower_c=lower_c,
+            upper_c=upper_c,
+        )
+        first_time = time.time()
+        # print("finished f")
+        if np.isnan(f):
+            print("f is nan")
+            return -np.inf
+        # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
+        s, p_det_s = self.second(
+            n,
+            mu,
+            std,
+            mu_w,
+            std_w,
+            N,
+            sigma_amp=sigma_snr,
+            sigma_w=sigma_width,
+            a=a,
+            lower_c=lower_c,
+            upper_c=upper_c,
+        )
+        second_time = time.time()
+        # print("finished s")
+        if np.isnan(s):
+            print("s is nan")
+            return -np.inf
+        log_NCn = (
+            cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
+        )
+        # print("finished log_NCn")
+        loglike = f + s + log_NCn
+        # loglike = np.array(loglike.get())
+        overall_time = time.time()
+        print(
+            f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}"
+        )
+        # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
+        return loglike
+
+    def total_p_cupy(
         self,
         X,
         snr_arr=None,
@@ -359,7 +568,7 @@ class statistics_ln(sb):
             # print(
                 # f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}"
             # )
-            # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
+            print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
         return loglike.get()
 
     def negative_loglike(self, X, det_snr):

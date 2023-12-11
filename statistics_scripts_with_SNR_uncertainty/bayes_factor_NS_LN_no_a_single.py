@@ -140,10 +140,10 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
 
     ptmu_w = (max_mu_w - min_mu_w) * x[2] + min_mu_w
 
-    min_pt_sigma = 0.65
-    max_pt_sigma = 0.85
-    min_pt_sigma_w = 0
-    max_pt_sigma_w = 0.2
+    min_pt_sigma = 0.5
+    max_pt_sigma = 1.0
+    min_pt_sigma_w = 0.2
+    max_pt_sigma_w = 0.4
     # min_pt_sigma = 0.7499
     # max_pt_sigma = 0.7501
     # min_pt_sigma_w = 0.099
@@ -162,9 +162,11 @@ def loglikelihood(theta, det_snr, det_width, likelihood_calc):
     a = 0
     lower_c = 0
     # mean,var = mu_std_to_mean_var(theta[0],theta[1])
-    median = np.exp(theta[0])
-    upper_c = median * 50
+    # median = np.exp(theta[0])
+    # upper_c = median * 50
+    upper_c = cp.inf
     # xlim=100
+    # theta = [0,0.75,-5.3,0.1,161787]
     X = {
         "mu": theta[0],
         "std": theta[1],
@@ -175,7 +177,7 @@ def loglikelihood(theta, det_snr, det_width, likelihood_calc):
         "lower_c": lower_c,
         "upper_c": upper_c,
     }
-    return likelihood_calc.total_p(
+    return likelihood_calc.total_p_cupy(
         X,
         snr_arr=det_snr,
         width_arr=det_width,

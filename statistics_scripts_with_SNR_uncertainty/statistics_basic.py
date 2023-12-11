@@ -44,7 +44,7 @@ class statistics_basic:
         interp_res[interp_res > 1] = 1
         return interp_res
 
-    def p_detect_cpu_true(self, points):
+    def p_detect_cpu_true(self, points, fluence=False):
         interp_res = self.pdet_st_wt_interp(points)
         interp_res[interp_res < 0] = 0
         interp_res[interp_res > 1] = 1
