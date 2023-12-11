@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
-#SBATCH --time=5:00:00
+#SBATCH --time=10:00:00
 #SBATCH --mem=24G
-#SBATCH --cpus-per-task=5
+#SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
@@ -48,5 +48,7 @@ cd -
 cp $SLURM_TMPDIR/*SNR*.fil .
 cp $SLURM_TMPDIR/sample_injections.npz .
 #clean up tmpdir
-rm -r $SLURM_TMPDIR
+if [ "$LOCAL" != false ]; then
+    rm -r $SLURM_TMPDIR/
+fi
 # rm $fil

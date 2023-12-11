@@ -652,8 +652,7 @@ class inject_stats:
         splits = self.filfiles[0].split("_")
         #remove last index
         splits = splits[:-1]
-        self.base_fn = "_".join(splits)
-
+        # self.base_fn = "_".join(splits)
     def get_mask_fn(self):
         # get the filenames of all the masks
         self.mask_fn = [get_mask_fn(f) for f in self.filfiles]
@@ -727,7 +726,7 @@ class inject_stats:
                 print(i,"out of",len(self.sorted_inject))
                 s.calculate_fluence()
 
-    def amplitude_statistics(self):
+    def amplitude_statistics(self,title="f"):
         det_snr = []
         inj_snr = []
         det_width = []
@@ -1019,7 +1018,8 @@ class inject_stats:
 
 
         plt.savefig(f"{title}.png")
-        plt.show()
+        plt.close()
+        # plt.show()
 
 
         #high width sample
