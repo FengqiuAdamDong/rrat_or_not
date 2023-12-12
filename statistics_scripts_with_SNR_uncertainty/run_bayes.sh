@@ -10,6 +10,8 @@
 #SBATCH --gres=gpu:v100l:1
 #
 source ~/util/load_presto.sh
-source ~/extract_snr/bin/activate
-python ~/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_NS_LN_no_a_single.py -i $1
+source ~/rrat_or_not_width/bin/activate
+BASEDIR=$(dirname "$0")
+echo "$BASEDIR"
+python $BASEDIR/bayes_factor_NS_LN_no_a_single.py -i $1
 # python bayes_factor_NS_LN_no_a_single.py -i $1
