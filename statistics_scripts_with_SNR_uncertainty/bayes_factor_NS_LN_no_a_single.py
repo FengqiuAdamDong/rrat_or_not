@@ -140,10 +140,10 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
 
     ptmu_w = (max_mu_w - min_mu_w) * x[2] + min_mu_w
 
-    min_pt_sigma = 0.5
-    max_pt_sigma = 1.0
-    min_pt_sigma_w = 0.2
-    max_pt_sigma_w = 0.4
+    min_pt_sigma = 0.01
+    max_pt_sigma = 2.0
+    min_pt_sigma_w = 0.01
+    max_pt_sigma_w = 0.5
     # min_pt_sigma = 0.7499
     # max_pt_sigma = 0.7501
     # min_pt_sigma_w = 0.099
