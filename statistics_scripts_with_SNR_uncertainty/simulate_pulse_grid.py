@@ -20,7 +20,7 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, lower, upper, si
     detected_pulses = []
     total_pulses = []
     while len(detected_pulses) < detected_req:
-        obs_t = 1
+        obs_t = 1000
         p = 1
         f = 1
         if mode == "Exp":
@@ -34,9 +34,10 @@ def simulate_and_process_data(detected_req, mode,mu_ln, std_ln, lower, upper, si
         rv = norm(loc=0, scale=sigma_snr).rvs(len(pulses))
         d_pulses = rv + pulses
         d = n_detect(d_pulses, inj_file)
-        if len(d) == 1:
-            detected_pulses.append(d[0])
-        total_pulses.append(pulses)
+        if len(d) > 0:
+            detected_pulses.extend(d)
+        total_pulses.extend(pulses)
+        print("len detected", len(detected_pulses))
 
     print("len detected", len(detected_pulses))
     print("generated", len(total_pulses))
@@ -201,7 +202,7 @@ mode = args.mode
 #load the detection file
 statistics_basic.load_detection_fn(inj_file,plot=False)
 if mode=="Lognorm":
-    mu_arr = np.linspace(-0.5,1,20)
+    mu_arr = np.linspace(0,1,1)
     std_arr = [args.s]
 elif mode=="Exp":
     k_arr = np.linspace(0.5,2,20)

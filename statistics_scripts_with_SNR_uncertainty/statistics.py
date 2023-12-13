@@ -37,42 +37,63 @@ def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_cupy(n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
+def second_cupy(n,mu,std,N,xlim=10,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
      #xlim needs to be at least as large as 5 sigma_snrs though
-    sigma_snr = det_error
-    maximum_accuracy = 1/(N-n)
-    x_lims = [-sigma_snr*10,xlim]
-    # x_lims = [-xlim,xlim]
-    amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-    LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
-    gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-    conv = cp.convolve(LN_dist,gaussian_error)*cp.diff(amp_arr)[0]
-    conv_lims = [2*x_lims[0],2*x_lims[1]]
-    #shift the whole distribution by a at the end here
-    conv_amp_array = cp.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)+a
-    #interpolate the values for amp
-    p_det = p_detect_cupy(conv_amp_array)
-    likelihood = conv*(1-p_det)
-    # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
-    integral = cp.trapz(likelihood,conv_amp_array)
+    #xlim needs to be at least as large as 5 sigma_snrs though
+    sigma_lim = 6
+    upper = mu + (sigma_lim * std)
+    lower = mu - (sigma_lim * std)
+    amp_ln = cp.linspace(lower, upper, 1001)
+    amp = cp.exp(amp_ln)
+    sigma_amp = det_error
+    # amp is the detected amps
+    # width is the detected widths
+    # make an array of lower and upper limits for the true_log amp array
+    sigma_lim = 5
+    true_lower = amp - sigma_lim * sigma_amp
+    true_lower[true_lower < 0] = cp.exp(-20)
+    true_upper = amp + sigma_lim * sigma_amp
+    # generate a mesh of amps
+    # true_amp_mesh = cp.zeros((len(amp), x_len))
+    true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
+
+    amp = amp[:, cp.newaxis]
+    gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
+    lognorm_amp_dist = gaussian_cupy(true_amp_mesh, mu, std)
+    mult_amp = gaussian_error_amp * lognorm_amp_dist
+    # integral over true_amp_mesh
+    integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)    # print("first xlim",xlim)
+
+    p_det = p_detect_cupy(amp)
+    likelihood = integral_amp * p_det[:,0]
+    integral = cp.trapz(likelihood, amp[:, 0])
+    integral = 1-integral
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=20,x_len=1000000,a=0,lower_c=0,upper_c=cp.inf):
+def first_cupy(amp,mu,std,xlim=20,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
-    sigma_snr = det_error
-    x_lims = [-xlim,xlim]
-    amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-    LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
-    gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-    #convolve the two arrays
-    conv = cp.convolve(LN_dist,gaussian_error)*cp.diff(amp_arr)[0]
-    conv_lims = [2*x_lims[0],2*x_lims[1]]
-    conv_amp_array = cp.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)+a
-    #interpolate the values for amp
-    p_det = p_detect_cupy(conv_amp_array)
-    likelihood_conv = conv*p_det
-    likelihood = cp.interp(amp,conv_amp_array,likelihood_conv)
-    # print("first xlim",xlim)
+    sigma_amp = det_error
+    # amp is the detected amps
+    # width is the detected widths
+    # make an array of lower and upper limits for the true_log amp array
+    sigma_lim = 5
+    true_lower = amp - sigma_lim * sigma_amp
+    true_lower[true_lower < 0] = cp.exp(-20)
+    true_upper = amp + sigma_lim * sigma_amp
+    # generate a mesh of amps
+    # true_amp_mesh = cp.zeros((len(amp), x_len))
+    true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
+
+    # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
+        # true_amp_mesh[i, :] = cp.linspace(cp.log(l), cp.log(u), x_len)
+    amp = amp[:, cp.newaxis]
+    gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
+    lognorm_amp_dist = gaussian_cupy(true_amp_mesh, mu, std)
+    mult_amp = gaussian_error_amp * lognorm_amp_dist
+    # integral over true_amp_mesh
+    integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)    # print("first xlim",xlim)
+    p_det = p_detect_cupy(amp[:, 0])
+    likelihood = integral_amp * p_det
     return cp.sum(cp.log(likelihood))
 #################CUPY END#####################
 
@@ -92,7 +113,7 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
     return pdf
 
 def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
-    x_len = 100000
+    x_len = 1000
     xlim = 500
     x_lims = [-xlim,xlim]
     amp_arr = np.linspace(x_lims[0],x_lims[1],x_len)
