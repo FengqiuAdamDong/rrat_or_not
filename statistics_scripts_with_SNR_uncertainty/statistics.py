@@ -37,7 +37,7 @@ def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_cupy(n,mu,std,N,xlim=10,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
+def second_cupy(n,mu,std,N,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
      #xlim needs to be at least as large as 5 sigma_snrs though
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_lim = 6
@@ -70,7 +70,7 @@ def second_cupy(n,mu,std,N,xlim=10,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
     integral = 1-integral
     return cp.log(integral)*(N-n)
 
-def first_cupy(amp,mu,std,xlim=20,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
+def first_cupy(amp,mu,std,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_amp = det_error
     # amp is the detected amps
@@ -129,7 +129,7 @@ def first_plot(amp,mu,std, sigma_snr=0.4, a=0, lower_c=0, upper_c=np.inf):
     likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
     return likelihood, p_det, conv_amp_array, conv
 
-def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
+def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,cuda_device=0):
     # print("starting loglike")
     with cp.cuda.Device(cuda_device):
         start = time.time()
@@ -158,14 +158,14 @@ def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
 
         # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
         sigma_snr = det_error
-        f = first_cupy(snr_arr, mu, std,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
+        f = first_cupy(snr_arr, mu, std,a=a,lower_c=lower_c,upper_c=upper_c)
         first_time = time.time()
         # print("finished f")
         if cp.isnan(f):
             print("f is nan")
             return -np.inf
         # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
-        s = second_cupy(len(snr_arr), mu, std, N,a=a,xlim=xlim,lower_c=lower_c,upper_c=upper_c)
+        s = second_cupy(len(snr_arr), mu, std, N,a=a,lower_c=lower_c,upper_c=upper_c)
         second_time = time.time()
         # print("finished s")
         if cp.isnan(s):

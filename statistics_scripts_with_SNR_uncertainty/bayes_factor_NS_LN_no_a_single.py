@@ -110,23 +110,16 @@ def pt_Uniform_N(x,max_det):
     ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
     return np.array([ptmu, ptsigma, ptN])
 
-def loglikelihood(theta, det_snr, xlim_interp):
+def loglikelihood(theta, det_snr):
     #convert to strict upper limit of the lognorm
     #convert to the standard mu and sigma of a lognorm
     #print("theta",theta)
     a = 0
     lower_c = 0
+    upper_c = cp.inf
     # theta = [0,0.5,15000]
-    # mean,var = mu_std_to_mean_var(theta[0],theta[1])
-    median = np.exp(theta[0])
-    upper_c = median*50
-    LN_mu,LN_std = (theta[0],theta[1])
-    xlim = xlim_interp([[theta[0],theta[1],theta[2]]])[0]
-    if max(det_snr) > xlim:
-        xlim = max(det_snr)*2
-    # xlim=100
-    X = {"mu": LN_mu, "std": LN_std, "N": theta[2], "a":0, "lower_c":lower_c, "upper_c":upper_c}
-    return statistics.total_p(X, snr_arr = det_snr, use_a=False,use_cutoff=True,xlim=xlim,cuda_device=cuda_device)
+    X = {"mu": theta[0], "std": theta[1], "N": theta[2], "a":0, "lower_c":lower_c, "upper_c":upper_c}
+    return statistics.total_p(X, snr_arr = det_snr, use_a=False,use_cutoff=True,cuda_device=cuda_device)
 
 
 if __name__ == "__main__":
@@ -166,20 +159,7 @@ if __name__ == "__main__":
     plot_detection_results(det_width, det_fluence, det_snr)
     print("logn_N_range", logn_N_range, "logn_mu_range", logn_mu_range, "logn_std_range", logn_std_range)
     #load the lookup table
-    xlim_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['xlim_second']
-    mu_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['mu']
-    std_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['std']
-    N_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['N']
-    mg,sg,ng = np.meshgrid(mu_lookup,std_lookup,N_lookup,indexing='ij')
-    xlim_interp = RegularGridInterpolator((mu_lookup,std_lookup,N_lookup), xlim_lookup,bounds_error=False,fill_value=None)
     nDims = 3
-    # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
-        # ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-                                            # nlive=10000,pool=pool, queue_size=pool.njobs)
-        # dill_fn = real_det.split("/")[-1]
-        # dill_fn = dill_fn.split(".")[0]
-        # checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
-        # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
@@ -193,7 +173,7 @@ if __name__ == "__main__":
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
     max_det = np.max(det_snr)
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr,xlim_interp],nlive=128,ptform_args=[max_det])
+    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr],nlive=128,ptform_args=[max_det])
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
