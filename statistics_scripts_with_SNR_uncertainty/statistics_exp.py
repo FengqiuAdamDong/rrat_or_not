@@ -26,51 +26,61 @@ def exponential_dist_cupy(x, k):
 def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
-def second_exp_cupy(n,k,N,xlim=110,x_len=5000000):
-     #xlim needs to be at least as large as 5 sigma_snrs though
-    wide_enough = False
-    sigma_snr = det_error
-    x_lims = [-sigma_snr*10,xlim]
-    amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-    dist = exponential_dist_cupy(amp_arr,k)
-    gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
+def exp_ppf_cupy(ppf,k):
+    #returns the x value for the certain ppf
+    return -cp.log(1-ppf)/k
 
-    # print("second xlim",xlim)
-    #convolve the two arrays
-    # plt.figure()
-    # plt.plot(amp_arr,LN_dist)
-    # plt.plot(amp_arr,gaussian_error)
-    # integral_ln = np.trapz(LN_dist,amp_arr)
-    # plt.title(f"xlen {x_len} xlim {xlim} integral {integral_ln}")
-    conv = cp.convolve(dist,gaussian_error)*cp.diff(amp_arr)[0]
-    conv_lims = [2*x_lims[0],2*x_lims[1]]
-    conv_amp_array = cp.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
-    #interpolate the values for amp
-    p_det = p_detect_cupy(conv_amp_array)
-    likelihood = conv*(1-p_det)
-    # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
-    integral = cp.trapz(likelihood,conv_amp_array)
+def second_exp_cupy(n,k,N,x_len=1000):
+    #xlim needs to be at least as large as 5 sigma_snrs though
+    upper = exp_ppf_cupy(1-1/N,k)
+    lower = 0
+    amp = cp.linspace(lower, upper, 1001)
+    sigma_amp = det_error
+    # amp is the detected amps
+    # make an array of lower and upper limits for the true_log amp array
+    sigma_lim = 5
+    true_lower = amp - sigma_lim * sigma_amp
+    true_lower[true_lower < 0] = 0
+    true_upper = amp + sigma_lim * sigma_amp
+    # generate a mesh of amps
+    # true_amp_mesh = cp.zeros((len(amp), x_len))
+    true_amp_mesh = cp.linspace(true_lower,true_upper,x_len).T
+
+    amp = amp[:, cp.newaxis]
+    gaussian_error_amp = gaussian_cupy(amp, true_amp_mesh, sigma_amp)
+    exponential_amp_dist = exponential_dist_cupy(true_amp_mesh, k)
+    mult_amp = gaussian_error_amp * exponential_amp_dist
+    # integral over true_amp_mesh
+    integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)    # print("first xlim",xlim)
+    amp = amp[:, 0]
+    p_det = p_detect_cupy(amp)
+    likelihood = integral_amp * p_det
+    integral = cp.trapz(likelihood, amp)
+    integral = 1-integral
     return cp.log(integral)*(N-n)
 
-def first_exp_cupy(amp,k,xlim=100,x_len=100000):
-    #xlim needs to be at least as large as 5 sigma_snrs though
-    sigma_snr = det_error
-    x_lims = [-xlim,xlim]
-    amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-    dist = exponential_dist_cupy(amp_arr,k)
-    gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-    # print("first xlim",xlim)
-    #convolve the two arrays
-    conv = cp.convolve(dist,gaussian_error)*cp.diff(amp_arr)[0]
-    conv_lims = [2*x_lims[0],2*x_lims[1]]
-    conv_amp_array = cp.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)
-    #interpolate the values for amp
-    p_det = p_detect_cupy(conv_amp_array)
-    likelihood_conv = conv*p_det
-    likelihood = cp.interp(amp,conv_amp_array,likelihood_conv)
+def first_exp_cupy(amp,k,x_len=1000):
+    sigma_amp = det_error
+    # amp is the detected amps
+    # width is the detected widths
+    # make an array of lower and upper limits for the true_log amp array
+    sigma_lim = 5
+    true_lower = amp - sigma_lim * sigma_amp
+    true_lower[true_lower < 0] = cp.exp(-20)
+    true_upper = amp + sigma_lim * sigma_amp
+    # generate a mesh of amps
+    # true_amp_mesh = cp.zeros((len(amp), x_len))
+    true_amp_mesh = cp.linspace(true_lower,true_upper,x_len).T
+    amp = amp[:, cp.newaxis]
+    gaussian_error_amp = gaussian_cupy(amp, true_amp_mesh, sigma_amp)
+    exponential_amp_dist = exponential_dist_cupy(true_amp_mesh, k)
+    mult_amp = gaussian_error_amp * exponential_amp_dist
+    # integral over true_amp_mesh
+    integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)    # print("first xlim",xlim)
+    amp = amp[:, 0]
+    p_det = p_detect_cupy(amp)
+    likelihood = integral_amp * p_det
     return cp.sum(cp.log(likelihood))
-
-
 
 #################CUPY END#####################
 
@@ -171,7 +181,7 @@ def second_exp(n, k, N, sigma_snr):
 
     return p_second_int * (N - n)
 
-def total_p_exp(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=0):
+def total_p_exp(X,snr_arr=None,use_a=False,use_cutoff=True,cuda_device=0):
     with cp.cuda.Device(cuda_device):
         start = time.time()
         snr_arr = cp.array(snr_arr)
@@ -197,11 +207,11 @@ def total_p_exp(X,snr_arr=None,use_a=False,use_cutoff=True,xlim=100,cuda_device=
             raise Exception(" N<n")
 
         sigma_snr = cp.array(det_error)
-        f = first_exp_cupy(snr_arr, k,xlim=xlim)
+        f = first_exp_cupy(snr_arr, k)
         if cp.isnan(f):
             print("f is nan")
             return -cp.inf
-        s = second_exp_cupy(len(snr_arr), k, N,xlim=xlim)
+        s = second_exp_cupy(len(snr_arr), k, N)
         if cp.isnan(s):
             print("s is nan")
             return -cp.inf

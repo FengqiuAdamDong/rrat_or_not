@@ -203,14 +203,13 @@ mode = args.mode
 statistics_basic.load_detection_fn(inj_file,plot=False)
 if mode=="Lognorm":
     mu_arr = np.linspace(0,1,1)
-    std_arr = [args.s]
 elif mode=="Exp":
     k_arr = np.linspace(0.5,2,20)
     #use mu as k_arr
     mu_arr = k_arr
     #the std arr is ignored for exp distribution
-    std_arr = [0.5]
 
+std_arr = [args.s]
 detected_req = args.detected_req
 print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
 from inject_stats import inject_obj
@@ -226,14 +225,5 @@ if __name__ == "__main__":
     for mu in mu_arr:
         std = std_arr[0]
         lower = 0
-        if mode=="Lognorm":
-            #use the upper cutoff to be 50x the mean
-            mean,var = mu_std_to_mean_var(mu,std)
-            median = np.exp(mu)
-            #set upper to 50x median
-            upper = 50*median
-        elif mode=="Exp":
-            mean,var = k_to_mean_var(mu)
-            median = np.log(2)/mu
-            upper = 50*median
+        upper = np.inf
         simulate_and_process_data(detected_req, mode,mu,std, lower, upper, sigma_snr, a, inj_file, dill_file,plot=False,out_fol=output_fol)

@@ -19,47 +19,57 @@ from dynesty import utils as dyfunc
 import glob
 import yaml
 import cupy as cp
+import scipy.stats as stats
+
 parser = argparse.ArgumentParser(description="Simulate some pulses")
-#add an argument for config file
-parser.add_argument("-i", default="simulated_dir", help="folder with the simulated pulses")
+# add an argument for config file
+parser.add_argument(
+    "-i", default="simulated_dir", help="folder with the simulated pulses"
+)
 args = parser.parse_args()
 real_det = args.i
 
 #####preamble finished#####
-cuda_device=0
+cuda_device = 0
 
 
-def read_config(filename,det_snr):
-    with open(filename, 'r') as file:
+def read_config(filename, det_snr):
+    with open(filename, "r") as file:
         data = yaml.safe_load(file)
 
-
     # Extract the sorted items into variables
-    detection_curve = data['detection_curve']
-    exp_N_range = data['exp_N_range']
-    exp_k_range = data['exp_k_range']
-    snr_thresh = data['snr_thresh']
+    detection_curve = data["detection_curve"]
+    exp_N_range = data["exp_N_range"]
+    exp_k_range = data["exp_k_range"]
+    snr_thresh = data["snr_thresh"]
     try:
-        flux_cal = data['flux_cal']
+        flux_cal = data["flux_cal"]
     except:
         flux_cal = 1
 
     exp_N_range[1] = exp_N_range[1]
     if exp_N_range[0] == -1:
-        #change to full range
-        exp_N_range[0] = len(det_snr)+1
+        # change to full range
+        exp_N_range[0] = len(det_snr) + 1
     return detection_curve, exp_N_range, exp_k_range, snr_thresh, flux_cal
 
-def plot_fit_exp(max_mu,max_std,dets,sigma_det):
-    fit_x = np.linspace(1e-9,50,10000)
+
+def plot_fit_exp(max_mu, max_std, dets, sigma_det):
+    fit_x = np.linspace(1e-9, 50, 10000)
     fit_y = statistics.first_plot(fit_x, max_mu, max_std, sigma_det)
     fig, ax = plt.subplots(1, 1)
-    ax.hist(dets, bins='auto', density=True,label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}")
+    ax.hist(
+        dets,
+        bins="auto",
+        density=True,
+        label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}",
+    )
     ax.plot(fit_x, fit_y, label="fit")
     ax.set_xlabel("SNR")
     ax.set_ylabel("Probability")
     ax.legend()
     plt.show()
+
 
 def process_detection_results(real_det):
     with open(real_det, "rb") as inf:
@@ -84,6 +94,7 @@ def process_detection_results(real_det):
 
     return det_fluence, det_width, det_snr, noise_std
 
+
 def plot_detection_results(det_width, det_fluence, det_snr):
     print("mean width", np.mean(det_width))
     fig, axs = plt.subplots(2, 2)
@@ -105,52 +116,61 @@ def plot_detection_results(det_width, det_fluence, det_snr):
 
 
 if __name__ == "__main__":
-    config_det = real_det.replace(".dill",".yaml")
+    config_det = real_det.replace(".dill", ".yaml")
     with open(config_det, "r") as inf:
         config = yaml.safe_load(inf)
     detection_curve = config["detection_curve"]
 
     # for real_det,config_det in zip(dill_files,config_files):
-    #check if png already made
+    # check if png already made
     png_fp = f"{real_det}_exp_a_corner.png"
     if os.path.exists(png_fp):
         print(f"skipping {png_fp}")
         sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
-    print(real_det,config_det)
-    detection_curve, exp_N_range, exp_k_range, snr_thresh, flux_cal = read_config(config_det,det_snr)
-    det_snr = det_snr*flux_cal
-    snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh,flux_cal=flux_cal)
-    print("snr_thresh",snr_thresh)
+    print(real_det, config_det)
+    detection_curve, exp_N_range, exp_k_range, snr_thresh, flux_cal = read_config(
+        config_det, det_snr
+    )
+    det_snr = det_snr * flux_cal
+    snr_thresh = statistics_basic.load_detection_fn(
+        detection_curve, min_snr_cutoff=snr_thresh, flux_cal=flux_cal
+    )
+    print("snr_thresh", snr_thresh)
 
     import statistics
     import statistics_exp
-    #filter the det_snr
+
+    # filter the det_snr
     det_error = statistics.det_error
-    det_snr = det_snr[det_snr>snr_thresh]
+    det_snr = det_snr[det_snr > snr_thresh]
     plot_detection_results(det_width, det_fluence, det_snr)
     print("exp_N_range", exp_N_range, "exp_k_range", exp_k_range)
     nDims = 2
-    def pt_Uniform_N(x,max_det):
-        #jeffrey's prior for ptk
-        max_k = np.log(2)/(max_det/50)
-        min_k = np.log(2)/max_det
+
+    def pt_Uniform_N(x, max_det):
+        # jeffrey's prior for ptk
         # ptk = exp_k_range[1]**x[0] / (exp_k_range[0]**(x[0]-1))
-        ptk = (max_k**x[0]) / (min_k**(x[0]-1))
+        # ptk = (max_k ** x[0]) / (min_k ** (x[0] - 1))
+        ptk = stats.invgamma.ppf(x[0], a=1.938)
         ptN = (exp_N_range[1] - exp_N_range[0]) * x[1] + exp_N_range[0]
         return np.array([ptk, ptN])
 
     def loglikelihood(theta, det_snr):
-        #print("theta",theta)
+        # print("theta",theta)
         a = 0
         lower_c = 0
         upper_c = cp.inf
-        LN_k,N = (theta[0],theta[1])
-        xlim = 100
-        if max(det_snr) > xlim:
-            xlim = max(det_snr)*2
-        X = {"k": LN_k, "N": theta[1], "a":0, "lower_c":lower_c, "upper_c":upper_c}
-        return statistics_exp.total_p_exp(X, snr_arr = det_snr, use_a=False,use_cutoff=True,xlim=xlim,cuda_device=cuda_device)
+        X = {
+            "k": theta[0],
+            "N": theta[1],
+            "a": 0,
+            "lower_c": lower_c,
+            "upper_c": upper_c,
+        }
+        return statistics_exp.total_p_exp(
+            X, snr_arr=det_snr, use_a=False, use_cutoff=True, cuda_device=cuda_device
+        )
 
     def plot_fit(ln_a_sresults):
         # Plot the actual fit
@@ -162,10 +182,17 @@ if __name__ == "__main__":
         max_a = 0
         mu, std = mean_var_to_mu_std(max_mu, max_std**2)
         fit_x = np.linspace(1e-9, 50, 10000)
-        fit_y, p_det, conv_amp_array, conv = statistics.first_plot(fit_x, mu, std, det_error, a=max_a)
+        fit_y, p_det, conv_amp_array, conv = statistics.first_plot(
+            fit_x, mu, std, det_error, a=max_a
+        )
         fit_y = fit_y / np.trapz(fit_y, fit_x)
         fig, ax = plt.subplots(1, 1)
-        ax.hist(det_snr, bins='auto', density=True, label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}")
+        ax.hist(
+            det_snr,
+            bins="auto",
+            density=True,
+            label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}",
+        )
         ax.plot(fit_x, fit_y, label="fit")
         ax.plot(conv_amp_array, conv, label="convolution")
         ax.plot(conv_amp_array, p_det, label="p_det")
@@ -177,20 +204,34 @@ if __name__ == "__main__":
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
     checkpoint_fn = f"{dill_fn}_exp.h5"
-    print("checkpoint_fn",checkpoint_fn)
+    print("checkpoint_fn", checkpoint_fn)
     # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr]) as pool:
     #     ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
     #                                         nlive=256,pool=pool, queue_size=pool.njobs)
     #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
     print("starting sampling")
     max_det = max(det_snr)
-    ln_sampler_a = dynesty.NestedSampler(loglikelihood, pt_Uniform_N, nDims,logl_args=[det_snr],nlive=256,ptform_args=[max_det])
+    ln_sampler_a = dynesty.NestedSampler(
+        loglikelihood,
+        pt_Uniform_N,
+        nDims,
+        logl_args=[det_snr],
+        nlive=256,
+        ptform_args=[max_det],
+    )
     print("starting run_nested")
     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
 
     ln_a_sresults = ln_sampler_a.results
-    fg, ax = dyplot.cornerplot(ln_a_sresults, color='dodgerblue',labels=["k","N"], truths=np.zeros(nDims),
-                            truth_color='black', show_titles=True,
-                            quantiles=None, max_n_ticks=3)
+    fg, ax = dyplot.cornerplot(
+        ln_a_sresults,
+        color="dodgerblue",
+        labels=["k", "N"],
+        truths=np.zeros(nDims),
+        truth_color="black",
+        show_titles=True,
+        quantiles=None,
+        max_n_ticks=3,
+    )
     plt.savefig(f"{real_det}_exp_corner.png")
     plt.close()

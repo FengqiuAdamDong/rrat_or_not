@@ -38,7 +38,6 @@ def gaussian_cupy(x, mu, sigma):
     return cp.exp(-((x - mu) ** 2) / (2 * sigma ** 2)) / (sigma * cp.sqrt(2 * cp.pi))
 
 def second_cupy(n,mu,std,N,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
-     #xlim needs to be at least as large as 5 sigma_snrs though
     #xlim needs to be at least as large as 5 sigma_snrs though
     sigma_lim = 6
     upper = mu + (sigma_lim * std)
@@ -47,7 +46,6 @@ def second_cupy(n,mu,std,N,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
     amp = cp.exp(amp_ln)
     sigma_amp = det_error
     # amp is the detected amps
-    # width is the detected widths
     # make an array of lower and upper limits for the true_log amp array
     sigma_lim = 5
     true_lower = amp - sigma_lim * sigma_amp
@@ -63,10 +61,10 @@ def second_cupy(n,mu,std,N,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
     mult_amp = gaussian_error_amp * lognorm_amp_dist
     # integral over true_amp_mesh
     integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)    # print("first xlim",xlim)
-
+    amp = amp[:, 0]
     p_det = p_detect_cupy(amp)
-    likelihood = integral_amp * p_det[:,0]
-    integral = cp.trapz(likelihood, amp[:, 0])
+    likelihood = integral_amp * p_det
+    integral = cp.trapz(likelihood, amp)
     integral = 1-integral
     return cp.log(integral)*(N-n)
 
@@ -83,16 +81,14 @@ def first_cupy(amp,mu,std,x_len=1000,a=0,lower_c=0,upper_c=cp.inf):
     # generate a mesh of amps
     # true_amp_mesh = cp.zeros((len(amp), x_len))
     true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
-
-    # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
-        # true_amp_mesh[i, :] = cp.linspace(cp.log(l), cp.log(u), x_len)
     amp = amp[:, cp.newaxis]
     gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
     lognorm_amp_dist = gaussian_cupy(true_amp_mesh, mu, std)
     mult_amp = gaussian_error_amp * lognorm_amp_dist
     # integral over true_amp_mesh
     integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)    # print("first xlim",xlim)
-    p_det = p_detect_cupy(amp[:, 0])
+    amp = amp[:, 0]
+    p_det = p_detect_cupy(amp)
     likelihood = integral_amp * p_det
     return cp.sum(cp.log(likelihood))
 #################CUPY END#####################
@@ -170,6 +166,7 @@ def total_p(X,snr_arr=None,use_a=False,use_cutoff=True,cuda_device=0):
         # print("finished s")
         if cp.isnan(s):
             print("s is nan")
+            print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
             return -np.inf
         n = len(snr_arr)
         log_NCn = cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
