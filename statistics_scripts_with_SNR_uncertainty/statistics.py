@@ -115,13 +115,13 @@ class statistics_ln(sb):
         lower_c=0,
         upper_c=np.inf,
     ):
-        sigma_lim = 4
+        sigma_lim = 5
         true_upper = mu + (sigma_lim * std)
         true_lower = mu - (sigma_lim * std)
-        true_amp_array = cp.linspace(true_lower, true_upper, 1000)
+        true_amp_array = cp.linspace(true_lower, true_upper, 5000)
         true_upper = mu_w + (sigma_lim * std_w)
         true_lower = mu_w - (sigma_lim * std_w)
-        true_width_array = cp.linspace(true_lower, true_upper, 1001)
+        true_width_array = cp.linspace(true_lower, true_upper, 5001)
         true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
         true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
         points = (cp.exp(true_amp_array[:, cp.newaxis]), cp.exp(true_width_array[cp.newaxis, :]))

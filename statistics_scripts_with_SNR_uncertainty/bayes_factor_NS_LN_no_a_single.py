@@ -289,7 +289,7 @@ if __name__ == "__main__":
         pt_Uniform_N,
         nDims,
         logl_args=[det_snr, det_width, likelihood_calc],
-        nlive=52,
+        nlive=256,
         ptform_args=[max_det, max_width, logn_N_range],
     )
     print("starting run_nested")
