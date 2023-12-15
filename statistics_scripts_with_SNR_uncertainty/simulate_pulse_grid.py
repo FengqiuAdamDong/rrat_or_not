@@ -52,7 +52,8 @@ def simulate_and_process_data(
     sigma_fluence = sb.detected_error_fluence
 
     while len(detected_pulses_snr) < detected_req:
-        obs_t = 1000
+        print(f"detected pulses: {len(detected_pulses_snr)}")
+        obs_t = int(detected_req/1000)
         p = 1
         f = 1
         if mode == "Exp":
@@ -378,9 +379,9 @@ mode = args.mode
 # load the detection file
 # sb = statistics_basic.statistics_basic(inj_file,plot=True)
 if mode == "Lognorm":
-    mu_arr = np.linspace(0, 1, 5)
+    mu_arr = np.linspace(0.5, 0.7, 5)
     std_arr = [args.s]
-    mu_w_arr = np.linspace(-6, -4.5, 5)
+    mu_w_arr = np.linspace(-5.3, -4.5, 10)
     std_w_arr = [0.3]
 elif mode == "Exp":
     k_arr = np.linspace(0.5, 2, 5)
