@@ -34,6 +34,8 @@ def simulate_and_process_data(
     dill_file,
     plot=True,
     out_fol="simulated_dir",
+    snr_cutoff=2.0,
+    width_cutoff=5e-3
 ):
     detected_pulses_snr = []
     detected_pulses_width = []
@@ -53,7 +55,7 @@ def simulate_and_process_data(
 
     while len(detected_pulses_snr) < detected_req:
         print(f"detected pulses: {len(detected_pulses_snr)}")
-        obs_t = int(detected_req/1000)
+        obs_t = int(detected_req/10)
         p = 1
         f = 1
         if mode == "Exp":
@@ -188,6 +190,8 @@ def simulate_and_process_data(
             len(total_pulses_snr),
             inj_file,
             yaml_fn,
+            snr_cutoff = snr_cutoff,
+            width_cutoff = width_cutoff,
         )
     elif mode == "Exp":
         write_yaml_exp(mu_ln, a, len(total_pulses_snr), inj_file, yaml_fn)
@@ -263,7 +267,7 @@ def simulate_and_process_data(
         plt.show()
 
 
-def write_yaml(mu, std, mu_w, std_w, a, N, inj_file, output_fn):
+def write_yaml(mu, std, mu_w, std_w, a, N, inj_file, output_fn, snr_cutoff=2,width_cutoff=5e-3):
     mu = float(mu)
     mu_arr = [mu - 1, mu + 1]
     mu_w = float(mu_w)
@@ -277,8 +281,8 @@ def write_yaml(mu, std, mu_w, std_w, a, N, inj_file, output_fn):
         "exp_N_range": [-1, N * 2],
         "exp_k_range": [0.1, 10],
         "detection_curve": inj_file,
-        "snr_thresh": 2.0,
-        "width_thresh": 0.005,
+        "snr_thresh": snr_cutoff,
+        "width_thresh": width_cutoff,
         "a": a,
         "N": N,
         "mu": mu,
@@ -290,7 +294,7 @@ def write_yaml(mu, std, mu_w, std_w, a, N, inj_file, output_fn):
         yaml.dump(data, my_file)
 
 
-def write_yaml_exp(k, a, N, inj_file, output_fn):
+def write_yaml_exp(k, a, N, inj_file, output_fn, snr_thresh=2):
     # in this case mu is the k variable for the exponential distribution
     k = float(k)
     k_low = k - 1
@@ -305,7 +309,7 @@ def write_yaml_exp(k, a, N, inj_file, output_fn):
         "logn_mu_range": [-2, 2],
         "logn_std_range": [0.01, 2],
         "detection_curve": inj_file,
-        "snr_thresh": 1.3,
+        "snr_thresh": snr_thresh,
         "a": a,
         "N": N,
         "k": k,
@@ -379,9 +383,9 @@ mode = args.mode
 # load the detection file
 # sb = statistics_basic.statistics_basic(inj_file,plot=True)
 if mode == "Lognorm":
-    mu_arr = np.linspace(0.5, 0.7, 5)
+    mu_arr = np.linspace(-0.5, 1, 10)
     std_arr = [args.s]
-    mu_w_arr = np.linspace(-5.3, -4.5, 10)
+    mu_w_arr = np.linspace(-6.3, -4.5, 10)
     std_w_arr = [0.3]
 elif mode == "Exp":
     k_arr = np.linspace(0.5, 2, 5)
@@ -403,7 +407,9 @@ from statistics import statistics_ln
 #
 if __name__ == "__main__":
     # simulate pulses one at a time
-    sb = statistics_ln(inj_file, plot=True)
+    snr_cutoff = 2
+    width_cutoff = 5e-3
+    sb = statistics_ln(inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff)
     sb.convolve_p_detect()
     for mu in mu_arr:
         for w_mu_ln in mu_w_arr:
@@ -436,4 +442,6 @@ if __name__ == "__main__":
                 # plot=True,
                 plot=False,
                 out_fol=output_fol,
+                snr_cutoff=snr_cutoff,
+                width_cutoff=width_cutoff,
             )
