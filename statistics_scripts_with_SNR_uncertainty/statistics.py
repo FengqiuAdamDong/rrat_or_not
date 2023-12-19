@@ -75,32 +75,13 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
 
 
 class statistics_ln(sb):
-    # def second_cupy(self,n,mu,std,N,xlim=10,x_len=10000000,a=0,lower_c=0,upper_c=cp.inf):
-    #     #xlim needs to be at least as large as 5 sigma_snrs though
-    #     sigma_snr = det_error
-    #     maximum_accuracy = 1/(N-n)
-    #     x_lims = [-sigma_snr*10,xlim]
-    #     # x_lims = [-xlim,xlim]
-    #     amp_arr = cp.linspace(x_lims[0],x_lims[1],x_len)
-    #     LN_dist = lognorm_dist_cupy(amp_arr,mu,std,lower_c=lower_c,upper_c=upper_c)
-    #     gaussian_error = gaussian_cupy(amp_arr,0,sigma_snr)
-    #     conv = cp.convolve(LN_dist,gaussian_error)*cp.diff(amp_arr)[0]
-    #     conv_lims = [2*x_lims[0],2*x_lims[1]]
-    #     #shift the whole distribution by a at the end here
-    #     conv_amp_array = cp.linspace(conv_lims[0],conv_lims[1],(x_len*2)-1)+a
-    #     #interpolate the values for amp
-    #     p_det = p_detect_cupy(conv_amp_array)
-    #     likelihood = conv*(1-p_det)
-    #     # likelihood = np.interp(amp,conv_amp_array,likelihood_conv)
-    #     integral = cp.trapz(likelihood,conv_amp_array)
-    #     return cp.log(integral)*(N-n)
-
     def calculate_pdet(self, amp, width):
         amp = cp.array(amp)
         width = cp.array(width)
         p_det = self.p_detect_cupy((amp, width))
         self.p_det_cupy = p_det
         self.p_det = p_det.get()
+
     def second_cupy(
         self,
         n,
@@ -118,10 +99,10 @@ class statistics_ln(sb):
         sigma_lim = 5
         true_upper = mu + (sigma_lim * std)
         true_lower = mu - (sigma_lim * std)
-        true_amp_array = cp.linspace(true_lower, true_upper, 5000)
+        true_amp_array = cp.linspace(true_lower, true_upper, 1000)
         true_upper = mu_w + (sigma_lim * std_w)
         true_lower = mu_w - (sigma_lim * std_w)
-        true_width_array = cp.linspace(true_lower, true_upper, 5001)
+        true_width_array = cp.linspace(true_lower, true_upper, 1001)
         true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
         true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
         points = (cp.exp(true_amp_array[:, cp.newaxis]), cp.exp(true_width_array[cp.newaxis, :]))
@@ -137,7 +118,7 @@ class statistics_ln(sb):
             cp.trapz(p_ndet_st_wt, true_amp_array, axis=0), true_width_array
         )
         likelihood = cp.log(p_ndet) * (N - n)
-        print(p_ndet)
+        # print(p_ndet)
         return likelihood, p_ndet
 
     def second(
@@ -249,6 +230,7 @@ class statistics_ln(sb):
         # plt.ylabel("Width")
         # plt.colorbar()
         # plt.show()
+        # import pdb; pdb.set_trace()
         return cp.sum(cp.log(likelihood)), self.p_det_cupy
 
     def first(
@@ -472,9 +454,9 @@ class statistics_ln(sb):
         loglike = f + s + log_NCn
         # loglike = np.array(loglike.get())
         overall_time = time.time()
-        print(
-            f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}"
-        )
+        # print(
+            # f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}"
+        # )
         # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
         return loglike
 
@@ -568,7 +550,7 @@ class statistics_ln(sb):
             # print(
                 # f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}"
             # )
-            print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
+            # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
         return loglike.get()
 
     def negative_loglike(self, X, det_snr):

@@ -88,7 +88,6 @@ def process_detection_results(real_det):
             det_width.append(pulse_obj.det_std)
             det_snr.append(pulse_obj.det_snr)
             noise_std.append(pulse_obj.noise_std)
-
     det_fluence = np.array(det_fluence)
     det_width = np.array(det_width)
     det_snr = np.array(det_snr)
@@ -114,6 +113,10 @@ def plot_detection_results(det_width, det_fluence, det_snr):
     axs[0, 1].set_title(f"detected snr ,ndet {len(det_snr)}")
     axs[0, 1].set_xlabel("snr")
     axs[0, 1].legend()
+    # plt.figure()
+    # plt.scatter(np.log(det_width), np.log(det_snr), alpha=0.5,s=1)
+    # plt.xlabel("log width")
+    # plt.ylabel("log snr")
     plt.show()
 
 
@@ -143,7 +146,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     min_pt_sigma = 0.01
     max_pt_sigma = 2.0
     min_pt_sigma_w = 0.01
-    max_pt_sigma_w = 0.5
+    max_pt_sigma_w = 1.0
     # min_pt_sigma = 0.7499
     # max_pt_sigma = 0.7501
     # min_pt_sigma_w = 0.099
@@ -236,8 +239,9 @@ if __name__ == "__main__":
 
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
+    width_wide_thresh = 30e-3
     # filter the det_snr
-    mask = (det_snr > snr_thresh) & (det_width > width_thresh)
+    mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
     det_snr = det_snr[mask]
     det_width = det_width[mask]
     likelihood_calc.calculate_pdet(det_snr,det_width)
