@@ -28,6 +28,29 @@ def n_detect_true(snr_true,width_true,sb,fluence=False):
     detected_width = width_true[rands < p]
     return detected_snr,detected_width
 
+# so in this script we need to simulate N pulses from a pulsar
+def simulate_pulses_multivar(obs_t, period, f, corr,
+                             mu_amp, std_amp, a_amp, lower_amp, upper_amp,
+                             mu_w  , std_w, a_w , lower_w, upper_w,):
+    # number of pulses
+    N = int(obs_t / period)
+    # draw N random variables between 0 and 1
+    rands = np.random.rand(N)
+    # check how many are successes
+    pulse_N = int(N * f)
+    pulses = []
+    cov = [[std_amp**2, corr*std_amp*std_w], [corr*std_amp*std_w, std_w**2]]
+    while pulse_N > len(pulses):
+        pulse = np.random.multivariate_normal([mu_amp,mu_w], cov, 1)
+        pulse = np.exp(pulse)
+        snr = pulse[0][0]
+        width = pulse[0][1]
+        if (snr>lower_amp+a_amp) and (snr<upper_amp+a_amp) and (width>lower_w+a_w) and (width<upper_w+a_w):
+            pulses.append(pulse)
+    pulses = np.array(pulses)
+    pulses = pulses[:,0,:]
+    return pulses
+
 
 
 # so in this script we need to simulate N pulses from a pulsar

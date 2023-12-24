@@ -11,7 +11,7 @@ import scipy
 from cupyx.scipy.special import gammaln as cupy_gammaln
 from cupyx.scipy.special import erf as cupy_erf
 from statistics_basic import statistics_basic as sb
-
+from scipy.stats import multivariate_normal
 # from statistics_basic import load_detection_fn, p_detect_cupy, p_detect_cpu
 global det_error
 # det_error = statistics_basic.det_error
@@ -21,6 +21,29 @@ import time
 ###############################CUPY FUNCTIONS##################################
 import cupy as cp
 
+def multivar_norm(x, mu, sigma, corr):
+    # x is a tuple of (snr,width)
+    # mu is a tuple of (mu_amp,mu_w)
+    # sigma is a tuple of (sigma_amp,sigma_w)
+    # corr is the correlation between the two
+    # lower and upper cutoff parameters added
+    # import pdb; pdb.set_trace()
+    pdf = cp.exp(
+        -(
+            (x[0] - mu[0]) ** 2 / sigma[0] ** 2
+            + (x[1] - mu[1]) ** 2 / sigma[1] ** 2
+            - 2 * corr * (x[0] - mu[0]) * (x[1] - mu[1])
+            / (sigma[0] * sigma[1])
+        )
+        / (2 * (1 - corr ** 2))
+    ) / (
+        2
+        * cp.pi
+        * sigma[0]
+        * sigma[1]
+        * cp.sqrt(1 - corr ** 2)
+    )
+    return pdf
 
 def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):
     # lower and upper cutoff parameters added
@@ -72,6 +95,7 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
         )
     )
     return pdf
+
 
 
 class statistics_ln(sb):
@@ -169,69 +193,55 @@ class statistics_ln(sb):
         std,
         mu_w,
         std_w,
+        corr,
         sigma_amp=0.4,
         sigma_w=1e-3,
         a=0,
         lower_c=0,
         upper_c=np.inf,
     ):
-        x_len = 1000
+        x_len = 101
+        x_len_w = 102
+        amp = cp.array(amp)
+        width = cp.array(width)
         # amp is the detected amps
         # width is the detected widths
         # make an array of lower and upper limits for the true_log amp array
-        sigma_lim = 8
+        sigma_lim = 5
         true_lower = amp - sigma_lim * sigma_amp
         true_lower[true_lower < 0] = cp.exp(-20)
         true_upper = amp + sigma_lim * sigma_amp
-        # generate a mesh of amps
-        # true_amp_mesh = cp.zeros((len(amp), x_len))
-        true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
 
-        # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
-            # true_amp_mesh[i, :] = cp.linspace(cp.log(l), cp.log(u), x_len)
-
-        amp = amp[:, cp.newaxis]
-        gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
-        lognorm_amp_dist = gaussian_cupy(true_amp_mesh, mu, std)
-        mult_amp = gaussian_error_amp * lognorm_amp_dist
-        # integral over true_amp_mesh
-        integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)
-        # now do the same for width
-        x_len = 1001
         true_lower_w = width - sigma_lim * sigma_w
         true_lower_w[true_lower_w < 0] = cp.exp(-20)
         true_upper_w = width + sigma_lim * sigma_w
-        # generate a mesh of widths
-        true_w_mesh = cp.linspace(cp.log(true_lower_w),cp.log(true_upper_w),x_len).T
-        # true_w_mesh = cp.zeros((len(width), x_len))
-        # for i, (l, u) in enumerate(zip(true_lower_w, true_upper_w)):
-            # true_w_mesh[i, :] = cp.linspace(np.log(l), np.log(u), x_len)
-        width = width[:, cp.newaxis]
+        # generate a mesh of amps
+        # true_amp_mesh = cp.zeros((len(amp), x_len))
+        # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
+            # true_amp_mesh[i, :] = cp.linspace(cp.log(l), cp.log(u), x_len)
+        true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
+        true_amp_mesh = true_amp_mesh[:,:,cp.newaxis]
+        true_w_mesh = cp.linspace(cp.log(true_lower_w),cp.log(true_upper_w),x_len_w).T
+        true_w_mesh = true_w_mesh[:,cp.newaxis,:]
+        amp = amp[:, cp.newaxis, cp.newaxis]
+        width = width[:, cp.newaxis, cp.newaxis]
+        gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
         gaussian_error_w = gaussian_cupy(width, cp.exp(true_w_mesh), sigma_w)
-        lognorm_w_dist = gaussian_cupy(true_w_mesh, mu_w, std_w)
-        mult_w = gaussian_error_w * lognorm_w_dist
-        # integral over true_w_mesh
-        integral_w = cp.trapz(mult_w, true_w_mesh, axis=1)
-        # #multiple against each other
-        # convolve the two arrays
-        # interpolate the values for amp
-        points = (amp[:,0],width[:,0])
-        likelihood = integral_amp * integral_w * self.p_det_cupy
-        # plt.figure()
-        # plt.scatter(width.get(),amp.get(),s=10, c=self.p_det.get())
-        # #set colorbar range from 0 - 1
-        # plt.clim(0,1)
-        # plt.xlabel("Amplitude")
-        # plt.ylabel("Width")
+        pos = (true_amp_mesh, true_w_mesh)
+        lognorm_amp_dist = multivar_norm(pos, [mu,mu_w], [std,std_w], corr)
+        mult = gaussian_error_amp * lognorm_amp_dist * gaussian_error_w
+        # integral over true_amp_mesh
+        # integral_amp_only = cp.zeros((len(amp), x_len_w))
+        # for i in range(len(amp)):
+            # integral_amp_only[i, :] = cp.trapz(mult[i, :, :], true_amp_mesh[i, :, :], axis=0)
 
-        # plt.figure()
-        # plt.scatter(amp.get(), width.get(), s=10, c=likelihood.get())
-        # plt.xlabel("Amplitude")
-        # plt.ylabel("Width")
-        # plt.colorbar()
-        # plt.show()
-        # import pdb; pdb.set_trace()
+        integral_amp_only = cp.trapz(mult, true_amp_mesh, axis=1)
+        integral = cp.trapz(integral_amp_only, true_w_mesh[:,0,:], axis=1)
+        amp = amp[:, 0, 0]
+        width = width[:, 0, 0]
+        likelihood = integral * self.p_det_cupy
         return cp.sum(cp.log(likelihood)), self.p_det_cupy
+
 
     def first(
         self,
@@ -315,58 +325,55 @@ class statistics_ln(sb):
         std,
         mu_w,
         std_w,
+        corr,
         sigma_amp=0.4,
         sigma_w=1e-3,
         a=0,
         lower_c=0,
         upper_c=np.inf,
     ):
-        x_len = 1000
+        x_len = 101
+        x_len_w = 102
+        amp = cp.array(amp)
+        width = cp.array(width)
         # amp is the detected amps
         # width is the detected widths
         # make an array of lower and upper limits for the true_log amp array
-        sigma_lim = 8
+        sigma_lim = 5
         true_lower = amp - sigma_lim * sigma_amp
-        true_lower[true_lower < 0] = np.exp(-20)
+        true_lower[true_lower < 0] = cp.exp(-20)
         true_upper = amp + sigma_lim * sigma_amp
-        # generate a mesh of amps
-        # true_amp_mesh = np.zeros((len(amp), x_len))
-        # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
-            # true_amp_mesh[i, :] = np.linspace(np.log(l), np.log(u), x_len)
-        true_amp_mesh = np.linspace(np.log(true_lower),np.log(true_upper),x_len).T
 
-        amp = amp[:, np.newaxis]
-        gaussian_error_amp = norm.pdf(amp, np.exp(true_amp_mesh), sigma_amp)
-        lognorm_amp_dist = norm.pdf(true_amp_mesh, mu, std)
-        mult_amp = gaussian_error_amp * lognorm_amp_dist
-        # integral over true_amp_mesh
-        integral_amp = np.trapz(mult_amp, true_amp_mesh, axis=1)
-        # now do the same for width
-        x_len = 1001
         true_lower_w = width - sigma_lim * sigma_w
-        true_lower_w[true_lower_w < 0] = np.exp(-20)
+        true_lower_w[true_lower_w < 0] = cp.exp(-20)
         true_upper_w = width + sigma_lim * sigma_w
-        # generate a mesh of widths
-        # true_w_mesh = np.zeros((len(width), x_len))
-        # for i, (l, u) in enumerate(zip(true_lower_w, true_upper_w)):
-            # true_w_mesh[i, :] = np.linspace(np.log(l), np.log(u), x_len)
-        true_w_mesh = np.linspace(np.log(true_lower_w),np.log(true_upper_w),x_len).T
-        width = width[:, np.newaxis]
-        gaussian_error_w = norm.pdf(width, np.exp(true_w_mesh), sigma_w)
-        lognorm_w_dist = norm.pdf(true_w_mesh, mu_w, std_w)
-        mult_w = gaussian_error_w * lognorm_w_dist
-        # integral over true_w_mesh
-        integral_w = np.trapz(mult_w, true_w_mesh, axis=1)
-        # #multiple against each other
-        integral_amp_mesh, integral_w_mesh = np.meshgrid(integral_amp, integral_w)
-        amp_mesh, w_mesh = np.meshgrid(amp, width)
-        # convolve the two arrays
-        # interpolate the values for amp
-        # p_det = self.p_detect_cpu((amp[:,0], width[:,0]))
-        p_det = self.p_detect_cpu((amp_mesh, w_mesh))
-        likelihood = integral_amp_mesh * integral_w_mesh * p_det
+        # generate a mesh of amps
+        # true_amp_mesh = cp.zeros((len(amp), x_len))
+        # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
+            # true_amp_mesh[i, :] = cp.linspace(cp.log(l), cp.log(u), x_len)
+        true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
+        true_amp_mesh = true_amp_mesh[:,:,cp.newaxis]
+        true_w_mesh = cp.linspace(cp.log(true_lower_w),cp.log(true_upper_w),x_len_w).T
+        true_w_mesh = true_w_mesh[:,cp.newaxis,:]
+        amp = amp[:, cp.newaxis, cp.newaxis]
+        width = width[:, cp.newaxis, cp.newaxis]
+        gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
+        gaussian_error_w = gaussian_cupy(width, cp.exp(true_w_mesh), sigma_w)
+        pos = (true_amp_mesh, true_w_mesh)
+        lognorm_amp_dist = multivar_norm(pos, [mu,mu_w], [std,std_w], corr)
+        mult = gaussian_error_amp * lognorm_amp_dist * gaussian_error_w
+        # integral over true_amp_mesh
+        # integral_amp_only = cp.zeros((len(amp), x_len_w))
+        # for i in range(len(amp)):
+            # integral_amp_only[i, :] = cp.trapz(mult[i, :, :], true_amp_mesh[i, :, :], axis=0)
 
-        return likelihood, p_det
+        integral_amp_only = cp.trapz(mult, true_amp_mesh, axis=1)
+        integral = cp.trapz(integral_amp_only, true_w_mesh[:,0,:], axis=1)
+        amp = amp[:, 0, 0]
+        width = width[:, 0, 0]
+        p_det = self.p_detect_cupy((amp, width))
+        likelihood = integral * p_det
+        return likelihood.get(), p_det.get()
 
     def total_p(
         self,

@@ -8,6 +8,7 @@ from simulate_pulse import n_detect
 from simulate_pulse import n_detect_true
 from simulate_pulse import simulate_pulses_exp
 from simulate_pulse import simulate_pulses_gauss
+from simulate_pulse import simulate_pulses_multivar
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from scipy.stats import expon
@@ -26,6 +27,7 @@ def simulate_and_process_data(
     std_ln,
     w_mu_ln,
     w_std_ln,
+    corr,
     lower,
     upper,
     sb,
@@ -55,7 +57,7 @@ def simulate_and_process_data(
 
     while len(detected_pulses_snr) < detected_req:
         print(f"detected pulses: {len(detected_pulses_snr)}")
-        obs_t = int(detected_req/10)
+        obs_t = int(detected_req)
         p = 1
         f = 1
         if mode == "Exp":
@@ -63,37 +65,38 @@ def simulate_and_process_data(
                 obs_t, p, f, mu_ln, a, random=False, lower=lower, upper=upper
             )
         elif mode == "Lognorm":
-            pulses = simulate_pulses(
-                obs_t, p, f, mu_ln, std_ln, a, lower=lower, upper=upper, random=False
+            pulses = simulate_pulses_multivar(
+                obs_t, p, f, corr,
+                mu_ln, std_ln, a, lower, upper,
+                w_mu_ln, w_std_ln, a, 0, np.inf,
             )
         elif mode == "Gauss":
             pulses, a, b = simulate_pulses_gauss(
                 obs_t, p, f, mu_ln, std_ln, random=True
             )
+        pulses_snr = pulses[:,0]
+        pulses_width = pulses[:,1]
         rv_snr = norm(loc=0, scale=sigma_snr).rvs(len(pulses))
-        d_pulses = rv_snr + pulses
-        pulses_width = simulate_pulses(
-            obs_t, p, f, w_mu_ln, w_std_ln, a, lower=0, upper=np.inf, random=False
-        )
-        rv_width = norm(loc=0, scale=sigma_width).rvs(len(pulses_width))
+        d_pulses = rv_snr + pulses_snr
+        rv_width = norm(loc=0, scale=sigma_width).rvs(len(pulses))
         d_pulses_width = rv_width + pulses_width
 
         # calculate the fluence from the width and snr, assume it is a gaussian pulse
-        pulses_fluence = pulses_width * pulses / 0.3989
+        pulses_fluence = pulses_width * pulses_snr / 0.3989
         rv_fluence = norm(loc=0, scale=sigma_fluence).rvs(len(pulses_fluence))
         d_pulses_fluence = rv_fluence + pulses_fluence
 
         d_snr, d_width, index = n_detect(d_pulses, d_pulses_width, sb)
-        t_snr, t_width = n_detect_true(pulses, pulses_width, sb)
+        t_snr, t_width = n_detect_true(pulses_snr, pulses_width, sb)
         if len(d_snr) > 0:
             detected_pulses_snr.extend(d_snr)
             detected_pulses_width.extend(d_width)
             detected_pulses_fluence.extend(d_pulses_fluence)
-            detected_pulses_snr_true.extend(pulses[index])
+            detected_pulses_snr_true.extend(pulses_snr[index])
             detected_pulses_width_true.extend(pulses_width[index])
             true_pulses_snr.extend(t_snr)
             true_pulses_width.extend(t_width)
-        total_pulses_snr.extend(pulses)
+        total_pulses_snr.extend(pulses_snr)
         total_pulses_width.extend(pulses_width)
         total_pulses_fluence.extend(pulses_fluence)
 
@@ -153,7 +156,6 @@ def simulate_and_process_data(
             alpha=0.5,
         )
         plt.legend()
-        plt.show()
 
     print("len detected", len(detected_pulses_snr))
     print("generated", len(total_pulses_snr))
@@ -197,8 +199,8 @@ def simulate_and_process_data(
         write_yaml_exp(mu_ln, a, len(total_pulses_snr), inj_file, yaml_fn)
 
     if plot:
-        snr_array = np.linspace(0, 20, 1000)
-        width_array = np.linspace(0, 20, 1001) * 1e-3
+        snr_array = np.linspace(0, 20, 200)
+        width_array = np.linspace(0, 20, 201) * 1e-3
         # likelihood, p_det = sb.first_plot(detected_pulses_snr, detected_pulses_width,
         #                                                                                             mu_ln, std_ln,
         #                                                                                             w_mu_ln, w_std_ln,
@@ -207,22 +209,33 @@ def simulate_and_process_data(
         #                                                                                             a=a,
         #                                                                                             lower_c=lower,
         #                                                                                             upper_c=upper,)
-        likelihood, p_det = sb.first_plot(
-            snr_array,
-            width_array,
-            mu_ln,
-            std_ln,
-            w_mu_ln,
-            w_std_ln,
-            sigma_amp=sigma_snr,
-            sigma_w=sigma_width,
-            a=a,
-            lower_c=lower,
-            upper_c=upper,
-        )
+        #
+        snr_array_mesh, width_array_mesh = np.meshgrid(snr_array, width_array)
+        likelihood_mesh = np.zeros_like(snr_array_mesh)
+        for i in range(len(snr_array)):
+            amp = snr_array_mesh[i,:]
+            width = width_array_mesh[i,:]
+            likelihood, p_det = sb.first_plot(
+                amp,
+                width,
+                mu_ln,
+                std_ln,
+                w_mu_ln,
+                w_std_ln,
+                corr,
+                sigma_amp=sigma_snr,
+                sigma_w=sigma_width,
+                a=a,
+                lower_c=lower,
+                upper_c=upper,
+            )
+            likelihood_mesh[i,:] = likelihood
+
+        likelihood = likelihood_mesh
         likelihood_norm = likelihood / np.trapz(
             np.trapz(likelihood, snr_array, axis=1), width_array
         )
+        #
         # make a 2d histogram of the detections
         fig, axes = plt.subplots(1, 2, figsize=(15, 5))
         h, xedges, yedges, mesh = axes[0].hist2d(
@@ -383,9 +396,9 @@ mode = args.mode
 # load the detection file
 # sb = statistics_basic.statistics_basic(inj_file,plot=True)
 if mode == "Lognorm":
-    mu_arr = np.linspace(-0.5, 1, 10)
+    mu_arr = np.linspace(0.9, 1, 10)
     std_arr = [args.s]
-    mu_w_arr = np.linspace(-6.3, -4.5, 10)
+    mu_w_arr = np.linspace(-4.6, -4.5, 10)
     std_w_arr = [0.3]
 elif mode == "Exp":
     k_arr = np.linspace(0.5, 2, 5)
@@ -409,8 +422,10 @@ if __name__ == "__main__":
     # simulate pulses one at a time
     snr_cutoff = 2
     width_cutoff = 5e-3
-    sb = statistics_ln(inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff)
-    sb.convolve_p_detect()
+    corr = -0.99
+    plot = False
+    sb = statistics_ln(inj_file, plot=plot, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff)
+    sb.convolve_p_detect(plot=plot)
     for mu in mu_arr:
         for w_mu_ln in mu_w_arr:
             std = std_arr[0]
@@ -433,14 +448,15 @@ if __name__ == "__main__":
                 std,
                 w_mu_ln,
                 w_std_ln,
+                corr,
                 lower,
                 upper,
                 sb,
                 a,
                 inj_file,
                 dill_file,
-                # plot=True,
-                plot=False,
+                plot=True,
+                # plot=False,
                 out_fol=output_fol,
                 snr_cutoff=snr_cutoff,
                 width_cutoff=width_cutoff,
