@@ -226,8 +226,10 @@ def grab_spectra_manual(
                 fit_width_guess = sigma_width
             )
         except Exception as e:
-            print(e)
-            amp, std, loc, sigma_width = -1, -1, -1, -1
+            #print the full traceback
+            import traceback
+            traceback.print_exc()
+            amp, std, loc, sigma_width, FLUENCE = -1, -1, -1, -1, -1
         #scale std by the sqrt of non masked chans
         std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
         FLUENCE = FLUENCE/std
@@ -271,10 +273,15 @@ def find_polynomial_fit(x_std, ts_std, order = None):
         std_diff = np.abs(np.diff(std_arr))
         # print(std_diff)
         #find where std_diff first is smaller than 0.0003
-        ind_std = np.where(std_diff < 0.0002)[0][0]
-        # print(ind_std)
-        poly = poly_arr[ind_std+1]
-        coeffs = coeffs_arr[ind_std+1]
+        try:
+            ind_std = np.where(std_diff < 0.0002)[0][0]
+            # print(ind_std)
+            poly = poly_arr[ind_std+1]
+            coeffs = coeffs_arr[ind_std+1]
+        except:
+            #if it fails just take the middle value
+            poly = poly_arr[5]
+            coeffs = coeffs_arr[5]
     else:
         coeffs = np.polyfit(x_std, ts_std, order)
         poly = np.poly1d(coeffs)
@@ -810,6 +817,10 @@ class inject_stats:
         axes[1,1].set_ylabel("Injected SNR")
         axes[1,1].set_title("Detected SNR STD")
         plt.tight_layout()
+        if hasattr(self, "base_fn"):
+            plt.savefig(self.base_fn + "_snr_amp.png")
+        else:
+            plt.show()
         unique_fluences, unique_width_fs, det_matrix_width_f = create_matrix(inj_fluence, inj_width, det_width,norm=1)
         unique_fluences, unique_width_fs, det_matrix_fluence = create_matrix(inj_fluence, inj_width, det_fluence,norm=0)
         unique_fluences, unique_width_fs, det_matrix_width_f_std = create_matrix(inj_fluence, inj_width, det_width_std,norm=-1)
@@ -850,11 +861,8 @@ class inject_stats:
         axes[1,1].set_ylabel("Injected FLUENCE")
         axes[1,1].set_title("Detected FLUENCE STD")
         plt.tight_layout()
-
-
-        plt.show()
         if hasattr(self, "base_fn"):
-            plt.savefig(self.base_fn + "_amp.png")
+            plt.savefig(self.base_fn + "_fluence_amp.png")
         else:
             plt.show()
         plt.close()
@@ -982,9 +990,9 @@ class inject_stats:
         self.unique_fluence = unique_fluence
         self.unique_width_fs = unique_width_fs
         self.det_matrix_fluence = det_matrix_fluence
-
-        self.bin_detections_2d(self.all_det_amplitudes_snr, self.detected_amplitudes_snr, self.all_det_widths, self.detected_widths, num_bins=10,plot=False, fluence=False)
-        self.bin_detections_2d(self.all_det_amplitudes_fluence, self.detected_amplitudes_fluence, self.all_det_widths, self.detected_widths, num_bins=10,plot=False, fluence=True)
+        num_bins = 20
+        self.bin_detections_2d(self.all_det_amplitudes_snr, self.detected_amplitudes_snr, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=False)
+        self.bin_detections_2d(self.all_det_amplitudes_fluence, self.detected_amplitudes_fluence, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=True)
         fig,axes = plt.subplots(2,2,figsize=(10,10))
         mesh = axes[0,0].pcolormesh(unique_widths*1000, unique_snrs, det_frac_matrix_snr)
         mesh.set_clim(0,1)
@@ -1145,8 +1153,7 @@ class inject_stats:
         # print("number of points in each bin width", self.num_points_per_bin_width)
 
         # calculate the bin edges based on the percentiles of the data
-        # bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
-        # bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins))
+
         all_mask = (all_det_vals<(max(self.inj_snr)+0.5)) & (all_width_vals<(max(self.inj_width)+1e-3)) & (all_width_vals>2e-3)
         det_mask = (detected_det_vals<(max(self.inj_snr)+0.5)) & (detected_width_vals<(max(self.inj_width)+1e-3))& (detected_width_vals>2e-3)
         all_det_vals = all_det_vals[all_mask]
@@ -1154,9 +1161,10 @@ class inject_stats:
         all_width_vals = all_width_vals[all_mask]
         detected_width_vals = detected_width_vals[det_mask]
 
-
-        bin_edges_snr = np.histogram_bin_edges(all_det_vals, bins=num_bins)
-        bin_edges_width = np.histogram_bin_edges(all_width_vals, bins=num_bins)
+        bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
+        bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins+1))
+        # bin_edges_snr = np.histogram_bin_edges(all_det_vals, bins=num_bins)
+        # bin_edges_width = np.histogram_bin_edges(all_width_vals, bins=num_bins)
         #remove bin edges above max of self.inj_snr
         # if fluence:
         #     bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_fluence)+0.4]

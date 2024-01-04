@@ -33,6 +33,7 @@ class inject_stats_collection(inject_stats):
                 # only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
                 # inst.get_base_fn()
+                inst.base_fn = f
                 inst.amplitude_statistics(title=f)
                 inst.compare([csv], title=f)
                 for si in inst.sorted_inject:
@@ -59,7 +60,7 @@ class inject_stats_collection(inject_stats):
                 self.det_frac[i, j] = np.sum(self.detected_pulses[mask]) / np.sum(mask)
         detected_det_vals = self.det_snr[self.detected_pulses]
         detected_width_vals = self.det_width[self.detected_pulses]
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=10)
+        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=20)
 
         fig, axes = plt.subplots(1, 2, figsize=(10, 10))
         mesh = axes[0].pcolormesh(unique_width*1000, unique_snr, self.det_frac, cmap="viridis")
@@ -70,7 +71,8 @@ class inject_stats_collection(inject_stats):
         axes[0].set_ylabel("Injected SNR")
         axes[0].set_title("Detection Fraction inj")
 
-        mesh = axes[1].pcolormesh(self.detected_bin_midpoints[1]*1000,self.detected_bin_midpoints[0], self.detected_det_frac, cmap="viridis")
+        mesh = axes[1].pcolormesh(self.detected_bin_midpoints_snr[1]*1000,self.detected_bin_midpoints_snr[0],
+                                  self.detected_det_frac_snr, cmap="viridis")
         mesh.set_clim(0, 1)
         cbar = plt.colorbar(mesh)
         cbar.set_label("Detection Fraction")
@@ -78,6 +80,7 @@ class inject_stats_collection(inject_stats):
         axes[1].set_ylabel("Detected SNR")
         axes[1].set_title("Detection Fraction det")
         plt.tight_layout()
+        plt.savefig("detection_curves_all.png")
         plt.show()
 
 
@@ -135,4 +138,4 @@ if __name__ == "__main__":
     with open("inj_stats_combine_fitted.dill", "wb") as of:
         dill.dump(inj_collection, of)
 
-    combine_images()
+    # combine_images()

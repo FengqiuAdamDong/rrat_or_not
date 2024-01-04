@@ -62,7 +62,6 @@ class dynesty_plot:
             if f.endswith('.npz'):
                 self.data.append(np.load(f,allow_pickle=True)['results'])
             elif f.endswith('.h5'):
-                print(f)
                 self.data.append(dynesty.NestedSampler.restore(f))
                 evidence = self.data[-1].results.logz[-1]
                 evidence_error = self.data[-1].results.logzerr[-1]
@@ -176,6 +175,7 @@ class dynesty_plot:
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
+                import pdb; pdb.set_trace()
                 true_centres.append(np.array([yaml_data['mu'],yaml_data['std'],yaml_data['N']]))
 
         #plot the first element of the ratios

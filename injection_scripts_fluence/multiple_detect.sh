@@ -15,8 +15,6 @@ do
     #strip the extension
     FOL="${f%.*}"
     #get the maskfile
-    echo $FOL
-    cd $FOL
     #check if inj_stats already exists
     if [ -f "inj_stats.dill" ]; then
         echo "inj_stats.dill already exists, skipping"
@@ -26,6 +24,7 @@ do
 
     #copy the filterbank file back in
     if [ "$LOCAL" != true ]; then
+        echo "need to process" $FOL
         sbatch $SOURCEDIR/detect_one_fil.sh -i $FOL -a $SOURCEDIR
     else
         $SOURCEDIR/detect_one_fil.sh -i $FOL -l -a $SOURCEDIR
