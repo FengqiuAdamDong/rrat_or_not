@@ -275,8 +275,8 @@ class statistics_basic:
             fill_value=None,
         )
 
-        snr_arr = np.linspace(0, 6, 1000)
-        width_arr = np.linspace(1, 20, 1000) * 1e-3
+        snr_arr = np.linspace(0, max(injected_snr), 1000)
+        width_arr = np.linspace(1, max(injected_width)*1e3, 1000) * 1e-3
         fluence_arr = np.linspace(0, 1, 1000)
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")
         points = (snr_grid, width_grid)

@@ -407,7 +407,7 @@ from statistics import statistics_ln
 #
 if __name__ == "__main__":
     # simulate pulses one at a time
-    snr_cutoff = 2
+    snr_cutoff = 2.0
     width_cutoff = 5e-3
     sb = statistics_ln(inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff)
     sb.convolve_p_detect()

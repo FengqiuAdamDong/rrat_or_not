@@ -173,6 +173,7 @@ if __name__ == "__main__":
     parser.add_argument("-multiprocessing", action="store_true", help="Use multiprocessing")
     parser.add_argument("-checkpoint", default="tmp.dill", help="checkpoint file or file to refit")
     parser.add_argument("-save_freq", default=100, help="save every x pulses")
+    parser.add_argument("-cutout", type=float, help='cutout length as a percentage of file', default=0.8)
     args = parser.parse_args()
 
     dm = float(args.dm)
@@ -182,13 +183,39 @@ if __name__ == "__main__":
     positive_fl = args.p
     period = args.period
     downsamp = args.ds
+    cutout = args.cutout
     fil1 = []
     dm1 = []
     toa1 = []
     from read_positive_burst import read_positive_burst
-
+    from sigpyproc import readers as r
     for p in positive_fl:
         dm_temp, toa_temp, boxcar_det_snr, MJD, fil_temp = read_positive_burst(p)
+        length_temp = []
+        #go through each fil_temp and figure out the observation lengths
+        for filfn in fil_temp:
+            fil_block = r.FilReader(filfn)
+            nsamples = fil_block.header.nsamples
+            tsamp = fil_block.header.tsamp
+            length = nsamples*tsamp
+            length_temp.append(length)
+        dm_temp = np.array(dm_temp)
+        toa_temp = np.array(toa_temp)
+        boxcar_det_snr = np.array(boxcar_det_snr)
+        MJD = np.array(MJD)
+        fil_temp = np.array(fil_temp)
+        length_temp = np.array(length_temp)
+        cutoff_start = ((1-cutout)/2)*length_temp
+        cutoff_end = ((1+cutout)/2)*length_temp
+
+        mask = (toa_temp > cutoff_start) & (toa_temp < cutoff_end)
+        dm_temp = dm_temp[mask]
+        toa_temp = toa_temp[mask]
+        boxcar_det_snr = boxcar_det_snr[mask]
+        MJD = MJD[mask]
+        fil_temp = fil_temp[mask]
+
+        import pdb; pdb.set_trace()
         # fil_temp,dm_temp,toa_temp = read_positive_file(p)
         if len(fil1) == 0:
             fil1, dm1, toa1 = (fil_temp, dm_temp, toa_temp)
