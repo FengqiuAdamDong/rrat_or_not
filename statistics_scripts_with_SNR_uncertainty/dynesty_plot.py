@@ -9,6 +9,7 @@ from bayes_factor_NS_LN_no_a_single import pt_Uniform_N
 from scipy.interpolate import RegularGridInterpolator
 import yaml
 import smplotlib
+import os
 def Ntonull(N):
     """
     Convert the number of events to the nulling fraction
@@ -58,7 +59,16 @@ class dynesty_plot:
         Load the filenames into a list of data objects
         """
         self.data = []
+        delete_fn = []
         for f in self.filename:
+            #check that the png was made i.e. the run finished
+            png_fn = f.replace("_logn.h5",".dill")+"_logn_a_corner.png"
+            if not os.path.isfile(png_fn):
+                print(f"WARNING: {png_fn} does not exist, skipping")
+                #delete f from self.filename
+                delete_fn.append(f)
+                continue
+
             if f.endswith('.npz'):
                 self.data.append(np.load(f,allow_pickle=True)['results'])
             elif f.endswith('.h5'):
@@ -66,6 +76,8 @@ class dynesty_plot:
                 evidence = self.data[-1].results.logz[-1]
                 evidence_error = self.data[-1].results.logzerr[-1]
                 print(f"evidence for {evidence}+-{evidence_error}")
+        for f in delete_fn:
+            self.filename.remove(f)
 
     def plot_bayes_ratio_logn(self):
         mu_arr= []
@@ -133,6 +145,7 @@ class dynesty_plot:
         from dynesty import plotting as dyplot
         means = []
         stds = []
+        quantiles = []
         for f,d in zip(self.filename,self.data):
             if plot:
                 corner = dyplot.cornerplot(d.results, labels=labels)
@@ -150,16 +163,22 @@ class dynesty_plot:
 
                 plt.savefig(f.strip(".h5")+"_corner.png")
                 plt.close()
-            import pdb; pdb.set_trace()
             mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
+            quantile = []
+            for i in range(d.results.samples.shape[1]):
+                quantile.append(np.array(dynesty.utils.quantile(d.results.samples[:,i],[0.159,0.50,0.841],d.results.importance_weights())))
+            quantile = np.array(quantile)
             diag_cov = np.diag(cov)
             std = np.sqrt(diag_cov)
             means.append(mean)
             stds.append(std)
-            print(means)
-            print(std)
+            quantile = np.array(quantile)
+            quantiles.append(quantile)
+            # print(means)
+            # print(std)
         self.means = np.array(means)
         self.stds = np.array(stds)
+        self.quantiles = np.array(quantiles)
 
     def plot_accuracy_logn(self):
         """
@@ -175,19 +194,37 @@ class dynesty_plot:
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
-                import pdb; pdb.set_trace()
-                true_centres.append(np.array([yaml_data['mu'],yaml_data['std'],yaml_data['N']]))
+                true_centres.append(np.array([yaml_data['mu'],yaml_data['std'],yaml_data['mu_w'],yaml_data['std_w'],yaml_data['N']]))
 
         #plot the first element of the ratios
         true_mus = [r[0] for r in true_centres]
-        mus = [r[0] for r in self.means]
-        mu_errs = [r[0] for r in self.stds]
         true_sigmas = [r[1] for r in true_centres]
-        sigmas = [r[1] for r in self.means]
-        sigma_errs = [r[1] for r in self.stds]
-        true_Ns = [r[2] for r in true_centres]
-        Ns = [r[2] for r in self.means]
-        N_errs = [r[2] for r in self.stds]
+        true_mus_w = [r[2] for r in true_centres]
+        true_sigmas_w = [r[3] for r in true_centres]
+        true_Ns = [r[4] for r in true_centres]
+
+        mus = np.zeros(len(true_mus))
+        mu_errs = np.zeros((2,len(true_mus)))
+        sigmas = np.zeros(len(true_mus))
+        sigma_errs = np.zeros((2,len(true_mus)))
+        mus_w = np.zeros(len(true_mus))
+        mu_errs_w = np.zeros((2,len(true_mus)))
+        sigmas_w = np.zeros(len(true_mus))
+        sigma_errs_w = np.zeros((2,len(true_mus)))
+        Ns = np.zeros(len(true_mus))
+        N_errs = np.zeros((2,len(true_mus)))
+        for i,quantile in enumerate(self.quantiles):
+            mus[i] = quantile[0][1]
+            mu_errs[:,i] = np.array([quantile[0][1]-quantile[0][0],quantile[0][2]-quantile[0][1]])
+            sigmas[i] = quantile[1][1]
+            sigma_errs[:,i] = np.array([quantile[1][1]-quantile[1][0],quantile[1][2]-quantile[1][1]])
+            mus_w[i] = quantile[2][1]
+            mu_errs_w[:,i] = np.array([quantile[2][1]-quantile[2][0],quantile[2][2]-quantile[2][1]])
+            sigmas_w[i] = quantile[3][1]
+            sigma_errs_w[:,i] = np.array([quantile[3][1]-quantile[3][0],quantile[3][2]-quantile[3][1]])
+            Ns[i] = quantile[4][1]
+            N_errs[:,i] = np.array([quantile[4][1]-quantile[4][0],quantile[4][2]-quantile[4][1]])
+
 
         plt.figure()
         max_mu = max([max(true_mus),max(mus)])
@@ -199,6 +236,7 @@ class dynesty_plot:
         plt.ylabel(r"recovered $\mu$")
         plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.savefig(f"{self.dets}_mus.pdf")
+        plt.savefig(f"{self.dets}_mus.png")
         plt.figure()
         true_sigmas = np.array(true_sigmas)
         sigmas = np.array(sigmas)
@@ -210,6 +248,30 @@ class dynesty_plot:
         plt.ylabel(r"recovered $\sigma$/True $\sigma$")
         plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.savefig(f"{self.dets}_sigmas.pdf")
+        plt.savefig(f"{self.dets}_sigmas.png")
+        plt.figure()
+        max_mu_w = max([max(true_mus_w),max(mus_w)])
+        min_mu_w = min([min(true_mus_w),min(mus_w)])
+        plt.errorbar(true_mus_w,mus_w,yerr=mu_errs_w,label="mu_w",linestyle='None',marker='o')
+        x = np.linspace(min_mu_w,max_mu_w,100)
+        plt.plot(x,x,'r--')
+        plt.xlabel(r"True $\mu_w$")
+        plt.ylabel(r"recovered $\mu_w$")
+        plt.title(f"{self.dets} detections true sigma = {true_sigmas_w[0]}")
+        plt.savefig(f"{self.dets}_mus_w.pdf")
+        plt.savefig(f"{self.dets}_mus_w.png")
+
+        plt.figure()
+        true_sigmas_w = np.array(true_sigmas_w)
+        sigmas_w = np.array(sigmas_w)
+        plt.errorbar(range(len(sigmas_w)),sigmas_w/true_sigmas_w,yerr=sigma_errs_w/true_sigmas_w,label="sigma_w",linestyle='None',marker='o')
+        max_sigma_w = max([max(true_sigmas_w),max(sigmas_w)])
+        plt.xlabel(r"index")
+        plt.ylabel(r"recovered $\sigma_w$/True $\sigma_w$")
+        plt.title(f"{self.dets} detections true sigma_w = {true_sigmas_w[0]}")
+        plt.savefig(f"{self.dets}_sigmas_w.pdf")
+        plt.savefig(f"{self.dets}_sigmas_w.png")
+
         plt.figure()
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
@@ -219,6 +281,7 @@ class dynesty_plot:
         plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
         plt.plot(x,x,'r--')
         plt.savefig(f"{self.dets}_logn_Ns.pdf")
+        plt.savefig(f"{self.dets}_logn_Ns.png")
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
@@ -284,7 +347,7 @@ class dynesty_plot:
             snr_thresh = data['snr_thresh']
             #load the detection curve
             snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
-            print(snr_thresh)
+            # print(snr_thresh)
             import statistics_exp
             from bayes_factor_NS_LN_no_a_single import process_detection_results
             #load the detections
@@ -331,7 +394,7 @@ class dynesty_plot:
             snr_thresh = data['snr_thresh']
             #load the detection curve
             snr_thresh = statistics_basic.load_detection_fn(detection_curve,min_snr_cutoff=snr_thresh)
-            print(snr_thresh)
+            # print(snr_thresh)
             import statistics
             from bayes_factor_NS_LN_no_a_single import process_detection_results
             #load the detections

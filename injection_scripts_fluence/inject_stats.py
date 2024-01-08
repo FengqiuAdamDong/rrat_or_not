@@ -279,9 +279,9 @@ def find_polynomial_fit(x_std, ts_std, order = None):
             poly = poly_arr[ind_std+1]
             coeffs = coeffs_arr[ind_std+1]
         except:
-            #if it fails just take the middle value
-            poly = poly_arr[5]
-            coeffs = coeffs_arr[5]
+            #if it fails just take the final value
+            poly = poly_arr[-1]
+            coeffs = coeffs_arr[-1]
     else:
         coeffs = np.polyfit(x_std, ts_std, order)
         poly = np.poly1d(coeffs)
@@ -881,10 +881,10 @@ class inject_stats:
         # take the average of the last 3 for the error
         #hardcode larger than widt 10ms
         sm, wm = np.meshgrid(unique_snrs, unique_widths, indexing="ij")
-        mask = (wm > 12) & (wm < 18) & (sm > 3)
+        mask = (wm > 12) & (wm < 18) & (sm > 3) & (sm < 6)
 
         sfm, wfm = np.meshgrid(unique_fluences, unique_width_fs, indexing="ij")
-        fmask = (wfm > 12) & (wfm < 18) & (sfm > 0.14)
+        fmask = (wfm > 12) & (wfm < 18) & (sfm > 0.14) & (sfm < 0.3)
         #add the errors in quadrature
         self.detect_error_snr = np.sqrt(np.nanmean(det_matrix_snr_std[mask]**2))
         self.detect_error_width = np.sqrt(np.nanmean(det_matrix_width_std[mask]**2))
