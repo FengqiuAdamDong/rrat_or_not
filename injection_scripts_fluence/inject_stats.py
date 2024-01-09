@@ -428,7 +428,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     # plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
     global x_new
-    x_new = [-1, -1, -1, -1]
+    x_new = [-1, -1, -1, -1, -1]
 
     def update(val):
         poly, coeffs = find_polynomial_fit(x_std, ts_std,fit_order.val)
@@ -479,9 +479,9 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     plt.show()
     if skip.skip:
         print("skipping")
-        return -1, -1, -1, -1
+        return -1, -1, -1, -1, -1
 
-    if x_new != [-1, -1, -1, -1]:
+    if x_new != [-1, -1, -1, -1, -1]:
         fitx = x_new
         print("Reassigning fit x becase we've recalculated")
     else:
