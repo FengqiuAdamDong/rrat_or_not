@@ -170,7 +170,7 @@ def grab_spectra_manual(
 
     if manual:
         # this gives you the location of the peak
-        amp, std, loc, sigma_width = fit_SNR_manual(
+        amp, std, loc, sigma_width, FLUENCE = fit_SNR_manual(
             dat_ts,
             tsamp * downsamp,
             fit_del,
