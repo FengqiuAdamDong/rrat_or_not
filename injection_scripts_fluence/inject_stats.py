@@ -571,7 +571,7 @@ class inject_obj:
             t_dur = t_dur,
             fit_del = fit_del,
             plot_name = plot_name,
-            guess_width = period*0.05
+            guess_width = period*0.1
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
         self.approximate_toa = approximate_toa
