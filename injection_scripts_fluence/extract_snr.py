@@ -71,7 +71,7 @@ class det_stats:
 
             # for faster debugging
             # self.sorted_pulses = self.sorted_pulses[0:10]
-            with ProcessPool(nodes=2) as p:
+            with ProcessPool(nodes=5) as p:
                 self.sorted_pulses = p.map(run_calc, self.sorted_pulses)
 
         else:
@@ -216,7 +216,8 @@ if __name__ == "__main__":
         boxcar_det_snr = boxcar_det_snr[mask]
         MJD = MJD[mask]
         fil_temp = fil_temp[mask]
-
+        print(f"total dets before centre fil {len(mask)}")
+        print(f"after {sum(mask)}")
         # fil_temp,dm_temp,toa_temp = read_positive_file(p)
         if len(fil1) == 0:
             fil1, dm1, toa1 = (fil_temp, dm_temp, toa_temp)
