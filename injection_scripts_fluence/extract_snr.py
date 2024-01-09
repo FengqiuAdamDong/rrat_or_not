@@ -215,7 +215,6 @@ if __name__ == "__main__":
         MJD = MJD[mask]
         fil_temp = fil_temp[mask]
 
-        import pdb; pdb.set_trace()
         # fil_temp,dm_temp,toa_temp = read_positive_file(p)
         if len(fil1) == 0:
             fil1, dm1, toa1 = (fil_temp, dm_temp, toa_temp)

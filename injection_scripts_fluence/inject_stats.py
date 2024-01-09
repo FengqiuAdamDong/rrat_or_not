@@ -118,6 +118,8 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     nsamps = waterfall_dat.shape[1]
     nsamps = nsamps - nsamps % 4
     waterfall_dat = waterfall_dat[:,0:nsamps]
+    med = np.median(waterfall_dat[~masked_chans,:])
+    waterfall_dat[masked_chans,:] = med
     waterfall_dat = waterfall_dat.downsample(ffactor=16, tfactor=4)
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[
