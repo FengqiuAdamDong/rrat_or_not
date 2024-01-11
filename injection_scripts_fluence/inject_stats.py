@@ -116,7 +116,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
-    second_downsamp = 1
+    second_downsamp = 2
     nsamps = nsamps - nsamps % second_downsamp
     waterfall_dat = waterfall_dat[:,0:nsamps]
     med = np.median(waterfall_dat[~masked_chans,:])
@@ -333,7 +333,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     # once we have calculated the location
     if plot:
         print(f"Making plot {plot_name}_autofit.png")
-        fig, axs = plt.subplots(2, 2)
+        fig, axs = plt.subplots(2, 3)
         axs[0, 0].plot(x_std, ts_std)
         axs[0, 0].plot(x, poly(x))
         axs[0, 0].set_title("burst_removed")
@@ -345,6 +345,9 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         axs[1, 0].set_title("baseline subtracted")
         axs[1, 1].plot(x, ts)
         axs[1, 1].set_title("OG time series")
+        cmap = plt.get_cmap("YlGnBu")
+        axs[0, 2].imshow(ds_data, aspect="auto",extent = [0,max(x),800,400], cmap=cmap)
+        plt.tight_layout()
         plt.savefig(f"{plot_name}_autofit.png")
         plt.close()
     #after the mean is subtracted calculate fluence ***this fluence is not normalised, ie. we haven't divided by the std
@@ -557,7 +560,6 @@ class inject_obj:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
-        print(period)
         fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,
