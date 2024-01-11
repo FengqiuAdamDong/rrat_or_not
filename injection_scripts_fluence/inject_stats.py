@@ -116,14 +116,15 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
-    nsamps = nsamps - nsamps % 4
+    second_downsamp = 1
+    nsamps = nsamps - nsamps % second_downsamp
     waterfall_dat = waterfall_dat[:,0:nsamps]
     med = np.median(waterfall_dat[~masked_chans,:])
     waterfall_dat[masked_chans,:] = med
-    waterfall_dat = waterfall_dat.downsample(ffactor=16, tfactor=4)
+    waterfall_dat = waterfall_dat.downsample(ffactor=8, tfactor=second_downsamp)
     waterfall_dat = waterfall_dat.normalise()
     waterfall_dat = waterfall_dat[
-        :, int(nsamps_start_zoom / (downsamp*4)) : int(nsamps_end_zoom / (downsamp*4))
+        :, int(nsamps_start_zoom / (downsamp*second_downsamp)) : int(nsamps_end_zoom / (downsamp*second_downsamp))
     ]
     return waterfall_dat,dat_ts
 
@@ -179,7 +180,7 @@ def grab_spectra_manual(
             downsamp=downsamp,
         )
 
-        if (amp!=-1)&((loc<(0.49*t_dur))|(loc>(t_dur*0.51))|(sigma_width>2e-2)):
+        if (amp!=-1)&((loc<(0.46*t_dur))|(loc>(t_dur*0.54))|(sigma_width>2e-2)):
             #repeat if initial loc guess is wrong
             amp, std, loc, sigma_width, FLUENCE = fit_SNR_manual(
                 dat_ts,
@@ -556,7 +557,7 @@ class inject_obj:
             t_dur = (period-0.1)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
-
+        print(period)
         fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
             gf=self.filfile,
             ts=ts,

@@ -234,7 +234,6 @@ if __name__ == "__main__":
             filfiles.append(f)
             maskedfn = f.strip(".fil") + "_rfifind.mask"
             maskfiles.append(maskedfn)
-
     init_obj = {
         "filfiles": fil1,
         "dms": dm1,

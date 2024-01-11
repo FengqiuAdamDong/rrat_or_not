@@ -12,6 +12,7 @@ def get_obs_time(fn,maskfn):
     rfimask = rfifind.rfifind(maskfn)
     total_ints = rfimask.nint
     good_ints = len(rfimask.goodints)
+    print(good_ints/total_ints)
     good_time = total_time*good_ints/total_ints
     return good_time
 
