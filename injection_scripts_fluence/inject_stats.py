@@ -318,6 +318,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         log_likelihood,
         [mamplitude, max_time, fit_width_guess, 0],
         args=(xind, ts_sub, std),
+        bounds=((1e-4, None), (max_time-(0.1*max(x)), (0.1*max(x))+max_time), (1e-6, 5e-2), (-10, 10)),
         method="Nelder-Mead",
     )
     fitx = max_l.x
@@ -384,7 +385,6 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
         method="Nelder-Mead",
     )
     fitx = max_l.x
-    print(fitx)
     # double the resolution
     xind_fit = np.linspace(min(xind), max(xind), len(xind) * 2)
     y_fit = gaussian(xind_fit, fitx[0], fitx[1], fitx[2], fitx[3])
@@ -429,7 +429,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
     skipb = Button(but_ax, "Skip")
     saveb = Button(but_save, "Save")
 
-    # plt.tight_layout()
+    plt.tight_layout()
     plt.subplots_adjust(bottom=0.25)
     global x_new
     x_new = [-1, -1, -1, -1, -1]
@@ -450,7 +450,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
         max_l = minimize(
             log_likelihood,
             [peak, peak_loc, sigma, a],
-            bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-2, 2)),
+            bounds=((1e-4, None), (0, max(x)), (1e-6, 5e-2), (-10, 10)),
             args=(xind, ts_sub, std[0]),
             method="Nelder-Mead",
         )
@@ -487,7 +487,7 @@ def fit_SNR_manual(ts, tsamp, width, nsamps, ds_data, downsamp):
 
     if x_new != [-1, -1, -1, -1, -1]:
         fitx = x_new
-        print("Reassigning fit x becase we've recalculated")
+        # print("Reassigning fit x becase we've recalculated")
     else:
         print("No refitting done")
     # print("new fit" + str(fitx))
@@ -574,7 +574,7 @@ class inject_obj:
             t_dur = t_dur,
             fit_del = fit_del,
             plot_name = plot_name,
-            guess_width = period*0.1
+            guess_width = 10e-3
         )
         # print(f"Calculated fluence:{fluence} A:{amp} S:{std} Nominal FLUENCE:{self.fluence}")
         self.approximate_toa = approximate_toa
