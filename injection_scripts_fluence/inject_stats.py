@@ -789,14 +789,32 @@ class inject_stats:
         det_amp_std = []
 
         for s in self.sorted_inject:
-            det_snr.append(np.mean(s.det_snr))
-            det_snr_std.append(np.std(s.det_snr))
+            det_snrs = s.det_snr
+            mean = np.mean(det_snrs)
+            std = np.std(det_snrs)
+            #remove super outliers (more than 3 sigma away)
+            det_snrs = det_snrs[abs(det_snrs-mean)<2*std]
 
-            det_width.append(np.mean(s.det_std))
-            det_width_std.append(np.std(s.det_std))
+            det_widths = s.det_std
+            mean = np.mean(det_widths)
+            std = np.std(det_widths)
+            #remove super outliers (more than 3 sigma away)
+            det_widths = det_widths[abs(det_widths-mean)<2*std]
 
-            det_fluence.append(np.mean(s.det_fluence))
-            det_fluence_std.append(np.std(s.det_fluence))
+            det_fluences = s.det_fluence
+            mean = np.mean(det_fluences)
+            std = np.std(det_fluences)
+            #remove super outliers (more than 3 sigma away)
+            det_fluences = det_fluences[abs(det_fluences-mean)<2*std]
+
+            det_snr.append(np.mean(det_snrs))
+            det_snr_std.append(np.std(det_snrs))
+
+            det_width.append(np.mean(det_widths))
+            det_width_std.append(np.std(det_widths))
+
+            det_fluence.append(np.mean(det_fluences))
+            det_fluence_std.append(np.std(det_fluences))
 
             inj_width.append(np.mean(s.width))
             inj_snr.append(np.mean(s.snr))
@@ -804,6 +822,7 @@ class inject_stats:
             noise_std.append(np.mean(s.noise_std))
             det_amp.append(np.mean(s.det_amp))
             det_amp_std.append(np.std(s.det_amp))
+
 
         noise_std = np.array(noise_std)
         det_snr = np.array(det_snr)
@@ -828,7 +847,7 @@ class inject_stats:
         #set maximum and minumum colors to 0.5 and 1.5
         mesh = axes[0,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width)
         mesh.set_clim(0.8,1.2)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[0,0])
         cbar.set_label("Detected Width / Injected Width")
         axes[0,0].set_xlabel("Injected Width (ms)")
         axes[0,0].set_ylabel("Injected SNR")
@@ -836,7 +855,7 @@ class inject_stats:
 
         mesh = axes[0,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr)
         mesh.set_clim(0.5,1.5)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[0,1])
         cbar.set_label("Detected SNR / Injected SNR")
         axes[0,1].set_xlabel("Injected Width (ms)")
         axes[0,1].set_ylabel("Injected SNR")
@@ -844,7 +863,7 @@ class inject_stats:
 
         mesh = axes[1,0].pcolormesh(unique_widths, unique_snrs, det_matrix_width_std*1000)
         mesh.set_clim(0,10)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[1,0])
         cbar.set_label("Detected Width STD (ms)")
         axes[1,0].set_xlabel("Injected Width (ms)")
         axes[1,0].set_ylabel("Injected SNR")
@@ -852,7 +871,7 @@ class inject_stats:
 
         mesh = axes[1,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr_std)
         mesh.set_clim(0,1)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[1,1])
         cbar.set_label("Detected SNR STD")
         axes[1,1].set_xlabel("Injected Width (ms)")
         axes[1,1].set_ylabel("Injected SNR")
@@ -872,7 +891,7 @@ class inject_stats:
         #set maximum and minumum colors to 0.5 and 1.5
         mesh = axes[0,0].pcolormesh(unique_width_fs, unique_fluences, det_matrix_width_f)
         mesh.set_clim(0.8,1.2)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[0,0])
         cbar.set_label("Detected Width_F / Injected Width_F")
         axes[0,0].set_xlabel("Injected Width_F (ms)")
         axes[0,0].set_ylabel("Injected FLUENCE")
@@ -880,7 +899,7 @@ class inject_stats:
 
         mesh = axes[0,1].pcolormesh(unique_width_fs, unique_fluences, det_matrix_fluence)
         mesh.set_clim(0.8,1.2)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[0,1])
         cbar.set_label("Detected FLUENCE / Injected FLUENCE")
         axes[0,1].set_xlabel("Injected Width_F (ms)")
         axes[0,1].set_ylabel("Injected FLUENCE")
@@ -888,7 +907,7 @@ class inject_stats:
 
         mesh = axes[1,0].pcolormesh(unique_width_fs, unique_fluences, det_matrix_width_f_std*1000)
         mesh.set_clim(0,10)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[1,0])
         cbar.set_label("Detected Width_F STD (ms)")
         axes[1,0].set_xlabel("Injected Width_F (ms)")
         axes[1,0].set_ylabel("Injected FLUENCE")
@@ -896,7 +915,7 @@ class inject_stats:
 
         mesh = axes[1,1].pcolormesh(unique_width_fs, unique_fluences, det_matrix_fluence_std)
         # mesh.set_clim(0,1)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[1,1])
         cbar.set_label("Detected FLUENCE STD")
         axes[1,1].set_xlabel("Injected Width_F (ms)")
         axes[1,1].set_ylabel("Injected FLUENCE")
@@ -1037,13 +1056,13 @@ class inject_stats:
         fig,axes = plt.subplots(2,2,figsize=(10,10))
         mesh = axes[0,0].pcolormesh(unique_widths*1000, unique_snrs, det_frac_matrix_snr)
         mesh.set_clim(0,1)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[0,0])
         cbar.set_label("Detection Fraction")
         axes[0,0].set_xlabel("Width (ms)")
         axes[0,0].set_ylabel("S/N")
 
         mesh = axes[0,1].pcolormesh(self.detected_bin_midpoints_snr[1]*1000,self.detected_bin_midpoints_snr[0],self.detected_det_frac_snr)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[0,1])
         mesh.set_clim(0,1)
         cbar.set_label("Detection Fraction (binned)")
         axes[1,0].set_xlabel("Width (ms)")
@@ -1052,13 +1071,13 @@ class inject_stats:
 
         mesh = axes[1,0].pcolormesh(unique_width_fs*1000, unique_fluence, det_matrix_fluence)
         mesh.set_clim(0,1)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[1,0])
         cbar.set_label("Detection Fraction")
         axes[1,0].set_xlabel("Width (ms)")
         axes[1,0].set_ylabel("Fluence (Jy s)")
 
         mesh = axes[1,1].pcolormesh(self.detected_bin_midpoints_fluence[1]*1000,self.detected_bin_midpoints_fluence[0],self.detected_det_frac_fluence)
-        cbar = plt.colorbar(mesh)
+        cbar = plt.colorbar(mesh,ax=axes[1,1])
         mesh.set_clim(0,1)
         cbar.set_label("Detection Fraction (binned)")
         axes[1,1].set_xlabel("Width (ms)")
