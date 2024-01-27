@@ -62,16 +62,16 @@ class statistics_basic:
     def convolve_p_detect(self, plot=True):
         # convolve the p_detect with the injected distribution
         # gaussian with sigma_amp_error
-        true_snr_bins = np.linspace(0, 5, 500)
+        true_snr_bins = np.linspace(0, 20, 500)
         true_snr_bins = true_snr_bins[np.newaxis, np.newaxis, :]
-        true_width_bins = np.linspace(0, 15, 501) * 1e-3
+        true_width_bins = np.linspace(0, 60, 501) * 1e-3
 
-        detected_snr_bins = np.linspace(0, 8, 502)
-        detected_width_bins = np.linspace(0, 20, 503) * 1e-3
+        detected_snr_bins = np.linspace(0, 25, 502)
+        detected_width_bins = np.linspace(0, 65, 503) * 1e-3
         detected_snr_bins = detected_snr_bins[:, np.newaxis, np.newaxis]
         detected_width_bins = detected_width_bins[np.newaxis, :, np.newaxis]
-        points = (detected_snr_bins, detected_width_bins)
-        p_det_snr = self.p_detect_cpu(points)
+        points_det = (detected_snr_bins, detected_width_bins)
+        p_det_snr = self.p_detect_cpu(points_det)
         amp_error = norm.pdf(detected_snr_bins, true_snr_bins, self.detected_error_snr)
         # form the 3d array
         pdet_st_sd_wd = p_det_snr * amp_error
@@ -131,37 +131,40 @@ class statistics_basic:
             mesh.set_clim(0, 1)
             ax[1].set_xlabel("Injected SNR")
             ax[1].set_ylabel("Injected Width (ms)")
-            ax[1].set_title("injected")
-            test_snr = np.linspace(0, 10, 100)
-            test_width = np.linspace(0, 20, 100) * 1e-3
+            ax[1].set_title("injected value")
+            test_snr = np.linspace(0, 20, 100)
+            test_width = np.linspace(0, 60, 100) * 1e-3
             points = (test_snr[:, np.newaxis], test_width[np.newaxis, :])
             test_pdet_st_wt = self.p_detect_cpu_true(points)
             mesh = ax[2].pcolormesh(test_snr, test_width * 1e3, test_pdet_st_wt.T)
             mesh.set_clim(0, 1)
             ax[2].set_xlabel("Injected SNR")
             ax[2].set_ylabel("Injected Width (ms)")
-            ax[2].set_title("true")
+            ax[2].set_title("interpolated injected value")
             # set ax2 xlim and ylim to be the same as ax0
             ax[2].set_xlim(ax[0].get_xlim())
             ax[2].set_ylim(ax[0].get_ylim())
             plt.tight_layout()
 
-            plt.figure()
-            plt.plot(true_snr_bins[:, 0], interp_inj_mesh[:, 400], label="injected")
-            plt.plot(true_snr_bins[:, 0], pdet_st_wt[:, 400], label="convolved")
-            plt.xlim(min(self.injected_snr), max(self.injected_snr))
-            plt.legend()
-            plt.xlabel("Injected SNR")
+            fig, ax = plt.subplots(1, 3, figsize=(10, 5))
+            ax[0].plot(true_snr_bins[:, 0], interp_inj_mesh[:, 400], label="injected")
+            ax[0].plot(true_snr_bins[:, 0], pdet_st_wt[:, 400], label="convolved")
+            ax[0].set_xlim(min(self.injected_snr), max(self.injected_snr))
+            ax[0].legend()
+            ax[0].set_xlabel("Injected SNR")
 
-            plt.figure()
-            plt.plot(
+            ax[1].plot(
                 true_width_bins[0, :] * 1e3, interp_inj_mesh[400, :], label="injected"
             )
-            plt.plot(true_width_bins[0, :] * 1e3, pdet_st_wt[400, :], label="convolved")
-            plt.xlim(min(self.injected_width) * 1e3, max(self.injected_width) * 1e3)
+            ax[1].plot(true_width_bins[0, :] * 1e3, pdet_st_wt[400, :], label="convolved")
+            ax[1].set_xlim(min(self.injected_width) * 1e3, max(self.injected_width) * 1e3)
 
-            plt.legend()
-            plt.xlabel("Injected Width (ms)")
+            ax[1].legend()
+            ax[1].set_xlabel("Injected Width (ms)")
+            ax[2].plot(detected_width_bins[:, 0, 0] * 1e3,p_det_snr[250, : , 0], label="detected")
+            ax[2].set_xlabel("detected width (ms)")
+
+
             plt.show()
 
     def load_detection_fn(
@@ -195,6 +198,9 @@ class statistics_basic:
         detected_det_frac_snr_stage1[
             :, np.argwhere(detected_width_bins_stage1 < width_cutoff)
         ] = 0
+        detected_det_frac_snr_stage1[
+            :, np.argwhere(detected_width_bins_stage1 >30e-3)
+        ] = 0
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
             (detected_snr_bins_stage1, detected_width_bins_stage1),
             detected_det_frac_snr_stage1,
@@ -205,6 +211,8 @@ class statistics_basic:
 
         detected_det_frac_snr[np.argwhere(detected_snr_bins < snr_cutoff), :] = 0
         detected_det_frac_snr[:, np.argwhere(detected_width_bins < width_cutoff)] = 0
+        detected_det_frac_snr[:, np.argwhere(detected_width_bins >30e-3 )] = 0
+
 
         detected_fluence_bins = inj_stats.detected_bin_midpoints_fluence[0]
         detected_width_f_bins = inj_stats.detected_bin_midpoints_fluence[1]
@@ -275,8 +283,8 @@ class statistics_basic:
             fill_value=None,
         )
 
-        snr_arr = np.linspace(0, max(injected_snr), 1000)
-        width_arr = np.linspace(1, max(injected_width)*1e3, 1000) * 1e-3
+        snr_arr = np.linspace(0, 20, 1000)
+        width_arr = np.linspace(1, 60, 1000)*1e-3
         fluence_arr = np.linspace(0, 1, 1000)
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")
         points = (snr_grid, width_grid)
@@ -303,21 +311,21 @@ class statistics_basic:
             cbar = plt.colorbar(mesh, ax=ax[1])
             cbar.set_label("detection fraction")
 
-            fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-            mesh = ax[0].pcolormesh(width_grid * 1e3, fluence_arr, interp_res_fluence)
-            ax[0].set_xlabel("width")
-            ax[0].set_ylabel("fluence")
-            cbar = plt.colorbar(mesh, ax=ax[0])
-            cbar.set_label("detection fraction")
-            mesh = ax[1].pcolormesh(
-                detected_width_f_bins * 1e3,
-                detected_fluence_bins,
-                inj_stats.detected_det_frac_fluence,
-            )
-            ax[1].set_xlabel("width")
-            ax[1].set_ylabel("fluence")
-            cbar = plt.colorbar(mesh, ax=ax[1])
-            cbar.set_label("detection fraction")
+            # fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+            # mesh = ax[0].pcolormesh(width_grid * 1e3, fluence_arr, interp_res_fluence)
+            # ax[0].set_xlabel("width")
+            # ax[0].set_ylabel("fluence")
+            # cbar = plt.colorbar(mesh, ax=ax[0])
+            # cbar.set_label("detection fraction")
+            # mesh = ax[1].pcolormesh(
+            #     detected_width_f_bins * 1e3,
+            #     detected_fluence_bins,
+            #     inj_stats.detected_det_frac_fluence,
+            # )
+            # ax[1].set_xlabel("width")
+            # ax[1].set_ylabel("fluence")
+            # cbar = plt.colorbar(mesh, ax=ax[1])
+            # cbar.set_label("detection fraction")
             plt.show()
 
         # if snr_cutoff < 1.3:

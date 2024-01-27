@@ -47,7 +47,7 @@ class inject_stats_collection(inject_stats):
                     print(f"skipping {f} because of detect_error_width")
                     continue
 
-                inst.compare([csv], title=f)
+                inst.compare([csv], title=f+"_det_curve")
                 self.detect_error_snr_arr.append(inst.detect_error_snr)
                 self.detect_error_width_arr.append(inst.detect_error_width)
                 self.detect_error_fluence_arr.append(inst.detect_error_fluence)

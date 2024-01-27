@@ -788,7 +788,6 @@ class inject_stats:
             det_amp.append(np.mean(s.det_amp))
             det_amp_std.append(np.std(s.det_amp))
 
-
         noise_std = np.array(noise_std)
         det_snr = np.array(det_snr)
         det_width = np.array(det_width)
@@ -1243,6 +1242,11 @@ if __name__ == "__main__":
         help="enable multiprocessing with 10 cores",
         action="store_true",
     )
+    parser.add_argument(
+        "-o",
+        help="output file name",
+        default="inj_stats.dill",
+    )
 
     args = parser.parse_args()
     do_fluence_calc = args.d
@@ -1256,7 +1260,7 @@ if __name__ == "__main__":
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
         inj_stats.calculate_snr(args.multi)
-        with open("inj_stats.dill", "wb") as of:
+        with open(args.o, "wb") as of:
             dill.dump(inj_stats, of)
     else:
         with open("inj_stats.dill", "rb") as inf:

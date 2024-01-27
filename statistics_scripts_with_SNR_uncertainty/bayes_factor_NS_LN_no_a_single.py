@@ -132,28 +132,31 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     min_mu = np.log(max_det / 100)
     max_mu = np.log(max_det)
     # ptmu = (logn_mu_range[1] - logn_mu_range[0]) * x[0] + logn_mu_range[0]
-    # min_mu = -0.001
-    # max_mu = 0.001
+    # min_mu = 0.99
+    # max_mu = 1.01
     ptmu = (max_mu - min_mu) * x[0] + min_mu
     # ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
     min_mu_w = np.log(max_width / 100)
     max_mu_w = np.log(max_width)
-    # min_mu_w = -5.299
-    # max_mu_w = -5.301
+    # min_mu_w = -4.299
+    # max_mu_w = -4.301
 
     ptmu_w = (max_mu_w - min_mu_w) * x[2] + min_mu_w
 
-    min_pt_sigma = 0.01
-    max_pt_sigma = 2.0
-    min_pt_sigma_w = 0.01
-    max_pt_sigma_w = 1.0
+    # min_pt_sigma = 0.19
+    # max_pt_sigma = 0.21
+    # min_pt_sigma_w = 0.29
+    # max_pt_sigma_w = 0.31
     # min_pt_sigma = 0.7499
     # max_pt_sigma = 0.7501
     # min_pt_sigma_w = 0.099
     # max_pt_sigma_w = 0.101
+    min_pt_sigma = 0.01
+    max_pt_sigma = 2.0
+    min_pt_sigma_w = 0.01
+    max_pt_sigma_w = 1.0
     ptsigma = (max_pt_sigma - min_pt_sigma) * x[1] + min_pt_sigma
     ptsigma_w = (max_pt_sigma_w - min_pt_sigma_w) * x[3] + min_pt_sigma_w
-
     ptN = stats.randint.ppf(x[4], logn_N_range[0], logn_N_range[1])
     return np.array([ptmu, ptsigma, ptmu_w, ptsigma_w, ptN])
 
@@ -239,7 +242,7 @@ if __name__ == "__main__":
 
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
-    width_wide_thresh = 50e-3
+    width_wide_thresh = 30e-3
     # filter the det_snr
     mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
     det_snr = det_snr[mask]

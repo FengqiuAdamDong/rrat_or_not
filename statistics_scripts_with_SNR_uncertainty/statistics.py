@@ -217,20 +217,6 @@ class statistics_ln(sb):
         # interpolate the values for amp
         points = (amp[:,0],width[:,0])
         likelihood = integral_amp * integral_w * self.p_det_cupy
-        # plt.figure()
-        # plt.scatter(width.get(),amp.get(),s=10, c=self.p_det.get())
-        # #set colorbar range from 0 - 1
-        # plt.clim(0,1)
-        # plt.xlabel("Amplitude")
-        # plt.ylabel("Width")
-
-        # plt.figure()
-        # plt.scatter(amp.get(), width.get(), s=10, c=likelihood.get())
-        # plt.xlabel("Amplitude")
-        # plt.ylabel("Width")
-        # plt.colorbar()
-        # plt.show()
-        # import pdb; pdb.set_trace()
         return cp.sum(cp.log(likelihood)), self.p_det_cupy
 
     def first(
