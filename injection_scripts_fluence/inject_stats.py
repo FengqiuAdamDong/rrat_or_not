@@ -134,6 +134,10 @@ def grab_spectra_manual(
         gf, ts, te, mask_fn, dm, mask=True, downsamp=4, subband=256, manual=False, t_start = 4.1, t_dur = 1.8, fit_del = 100e-3,plot_name = "", guess_width = 0.01,
 ):
     # load the filterbank file
+    if plot_name=="temp":
+        plot = False
+    else:
+        plot = True
     g = r.FilReader(gf)
     if ts < 0:
         ts = 0
@@ -226,7 +230,7 @@ def grab_spectra_manual(
                 nsamps=int(loc / tsamp / downsamp),
                 ds_data=waterfall_dat,
                 downsamp=downsamp,
-                plot=True,
+                plot=plot,
                 plot_name=plot_name,
                 fit_width_guess = sigma_width,
                 second_try = True
@@ -329,11 +333,9 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
             print(trial_time)
             max_ls.append(minimize(
                 log_likelihood,
-                [mamplitude, trial_time, fit_width_guess, 0],
+                [mamplitude/2, trial_time, fit_width_guess, 0],
                 args=(xind, ts_sub, std),
-                bounds=((std, None), (max_time-(0.15), (0.15)+max_time), (1e-6, fit_width_guess*2), (-10, 10)),
-                method="Nelder-Mead",
-                tol=1e-8,
+                bounds=((std, None), (trial_time-(0.15), (0.15)+trial_time), (0.5e-3, fit_width_guess*2), (-1, 1)),
             ))
 
         fun_evals = [(ml.fun for ml in max_ls)]
@@ -345,8 +347,6 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         [mamplitude, max_time, fit_width_guess, 0],
         args=(xind, ts_sub, std),
         bounds=((std, None), (max_time-(0.1), (0.1)+max_time), (1e-6, fit_width_guess*2), (-10, 10)),
-        method="Nelder-Mead",
-        tol=1e-8,
         )
     fitx = max_l.x
     fitx[0] = abs(fitx[0])
@@ -632,6 +632,8 @@ class inject_obj:
         for t, dm, snr, width in zip(self.toas, self.dm, self.snr, self.width):
             if plot_folder!="temp":
                 plot_name = plot_folder + "/" + str(snr) + "_" + str(t) + "_" + str(width) + "_" + str(dm) + ".png"
+            else:
+                plot_name = "temp"
             ts = t - 5
             te = t + 5
             fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
