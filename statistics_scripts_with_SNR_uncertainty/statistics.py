@@ -217,6 +217,9 @@ class statistics_ln(sb):
         # interpolate the values for amp
         points = (amp[:,0],width[:,0])
         likelihood = integral_amp * integral_w * self.p_det_cupy
+        indmin = np.argmin(likelihood)
+        # print(f"amp = {amp[indmin]}, width = {width[indmin]} likelihood = {likelihood[indmin]}")
+        # import pdb; pdb.set_trace()
         return cp.sum(cp.log(likelihood)), self.p_det_cupy
 
     def first(
@@ -536,7 +539,7 @@ class statistics_ln(sb):
             # print(
                 # f"transfer time: {transfer_time-start}, f time: {first_time-transfer_time}, s time: {second_time-first_time}, overall time: {overall_time-start}"
             # )
-            # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike}")
+            # print(f"f: {f}, s: {s}, log_NCn: {log_NCn} loglike: {loglike} mu: {mu}, std: {std}, N: {N}, mu_w: {mu_w}, std_w: {std_w}")
         return loglike.get()
 
     def negative_loglike(self, X, det_snr):

@@ -20,6 +20,7 @@ from scipy.optimize import minimize
 from gaussian_fitter import log_likelihood
 from gaussian_fitter import gaussian
 from matplotlib.widgets import Slider, Button, RadioButtons
+from scipy.optimize import basinhopping
 import copy
 import os
 def create_matrix(x, y, z, norm=1):
@@ -324,34 +325,12 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     xind = x
     print(f"initial width guess {fit_width_guess}, amp {mamplitude}, max_time {max_time}")
 
-    if (max(x)<0.4)&(second_try==False):
-        iterations = 3
-        max_ls = []
-        for i in range(iterations):
-            #if we want 5 iterations then it needs to be split into 4 segments, it's a bit of a weird thought process
-            trial_time = (max(x)/(iterations+1))*(i+1)
-            print(trial_time)
-            max_ls.append(minimize(
-                log_likelihood,
-                [mamplitude/2, trial_time, fit_width_guess, 0],
-                args=(xind, ts_sub, std),
-                bounds=((std, None), (trial_time-(0.15), (0.15)+trial_time), (0.5e-3, fit_width_guess*2), (-1, 1)),
-                method="Nelder-Mead",
-                tol=1e-8,
-            ))
 
-        fun_evals = [(ml.fun for ml in max_ls)]
-        arg_min = np.argmin(fun_evals)
-        max_l = max_ls[arg_min]
-    else:
-        max_l = minimize(
-        log_likelihood,
-        [mamplitude, max_time, fit_width_guess, 0],
-        args=(xind, ts_sub, std),
-        bounds=((std, None), (max_time-(0.1), (0.1)+max_time), (1e-6, fit_width_guess*2), (-10, 10)),
-        method="Nelder-Mead",
-        tol=1e-8,
-        )
+    args = (xind, ts_sub, std)
+    bounds=[(std, np.inf), (min(xind),max(xind)), (1e-6, fit_width_guess*2), (-10, 10)]
+    minimizer_kwargs = dict(method="Nelder-Mead", bounds=bounds, args=args)
+    x0 = [mamplitude, max_time, fit_width_guess, 0]
+    max_l = basinhopping(log_likelihood, x0, minimizer_kwargs=minimizer_kwargs, niter=100)
     fitx = max_l.x
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
