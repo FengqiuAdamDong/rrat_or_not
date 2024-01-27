@@ -336,6 +336,8 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
                 [mamplitude/2, trial_time, fit_width_guess, 0],
                 args=(xind, ts_sub, std),
                 bounds=((std, None), (trial_time-(0.15), (0.15)+trial_time), (0.5e-3, fit_width_guess*2), (-1, 1)),
+                method="Nelder-Mead",
+                tol=1e-8,
             ))
 
         fun_evals = [(ml.fun for ml in max_ls)]
@@ -347,6 +349,8 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         [mamplitude, max_time, fit_width_guess, 0],
         args=(xind, ts_sub, std),
         bounds=((std, None), (max_time-(0.1), (0.1)+max_time), (1e-6, fit_width_guess*2), (-10, 10)),
+        method="Nelder-Mead",
+        tol=1e-8,
         )
     fitx = max_l.x
     fitx[0] = abs(fitx[0])
