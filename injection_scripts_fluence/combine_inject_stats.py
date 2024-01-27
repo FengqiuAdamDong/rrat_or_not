@@ -81,7 +81,7 @@ class inject_stats_collection(inject_stats):
         self.detect_error_width_arr = np.array(self.detect_error_width_arr)
         self.detect_error_fluence_arr = np.array(self.detect_error_fluence_arr)
         #filter out the outliers of detect_error_snr_arr
-        print("filtering out # of outliers: ", np.sum(self.detect_error_snr_arr > 0.5))
+        # print("filtering out # of outliers: ", np.sum(self.detect_error_snr_arr > 0.5))
         self.detect_error_snr = np.mean(self.detect_error_snr_arr[self.detect_error_snr_arr < 0.5])
         self.detect_error_width = np.mean(self.detect_error_width_arr[self.detect_error_snr_arr < 0.5])
         self.detect_error_fluence = np.mean(self.detect_error_fluence_arr[self.detect_error_snr_arr < 0.5])

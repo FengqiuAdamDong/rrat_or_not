@@ -21,6 +21,7 @@ from gaussian_fitter import log_likelihood
 from gaussian_fitter import gaussian
 from matplotlib.widgets import Slider, Button, RadioButtons
 import copy
+import os
 def create_matrix(x, y, z, norm=1):
     #create the detection matrix
     unique_widths = np.unique(y)
@@ -214,7 +215,8 @@ def grab_spectra_manual(
                 downsamp=downsamp,
                 plot=False,
                 plot_name=plot_name,
-                fit_width_guess = guess_width
+                fit_width_guess = guess_width,
+                second_try = False
             )
             #refit with new initial params
             amp, std, loc, sigma_width, FLUENCE = autofit_pulse(
@@ -226,7 +228,8 @@ def grab_spectra_manual(
                 downsamp=downsamp,
                 plot=True,
                 plot_name=plot_name,
-                fit_width_guess = sigma_width
+                fit_width_guess = sigma_width,
+                second_try = True
             )
         except Exception as e:
             #print the full traceback
@@ -294,10 +297,12 @@ def find_polynomial_fit(x_std, ts_std, order = None):
 
     return poly, coeffs
 
-def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", fit_width_guess = 0.01):
+def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", fit_width_guess = 0.01, second_try = False):
     # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
+    if (ind_max+w_bin > len(ts)) | (ind_max-w_bin < 0):
+        ind_max = int(len(ts)/2)
     ts_std = np.delete(ts, range(int(ind_max - w_bin), int(ind_max + w_bin)))
     x = np.linspace(0, tsamp * len(ts), len(ts))
     x_std = np.delete(x, range(int(ind_max - w_bin), int(ind_max + w_bin)))
@@ -314,13 +319,35 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     # x axis of the fit
     xind = x
     print(f"initial width guess {fit_width_guess}, amp {mamplitude}, max_time {max_time}")
-    max_l = minimize(
+
+    if (max(x)<0.4)&(second_try==False):
+        iterations = 3
+        max_ls = []
+        for i in range(iterations):
+            #if we want 5 iterations then it needs to be split into 4 segments, it's a bit of a weird thought process
+            trial_time = (max(x)/(iterations+1))*(i+1)
+            print(trial_time)
+            max_ls.append(minimize(
+                log_likelihood,
+                [mamplitude, trial_time, fit_width_guess, 0],
+                args=(xind, ts_sub, std),
+                bounds=((std, None), (max_time-(0.15), (0.15)+max_time), (1e-6, fit_width_guess*2), (-10, 10)),
+                method="Nelder-Mead",
+                tol=1e-8,
+            ))
+
+        fun_evals = [(ml.fun for ml in max_ls)]
+        arg_min = np.argmin(fun_evals)
+        max_l = max_ls[arg_min]
+    else:
+        max_l = minimize(
         log_likelihood,
         [mamplitude, max_time, fit_width_guess, 0],
         args=(xind, ts_sub, std),
-        bounds=((1e-4, None), (max_time-(0.1*max(x)), (0.1*max(x))+max_time), (1e-6, 5e-2), (-10, 10)),
+        bounds=((std, None), (max_time-(0.1), (0.1)+max_time), (1e-6, fit_width_guess*2), (-10, 10)),
         method="Nelder-Mead",
-    )
+        tol=1e-8,
+        )
     fitx = max_l.x
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
@@ -557,7 +584,7 @@ class inject_obj:
             t_start = 4.1
             fit_del = 15e-2
         else:
-            t_dur = (period-0.1)*2
+            t_dur = (period-0.05)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
         fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
@@ -596,8 +623,15 @@ class inject_obj:
         )
         # print(fluence,amp,std,self.filfile)
 
-    def calculate_fluence(self):
+    def calculate_fluence(self,plot_folder="temp"):
+        if plot_folder!="temp":
+            #check that plot folder exists and create itf it idoesnt'
+            if not os.path.exists(plot_folder):
+                os.makedirs(plot_folder)
+
         for t, dm, snr, width in zip(self.toas, self.dm, self.snr, self.width):
+            if plot_folder!="temp":
+                plot_name = plot_folder + "/" + str(snr) + "_" + str(t) + "_" + str(width) + "_" + str(dm) + ".png"
             ts = t - 5
             te = t + 5
             fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
@@ -610,6 +644,7 @@ class inject_obj:
                 mask=True,
                 downsamp=self.downsamp,
                 guess_width=width,
+                plot_name=plot_name,
             )
             print(
                 f"inj_snr {snr} fitted_snr {det_snr} std {std} amp {amp}"
@@ -720,7 +755,7 @@ class inject_stats:
             )
         self.sorted_inject = np.array(self.sorted_inject)
 
-    def calculate_snr(self, multiprocessing=False):
+    def calculate_snr(self, multiprocessing=False, plot_folder="temp"):
         import copy
 
         if multiprocessing:
@@ -737,7 +772,7 @@ class inject_stats:
         else:
             for i,s in enumerate(self.sorted_inject):
                 print(i,"out of",len(self.sorted_inject))
-                s.calculate_fluence()
+                s.calculate_fluence(plot_folder=plot_folder)
 
     def amplitude_statistics(self,title="f"):
         det_snr = []
@@ -757,19 +792,19 @@ class inject_stats:
             det_snrs = s.det_snr
             mean = np.mean(det_snrs)
             std = np.std(det_snrs)
-            #remove super outliers (more than 3 sigma away)
+            #remove super outliers (more than 2 sigma away)
             det_snrs = det_snrs[abs(det_snrs-mean)<2*std]
 
             det_widths = s.det_std
             mean = np.mean(det_widths)
             std = np.std(det_widths)
-            #remove super outliers (more than 3 sigma away)
+            #remove super outliers (more than 2 sigma away)
             det_widths = det_widths[abs(det_widths-mean)<2*std]
 
             det_fluences = s.det_fluence
             mean = np.mean(det_fluences)
             std = np.std(det_fluences)
-            #remove super outliers (more than 3 sigma away)
+            #remove super outliers (more than 2 sigma away)
             det_fluences = det_fluences[abs(det_fluences-mean)<2*std]
 
             det_snr.append(np.mean(det_snrs))
@@ -1247,7 +1282,12 @@ if __name__ == "__main__":
         help="output file name",
         default="inj_stats.dill",
     )
-
+    parser.add_argument(
+        "-plot_folder",
+        help="folder to store the generated fit plots into",
+        type=str,
+        default="temp",
+    )
     args = parser.parse_args()
     do_fluence_calc = args.d
     downsamp = args.ds
@@ -1259,7 +1299,7 @@ if __name__ == "__main__":
         inj_stats.load_inj_samp()
         inj_stats.match_inj()
         print(len(inj_stats.toa_arr))
-        inj_stats.calculate_snr(args.multi)
+        inj_stats.calculate_snr(args.multi, plot_folder = args.plot_folder)
         with open(args.o, "wb") as of:
             dill.dump(inj_stats, of)
     else:

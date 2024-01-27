@@ -16,6 +16,8 @@ do
     FOL="${f%.*}"
     #get the maskfile
     #check if inj_stats already exists
+    cd $FOL
+    echo $PWD
     if [ -f "inj_stats.dill" ]; then
         echo "inj_stats.dill already exists, skipping"
         cd ..
