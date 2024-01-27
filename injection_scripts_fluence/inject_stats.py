@@ -584,7 +584,7 @@ class inject_obj:
             t_start = 4.1
             fit_del = 15e-2
         else:
-            t_dur = (period-0.1)*2
+            t_dur = (period-0.05)*2
             t_start = 5-(t_dur/2)
             fit_del = t_dur*0.055
         fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
@@ -792,19 +792,19 @@ class inject_stats:
             det_snrs = s.det_snr
             mean = np.mean(det_snrs)
             std = np.std(det_snrs)
-            #remove super outliers (more than 3 sigma away)
+            #remove super outliers (more than 2 sigma away)
             det_snrs = det_snrs[abs(det_snrs-mean)<2*std]
 
             det_widths = s.det_std
             mean = np.mean(det_widths)
             std = np.std(det_widths)
-            #remove super outliers (more than 3 sigma away)
+            #remove super outliers (more than 2 sigma away)
             det_widths = det_widths[abs(det_widths-mean)<2*std]
 
             det_fluences = s.det_fluence
             mean = np.mean(det_fluences)
             std = np.std(det_fluences)
-            #remove super outliers (more than 3 sigma away)
+            #remove super outliers (more than 2 sigma away)
             det_fluences = det_fluences[abs(det_fluences-mean)<2*std]
 
             det_snr.append(np.mean(det_snrs))

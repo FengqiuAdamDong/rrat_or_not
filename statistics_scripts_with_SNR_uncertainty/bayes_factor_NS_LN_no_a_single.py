@@ -136,7 +136,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # max_mu = 0.001
     ptmu = (max_mu - min_mu) * x[0] + min_mu
     # ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
-    min_mu_w = np.log(max_width / 100)
+    min_mu_w = -20
     max_mu_w = np.log(max_width)
     # min_mu_w = -5.299
     # max_mu_w = -5.301
@@ -146,7 +146,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     min_pt_sigma = 0.01
     max_pt_sigma = 2.0
     min_pt_sigma_w = 0.01
-    max_pt_sigma_w = 1.0
+    max_pt_sigma_w = 3
     # min_pt_sigma = 0.7499
     # max_pt_sigma = 0.7501
     # min_pt_sigma_w = 0.099
