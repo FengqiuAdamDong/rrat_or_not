@@ -680,6 +680,11 @@ class inject_stats:
                 temp.append(t)
             self.sorted_inject = np.array(temp)
 
+    def combine_inj_stats(self, inj_obj):
+        # combine the stats of the two inject objects
+        self.sorted_inject = np.concatenate((self.sorted_inject, inj_obj.sorted_inject))
+        self.filfiles = np.concatenate((self.filfiles, inj_obj.filfiles))
+
     def get_base_fn(self):
         #gets the base filename from the filename structure of filfiles
         splits = self.filfiles[0].split("_")
