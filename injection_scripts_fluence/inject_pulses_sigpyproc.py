@@ -40,7 +40,7 @@ def time_to_bin(t, sample_rate):
     """Return time as a bin number provided a sampling time"""
     return np.round(t / sample_rate).astype(int)
 
-def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
+def create_pulse_attributes(npulses=1, duration=200, min_sep=2, filename="", maskfn=""):
     """
     For a given number of pulses over a certain time duration,
     create an injection sample based on the pre-determined list
@@ -69,7 +69,7 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
     )
 
     # save the injection sample to a numpy file
-    print("saving injection sample to: sample_injections.npy")
+    print("saving injection sample to: sample_injections.npz")
     downsamp = 3
     stats_window = 0.9
     np.savez(
@@ -77,6 +77,9 @@ def create_pulse_attributes(npulses=1, duration=200, min_sep=2):
         grid=grid_coords,
         downsamp=downsamp,
         stats_window=stats_window,
+        filename=filename,
+        maskfn=maskfn,
+        duration=duration,
     )
 
     return (
@@ -463,8 +466,8 @@ def process(pool_arr):
     )
     s = np.array(statistics)
     SNR_4 = str(np.around(SNR, 4)).zfill(6)
-    width_4 = str(np.around(width, 4)).zfill(6)
-    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_SNR{SNR_4}_width{width_4}.fil")
+    width_5 = str(np.around(width, 5)).zfill(7)
+    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_SNR{SNR_4}_width{width_5}.fil")
     print(f"creating output file: {ofn}")
     presto_header["nbits"] = 8
     create_filterbank_file(
@@ -475,6 +478,24 @@ def process(pool_arr):
     # so we have to transpose the injected array at write time.
     # injdata.to_file(ofn)
 
+def sbatch_submit(arr):
+    (
+        dm,
+        s,
+        w,
+        ifn,
+        duration,
+        maskfn,
+        injection_sample,
+        stats_window,
+        downsamp,
+        single_SNR_dm,
+    ) = arr
+    script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
+    sbatch_command = f"sbatch {script_directory}/inject_individual_snr_width.sh {s} {w} {dm}"
+    print(sbatch_command)
+    #run the sbatch command
+    os.system(sbatch_command)
 
 if __name__ == "__main__":
 
@@ -503,6 +524,11 @@ if __name__ == "__main__":
         help="enable multiprocessing with 10 cores",
         type=int,
     )
+    parser.add_argument(
+        "--sbatch",
+        help="enable sbatch submission",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     duration = args.d
@@ -521,7 +547,7 @@ if __name__ == "__main__":
             ndm,
             downsamp,
             stats_window,
-        ) = create_pulse_attributes(npulses=args.n, duration=duration)
+        ) = create_pulse_attributes(npulses=args.n, duration=duration, filename=ifn, maskfn=maskfn)
     print(f"total number of injections: {len(injection_sample)}")
 
     print(f"number of injection DMs: {ndm}")
@@ -550,8 +576,13 @@ if __name__ == "__main__":
                             True,
                         )
                     )
-            with Pool(multiprocessing) as p:
-                p.map(multiprocess, pool_arr)
+            if args.sbatch:
+                print("submitting sbatch job")
+                for p in pool_arr:
+                    sbatch_submit(p)
+            else:
+                with Pool(multiprocessing) as p:
+                    p.map(multiprocess, pool_arr)
     else:
         rawdata, masked_chans, presto_header = get_filterbank_data_window(
             ifn, duration=duration, maskfn=maskfn)

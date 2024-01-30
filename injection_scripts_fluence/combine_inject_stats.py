@@ -36,9 +36,8 @@ class inject_stats_collection(inject_stats):
             if csvs != "all":
                 # only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
-                # inst.get_base_fn()
                 print(f)
-                inst.base_fn = f
+                inst.set_base_fn(f)
                 inst.amplitude_statistics(title=f)
                 if inst.detect_error_snr > 0.5:
                     print(f"skipping {f} because of detect_error_snr")

@@ -17,4 +17,3 @@ if __name__ == "__main__":
     #save the combined inject stats
     with open('inj_stats.dill', 'wb') as inj_stats_file:
         dill.dump(combined_inj_stats, inj_stats_file)
-    import pdb; pdb.set_trace()

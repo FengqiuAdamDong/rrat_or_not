@@ -168,14 +168,23 @@ class statistics_basic:
             plt.show()
 
     def load_detection_fn(
-        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1
+        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=True
     ):
         with open(detection_curve, "rb") as inf:
             inj_stats = dill.load(inf)
 
-        detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
-        detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
-        detected_det_frac_snr = inj_stats.detected_det_frac_snr
+        if use_interp:
+            # detected_snr_bins = inj_stats.forward_model_snr_arrs
+            # detected_width_bins = inj_stats.unique_widths
+            # detected_det_frac_snr = inj_stats.det_frac_foreward_model_matrix_snr
+            detected_snr_bins = inj_stats.unique_snrs
+            detected_width_bins = inj_stats.unique_widths
+            detected_det_frac_snr = inj_stats.det_frac_matrix_snr
+        else:
+            detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
+            detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
+            detected_det_frac_snr = inj_stats.detected_det_frac_snr
+
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
             (detected_snr_bins, detected_width_bins),
             detected_det_frac_snr,
