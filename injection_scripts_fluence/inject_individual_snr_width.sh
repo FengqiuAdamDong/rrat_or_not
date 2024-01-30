@@ -10,4 +10,5 @@
 
 source ~/util/load_presto.sh
 source ~/rrat_or_not_width/bin/activate
-python inject_individual_snr_width.py --snr $1 --width $2 --dm $3
+echo "python $4/inject_individual_snr_width.py --snr $1 --width $2 --dm $3"
+python $4/inject_individual_snr_width.py --snr $1 --width $2 --dm $3
