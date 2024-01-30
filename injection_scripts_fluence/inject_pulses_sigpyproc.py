@@ -17,20 +17,12 @@ from sigpyproc import utils as u
 import sys
 from inject_stats import autofit_pulse
 # define the random number generator
-# np.random.seed(12345)
 
-# TRIAL_SNR = [10]
-# pulse_width = np.array([20])*1e-3
-# 0.8,
-# ]  # total S/N of pulse
-TRIAL_SNR = np.logspace(0,1.6,2)
-# TRIAL_SNR=[1,2,3,4,5,6,7,8]
-# TRIAL_SNR = [0.003]
-# TRIAL_SNR = np.linspace(0.1e-3, 5e-3, 50)
-#B1905 is 0.013s
-#J2044+4614 is 0.014s
-#J1541+47 is 0.006
-pulse_width = np.logspace(0,1.6,2)*1e-3
+# total S/N of pulse
+#TRIAL_SNR = np.logspace(0,1.6,30)
+TRIAL_SNR = np.linspace(1, 20, 20)
+#pulse_width = np.logspace(0,1.6,30)*1e-3
+pulse_width = np.linspace(1,40,40)*1e-3
 
 TRIAL_DMS = [
     100,
