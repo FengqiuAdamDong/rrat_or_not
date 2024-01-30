@@ -2,7 +2,7 @@
 #SBATCH --account=rrg-istairs-ad
 #SBATCH --export=NONE
 #SBATCH --time=40:00:00
-#SBATCH --mem=24G
+#SBATCH --mem=16G
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=injections
 #SBATCH --output=%x-%j.out
