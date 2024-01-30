@@ -502,6 +502,8 @@ def sbatch_submit(arr):
     script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
     sbatch_command = f"sbatch {script_directory}/inject_individual_snr_width.sh {s} {w} {dm}"
     print(sbatch_command)
+    #run the sbatch command
+    os.system(sbatch_command)
 
 if __name__ == "__main__":
 
