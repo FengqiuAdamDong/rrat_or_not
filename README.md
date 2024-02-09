@@ -1,4 +1,4 @@
-# rrat_or_not
+inject_status_check.py# rrat_or_not
 
 Here I will document how to run injections for CHIME/Pulsar filterbank files
 * Detections *
@@ -8,7 +8,7 @@ The script to submit lots of small individual injections for width/snr combo is 
 
 The script to detect pulses is called `multiple_detect_multiple_jobs.sh`
 
-The script to check if all the injections are completed is called
+The script to check if all the injections are completed is called `inject_status_check.py`
 
 *Injections*
 - run move_injection_files.py
