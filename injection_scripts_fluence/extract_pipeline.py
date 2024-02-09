@@ -22,7 +22,7 @@ if __name__ == "__main__":
     current_directory = os.getcwd()
     for p,period,dm in zip(pulsar_name,dm,period):
         # load the pulsar file
-        foldername = f"{p}/fdp/"
+        foldername = f"{current_directory}/{p}/fdp/"
         os.chdir(foldername)
         # check if the file filtered.csv exists
         process_filter = True
