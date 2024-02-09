@@ -217,10 +217,14 @@ class statistics_ln(sb):
         # interpolate the values for amp
         points = (amp[:,0],width[:,0])
         likelihood = integral_amp * integral_w * self.p_det_cupy
-        indmin = np.argmin(likelihood)
-        # print(f"amp = {amp[indmin]}, width = {width[indmin]} likelihood = {likelihood[indmin]}")
+        likelihood = likelihood[self.p_det_cupy > 0]
+        loglike = cp.log(likelihood)
+        #remove the infinites
+        # loglike[cp.isinf(loglike)] = 0
         # import pdb; pdb.set_trace()
-        return cp.sum(cp.log(likelihood)), self.p_det_cupy
+        # indmin = np.argmin(likelihood)
+        # print(f"amp = {amp[indmin]}, width = {width[indmin]} likelihood = {likelihood[indmin]}")
+        return cp.sum(loglike), self.p_det_cupy
 
     def first(
         self,

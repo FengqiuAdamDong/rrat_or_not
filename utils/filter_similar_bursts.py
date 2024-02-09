@@ -5,7 +5,7 @@ import sys
 #arguments
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("-folder_path", help="path to folder containing the files")
+parser.add_argument("-folder_path" ,nargs='+' , help="path to folder containing the files")
 parser.add_argument("-dm", help="dm of the burst",type=float)
 args = parser.parse_args()
 folder_path = args.folder_path
@@ -13,28 +13,30 @@ dm_arr = []
 tcand_arr = []
 tstart_arr = []
 filename_arr = []
-for filename in os.listdir(folder_path):
-    file_path = os.path.join(folder_path, filename)
-    if os.path.isfile(file_path):
-        string = filename
-        filename_arr.append(filename)
-        tcand_match = re.search(r"_tcand_(\d+\.\d+)", string)
-        if tcand_match:
-            tcand = float(tcand_match.group(1))
-            print(f"tcand: {tcand}")
-            tcand_arr.append(tcand)
+for folder in folder_path:
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        if os.path.isfile(file_path):
+            string = filename
+            filename_arr.append(file_path)
+            tcand_match = re.search(r"_tcand_(\d+\.\d+)", string)
+            if tcand_match:
+                tcand = float(tcand_match.group(1))
+                print(f"tcand: {tcand}")
+                tcand_arr.append(tcand)
 
-        dm_match = re.search(r"_dm_(\d+\.\d+)", string)
-        if dm_match:
-            dm = float(dm_match.group(1))
-            print(f"dm: {dm}")
-            dm_arr.append(dm)
+            dm_match = re.search(r"_dm_(\d+\.\d+)", string)
+            if dm_match:
+                dm = float(dm_match.group(1))
+                print(f"dm: {dm}")
+                dm_arr.append(dm)
 
-        tstart_match = re.search(r"cand_tstart_(\d+\.\d+)", string)
-        if tstart_match:
-            tstart = float(tstart_match.group(1))
-            print(f"tstart: {tstart}")
-            tstart_arr.append(int(tstart))
+            tstart_match = re.search(r"cand_tstart_(\d+\.\d+)", string)
+            if tstart_match:
+                tstart = float(tstart_match.group(1))
+                print(f"tstart: {tstart}")
+                tstart_arr.append(int(tstart))
+
 #run dbscan on dm_arr tcand_arr and tstart_arr
 from sklearn.cluster import DBSCAN
 import numpy as np
@@ -81,12 +83,15 @@ import shutil
 for fn in unique_fn:
     try:
         print(f"coping {fn}")
-        shutil.copy(os.path.join(folder_path, fn), os.path.join("filtered", fn))
+        shutil.copy(fn, "filtered/")
     except Exception as e:
         import traceback; print(traceback.format_exc())
         import pdb; pdb.set_trace()
 #also move the csv file
-try:
-    shutil.copy(folder_path.replace("/",".csv"), "filtered.csv")
-except Exception as e:
-    shutil.copy(folder_path+".csv", "filtered.csv")
+for folder in folder_path:
+    #replace the / with .csv
+    csv_file = folder.replace("/","") + ".csv"
+    with open("filtered.csv","a") as f:
+        if os.path.exists(csv_file):
+            with open(csv_file, "r") as f2:
+                f.write(f2.read())
