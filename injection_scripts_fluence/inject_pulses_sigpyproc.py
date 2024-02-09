@@ -20,9 +20,9 @@ from inject_stats import autofit_pulse
 
 # total S/N of pulse
 #TRIAL_SNR = np.logspace(0,1.6,30)
-TRIAL_SNR = np.linspace(1, 20, 20)
-#pulse_width = np.logspace(0,1.6,30)*1e-3
-pulse_width = np.linspace(1,40,40)*1e-3
+TRIAL_SNR = np.linspace(1, 10, 20)
+pulse_width = np.logspace(0.3,1.477,40)*1e-3 #use log spacing between 2ms to 30ms
+#pulse_width = np.linspace(1,40,40)*1e-3
 
 TRIAL_DMS = [
     100,
