@@ -174,12 +174,12 @@ class statistics_basic:
             inj_stats = dill.load(inf)
 
         if use_interp:
-            # detected_snr_bins = inj_stats.forward_model_snr_arrs
-            # detected_width_bins = inj_stats.unique_widths
-            # detected_det_frac_snr = inj_stats.det_frac_foreward_model_matrix_snr
-            detected_snr_bins = inj_stats.unique_snrs
+            detected_snr_bins = inj_stats.forward_model_snr_arrs
             detected_width_bins = inj_stats.unique_widths
-            detected_det_frac_snr = inj_stats.det_frac_matrix_snr
+            detected_det_frac_snr = inj_stats.det_frac_foreward_model_matrix_snr
+            # detected_snr_bins = inj_stats.unique_snrs
+            # detected_width_bins = inj_stats.unique_widths
+            # detected_det_frac_snr = inj_stats.det_frac_matrix_snr
         else:
             detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
             detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
@@ -292,7 +292,7 @@ class statistics_basic:
             fill_value=None,
         )
 
-        snr_arr = np.linspace(0, 20, 1000)
+        snr_arr = np.linspace(0, 50, 1000)
         width_arr = np.linspace(1, 60, 1000)*1e-3
         fluence_arr = np.linspace(0, 1, 1000)
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")

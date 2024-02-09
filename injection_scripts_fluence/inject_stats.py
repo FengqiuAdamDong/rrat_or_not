@@ -520,13 +520,14 @@ def logistic(x, k, x0):
     L = 1
     return L / (1 + np.exp(-k * (x - x0)))
 
-def peicewise_logistic(x, k1, k2, x0):
+def peicewise_logistic(x, k1, k2, x0,cutoff):
     try:
         first_half = x[x<x0]
         second_half = x[x>=x0]
     except:
         import pdb; pdb.set_trace()
     logistics1 = logistic(first_half, k1, x0)
+    logistics1[first_half<cutoff] = 0
     logistics2 = logistic(second_half, k2, x0)
     return np.concatenate((logistics1,logistics2))
 
@@ -935,7 +936,7 @@ class inject_stats:
         # take the average of the last 3 for the error
         #hardcode larger than widt 10ms
         sm, wm = np.meshgrid(unique_snrs, unique_widths, indexing="ij")
-        mask = (wm > 12) & (wm < 18) & (sm > 3) & (sm < 6)
+        mask = (wm > 5) & (wm < 30) & (sm > 5) & (sm < 20)
 
         sfm, wfm = np.meshgrid(unique_fluences, unique_width_fs, indexing="ij")
         fmask = (wfm > 12) & (wfm < 18) & (sfm > 0.14) & (sfm < 0.3)
@@ -1044,7 +1045,7 @@ class inject_stats:
         self.unique_fluence = unique_fluence
         self.unique_width_fs = unique_width_fs
         self.det_matrix_fluence = det_matrix_fluence
-        num_bins = 20
+        num_bins = 40
         self.bin_detections_2d(self.all_det_amplitudes_snr, self.detected_amplitudes_snr, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=False)
         self.bin_detections_2d(self.all_det_amplitudes_fluence, self.detected_amplitudes_fluence, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=True)
         fig,axes = plt.subplots(2,2,figsize=(10,10))
@@ -1174,6 +1175,7 @@ class inject_stats:
 
     def forward_model_det(self):
         karr = []
+        self.forward_model_cutoffs = []
         for i in range(len(self.unique_widths)):
             snrs = self.unique_snrs
             det_fracs = self.det_frac_matrix_snr[:,i]
@@ -1184,24 +1186,26 @@ class inject_stats:
             x0 = snr_interp_arr[np.argmin(np.abs(interp_det_fracs-0.5))]
             from scipy.stats import norm
 
-            def p_det_st(x, k1, k2, x0, det_err):
+            def p_det_st(x, k1, k2, x0, det_err, cutoff):
                 sdet = np.linspace(min(x)-3*det_err,max(x)+3*det_err,1000)
                 sdet_giv_st = norm.pdf(sdet[:,np.newaxis],loc=x,scale=det_err)
-                pdet_giv_sdet = peicewise_logistic(sdet,k1,k2,x0)[:,np.newaxis]
+                pdet_giv_sdet = peicewise_logistic(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
                 integral = np.trapz(sdet_giv_st*pdet_giv_sdet,sdet,axis=0)
                 return integral
 
-            def loglike(X,x0,snr_arr,det_fracs,det_err):
+            def loglike(X,x0,snr_arr,det_fracs,det_err,cutoff):
                 #assume bernoulli errors for 50 trials
                 sigma = X[3]
                 #scale sigma by det_fracs
-                # sigma = sigma*det_fracs+0.01
+                sigma = sigma*det_fracs+0.001
                 #use a gaussian likelihood
-                loglike = np.sum(-0.5*(p_det_st(snr_arr,X[0],X[1],X[2],det_err)-det_fracs)**2/sigma**2 - np.log(sigma*np.sqrt(2*np.pi)))
+                loglike = np.sum(-0.5*(p_det_st(snr_arr,X[0],X[1],X[2],det_err,cutoff)-det_fracs)**2/sigma**2 - np.log(sigma*np.sqrt(2*np.pi)))
                 return -1*loglike
-
-            args = (x0,snrs,det_fracs,self.detect_error_snr)
-            bounds = [(0, 20), (0, 20), (0, 20),(0,0.1)]
+            cutoff = np.argwhere(det_fracs<0.05)
+            cutoff = np.max(cutoff)
+            self.forward_model_cutoffs.append(snrs[cutoff])
+            args = (x0,snrs,det_fracs,self.detect_error_snr,snrs[cutoff])
+            bounds = [(0, 500), (0, 500), (0, 20),(0.04,0.1)]
             minimizer_kwargs = dict(method="Nelder-Mead", args=args,bounds=bounds)
             init = [3,3,x0,0.02]
 
@@ -1212,13 +1216,13 @@ class inject_stats:
             print(f"fitted sigma {sigma}")
             karr.append(res.x)
             plt.figure()
-            plt.plot(snr_interp_arr,peicewise_logistic(snr_interp_arr,k1,k2,x0),label="forward model")
+            plt.plot(snr_interp_arr,peicewise_logistic(snr_interp_arr,k1,k2,x0,snrs[cutoff]),label="forward model")
             plt.plot(snrs,det_fracs,"x",label="data inj")
             plt.plot(self.detected_bin_midpoints_snr[0],self.detected_det_frac_snr[:,arg_closest_width_det],label=f"data det width {self.detected_bin_midpoints_snr[1][arg_closest_width_det]}")
             plt.legend()
             plt.savefig(f"width_{self.unique_widths[i]}_foreward_model.png")
-            plt.close()
             # plt.show()
+            plt.close()
         self.karr = karr
         with open("test.dill","wb") as of:
             dill.dump(self,of)
@@ -1228,8 +1232,8 @@ class inject_stats:
         self.det_frac_foreward_model_matrix_snr = np.zeros((len(self.forward_model_snr_arrs),len(self.unique_widths)))
         for i in range(len(self.unique_widths)):
             k1,k2,x0,sigma = self.karr[i]
-            print(k1,k2,x0,sigma,self.unique_widths[i])
-            self.det_frac_foreward_model_matrix_snr[:,i] = peicewise_logistic(self.forward_model_snr_arrs,k1,k2,x0)
+            print(k1,k2,x0,sigma,self.unique_widths[i],self.forward_model_cutoffs[i])
+            self.det_frac_foreward_model_matrix_snr[:,i] = peicewise_logistic(self.forward_model_snr_arrs,k1,k2,x0,self.forward_model_cutoffs[i])
         plt.figure()
         plt.title("forward modelled pdet|sdet")
         plt.pcolormesh(self.unique_widths*1000,self.forward_model_snr_arrs,self.det_frac_foreward_model_matrix_snr)
@@ -1290,11 +1294,10 @@ if __name__ == "__main__":
         fns = args.l
         inj_stats = inject_stats(**inj_stats.__dict__)
         inj_stats.repopulate_io()
-
-        #inj_stats.generate_forward_model_grid()
-        #inj_stats.forward_model_det()
-
         inj_stats.amplitude_statistics()
         inj_stats.compare(fns)
+        inj_stats.forward_model_det()
+        inj_stats.generate_forward_model_grid()
+
         with open("inj_stats_fitted.dill", "wb") as of:
             dill.dump(inj_stats, of)
