@@ -2,7 +2,7 @@
 
 Here I will document how to run injections for CHIME/Pulsar filterbank files
 * Detections *
-The script to extract SNR is called `rrat_or_not/injection_scripts_fluence/batch_extract_snr.sh`
+The script to extract SNR is called `rrat_or_not/injection_scripts_fluence/batch_extract_snr.sh $DM $outputfn $filtered_edit.csv $period`
 
 The script to submit lots of small individual injections for width/snr combo is called `inject_pulses_sigpyproc.py`
 
