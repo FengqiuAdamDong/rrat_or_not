@@ -1296,7 +1296,6 @@ if __name__ == "__main__":
         inj_stats.repopulate_io()
         inj_stats.amplitude_statistics()
         inj_stats.compare(fns)
-
         inj_stats.forward_model_det()
         inj_stats.generate_forward_model_grid()
 
