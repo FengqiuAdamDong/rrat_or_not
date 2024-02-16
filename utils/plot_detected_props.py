@@ -26,6 +26,11 @@ def process_detection_results(real_det):
 
 
 det_fluence, det_width, det_snr, noise_std = process_detection_results(sys.argv[1])
+mask = np.array([det_snr > 0])
+det_fluence = det_fluence[mask]
+det_width = det_width[mask]
+det_snr = det_snr[mask]
+noise_std = noise_std[mask]
 fig, ax = plt.subplots(1, 3, figsize=(15, 5))
 ax[0].hist(det_fluence, bins=100)
 ax[0].set_title(f"Detected Fluence, total: {len(det_fluence)}")
