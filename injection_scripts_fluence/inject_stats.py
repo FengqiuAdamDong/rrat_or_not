@@ -814,7 +814,6 @@ class inject_stats:
 
             inj_width.append(np.mean(s.width))
             inj_snr.append(np.mean(s.snr))
-
             noise_std.append(np.mean(s.noise_std))
             det_amp.append(np.mean(s.det_amp))
             det_amp_std.append(np.std(s.det_amp))
@@ -826,7 +825,6 @@ class inject_stats:
         det_width_std = np.array(det_width_std)
         inj_snr = np.array(inj_snr)
         inj_width = np.array(inj_width)
-
         #calculate inj_fluence from snr and width
         inj_fluence = inj_snr*inj_width/0.3989
         det_fluence = np.array(det_fluence)
@@ -970,29 +968,52 @@ class inject_stats:
                 inj_width,
                 MJD,
             ) = read_positive_burst_inj(csv)
+            dm = np.array(dm)
+            burst_time = np.array(burst_time)
+            inj_snr = np.array(inj_snr)
+            inj_width = np.array(inj_width)
+            MJD = np.array(MJD)
             before_num = [sum(si.detected) for si in self.sorted_inject]
-            for t, d, inj_s, inj_w in zip(burst_time, dm, inj_snr, inj_width):
-                # here we gotta match the values
-                t_low = t - time_tol
-                t_hi = t + time_tol
-                dm_low = d - dm_tol
-                dm_hi = d + dm_tol
-                # print(t_low,t_hi,dm_low,dm_hi)
-                for si in self.sorted_inject:
 
-                    t_snr = (np.mean(si.snr) > (inj_s - snr_tol)) & (
-                        np.mean(si.snr) < (inj_s + snr_tol)
-                    )
-                    t_width = (np.mean(si.width) > (inj_w - width_tol)) & (
-                        np.mean(si.width) < (inj_w + width_tol)
-                    )
-                    if t_snr&t_width:
-                        dm_arr = si.dm
-                        t_arr = si.toas
-                        truth_dm = (dm_arr < dm_hi) & (dm_arr > dm_low)
-                        truth_t = (t_arr < t_hi) & (t_arr > t_low)
-                        total_truth = truth_dm & truth_t
-                        self.detected_truth(si, total_truth)
+            for si in self.sorted_inject:
+                if not hasattr(si, "detected"):
+                    #if there is no detected attribute then we need to create it
+                    si.detected = np.zeros(len(si,si.snr), dtype=bool)
+                si_snr = np.mean(si.snr)
+                si_width = np.mean(si.width)
+                si_dm = np.mean(si.dm)
+                snr_low = si_snr - snr_tol
+                snr_hi = si_snr + snr_tol
+                width_low = si_width - width_tol
+                width_hi = si_width + width_tol
+                dm_low = si_dm - dm_tol
+                dm_hi = si_dm + dm_tol
+                #this is an array
+                #get the burst_times that match the inj_snr and inj_widths first
+                snr_mask = (inj_snr > snr_low) & (inj_snr < snr_hi)
+                width_mask = (inj_width > width_low) & (inj_width < width_hi)
+                dm_mask = (dm > dm_low) & (dm < dm_hi)
+                mask = snr_mask & width_mask & dm_mask
+                #get the burst_times that match the inj_snr and inj_widths first
+                if sum(mask)==0:
+                    continue
+                det_burst_toa = burst_time[mask]
+
+
+                t_arr = si.toas
+                t_mat, det_burst_mat = np.meshgrid(t_arr,det_burst_toa)
+                t_low = t_mat - time_tol
+                t_hi = t_mat + time_tol
+                toa_mask = (t_low < det_burst_mat) & (t_hi > det_burst_mat)
+                #create a truth array of size si.toas
+                #find matching
+                matches = (t_low < det_burst_mat) & (t_hi > det_burst_mat)
+                matches = np.sum(matches,axis=0)
+                detected = (matches!=0)
+                self.detected_truth(si,detected)
+
+
+
             after_num = [sum(si.detected) for si in self.sorted_inject]
             extra = np.array(after_num) - np.array(before_num)
             if i>0:
@@ -1078,7 +1099,7 @@ class inject_stats:
         axes[1,1].set_xlabel("Width (ms)")
         axes[1,1].set_ylabel("Fluence (Jy s)")
         plt.tight_layout()
-
+        plt.show()
         plt.savefig(f"{title}.png")
         plt.close()
 
@@ -1197,7 +1218,7 @@ class inject_stats:
                 #assume bernoulli errors for 50 trials
                 sigma = X[3]
                 #scale sigma by det_fracs
-                sigma = sigma*det_fracs+0.001
+                # sigma = sigma*det_fracs+0.001
                 #use a gaussian likelihood
                 loglike = np.sum(-0.5*(p_det_st(snr_arr,X[0],X[1],X[2],det_err,cutoff)-det_fracs)**2/sigma**2 - np.log(sigma*np.sqrt(2*np.pi)))
                 return -1*loglike
@@ -1205,7 +1226,7 @@ class inject_stats:
             cutoff = np.max(cutoff)
             self.forward_model_cutoffs.append(snrs[cutoff])
             args = (x0,snrs,det_fracs,self.detect_error_snr,snrs[cutoff])
-            bounds = [(0, 500), (0, 500), (0, 20),(0.04,0.1)]
+            bounds = [(0, 500), (0, 500), (0, 20),(0.01,0.1)]
             minimizer_kwargs = dict(method="Nelder-Mead", args=args,bounds=bounds)
             init = [3,3,x0,0.02]
 
@@ -1296,6 +1317,7 @@ if __name__ == "__main__":
         inj_stats.repopulate_io()
         inj_stats.amplitude_statistics()
         inj_stats.compare(fns)
+        plt.show()
         inj_stats.forward_model_det()
         inj_stats.generate_forward_model_grid()
 

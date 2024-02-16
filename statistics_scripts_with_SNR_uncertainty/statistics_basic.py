@@ -194,7 +194,7 @@ class statistics_basic:
         # do a stage of this interpolation process so that the interpolated cut-off is at the right place
         # this is only needed if the injected grid is not really fine
         detected_snr_bins_stage1 = np.linspace(0, max(detected_snr_bins), 1000)
-        detected_width_bins_stage1 = np.linspace(0, max(detected_width_bins), 1000)
+        detected_width_bins_stage1 = np.linspace(0,35e-3 , 1000)
         detected_det_frac_snr_stage1 = self.p_detect_cpu(
             (
                 detected_snr_bins_stage1[:, np.newaxis],
@@ -210,6 +210,9 @@ class statistics_basic:
         detected_det_frac_snr_stage1[
             :, np.argwhere(detected_width_bins_stage1 >30e-3)
         ] = 0
+        #also remove the corner of width<5e-3 and snr<2.8
+        del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 2.8) & (detected_width_bins_stage1[np.newaxis, :] < 5e-3)
+        detected_det_frac_snr_stage1[del_mask] = 0
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
             (detected_snr_bins_stage1, detected_width_bins_stage1),
             detected_det_frac_snr_stage1,
