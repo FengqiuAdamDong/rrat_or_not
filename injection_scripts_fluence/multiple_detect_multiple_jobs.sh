@@ -9,7 +9,7 @@ do
 done
 
 SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-for f in *.fil
+for f in $@
 do
     echo $f
     #strip the extension

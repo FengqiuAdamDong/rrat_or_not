@@ -106,6 +106,7 @@ def maskfile(maskfn, data, start_bin, nbinsextra):
 
 def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom):
     # make a copy to plot the waterfall
+    #
     waterfall_dat = copy.deepcopy(data)
     #make sure the length of waterfall_dat is a multiple of downsamp
     nsamps = waterfall_dat.shape[1]
@@ -116,6 +117,7 @@ def extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end
     dat_ts = copy.deepcopy(waterfall_dat)[~masked_chans, :]
     dat_ts = np.mean(dat_ts, axis=0)
     dat_ts = dat_ts[int(nsamps_start_zoom / downsamp) : int(nsamps_end_zoom / downsamp)]
+
     #make sure that waterfall_dat is a multiple of 4
     nsamps = waterfall_dat.shape[1]
     second_downsamp = 2
@@ -173,8 +175,8 @@ def grab_spectra_manual(
     if mask:
         print("masking data")
         data, masked_chans = maskfile(mask_fn, spec, ssamps, nsamps)
-    waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
 
+    waterfall_dat, dat_ts = extract_plot_data(data,masked_chans,dm,downsamp,nsamps_start_zoom,nsamps_end_zoom)
     if manual:
         # this gives you the location of the peak
         amp, std, loc, sigma_width, FLUENCE = fit_SNR_manual(
@@ -330,7 +332,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     bounds=[(std, np.inf), (min(xind),max(xind)), (1e-6, fit_width_guess*2), (-10, 10)]
     minimizer_kwargs = dict(method="Nelder-Mead", bounds=bounds, args=args)
     x0 = [mamplitude, max_time, fit_width_guess, 0]
-    max_l = basinhopping(log_likelihood, x0, minimizer_kwargs=minimizer_kwargs, niter=100)
+    max_l = basinhopping(log_likelihood, x0, minimizer_kwargs=minimizer_kwargs, niter=500)
     fitx = max_l.x
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
@@ -354,10 +356,10 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
         axs[1, 0].set_title("baseline subtracted")
         axs[1, 0].plot(x, gaussian(xind, fitx[0], fitx[1], fitx[2], fitx[3]))
         axs[1, 0].set_title("baseline subtracted")
-        axs[1, 1].plot(x, ts)
-        axs[1, 1].set_title("OG time series")
+        axs[0, 2].plot(x, ts)
+        axs[0, 2].set_title("OG time series")
         cmap = plt.get_cmap("YlGnBu")
-        axs[0, 2].imshow(ds_data, aspect="auto",extent = [0,max(x),800,400], cmap=cmap)
+        axs[1, 1].imshow(ds_data, aspect="auto",extent = [0,max(x),800,400], cmap=cmap)
         plt.tight_layout()
         plt.savefig(f"{plot_name}_autofit.png")
         plt.close()
@@ -570,12 +572,12 @@ class inject_obj:
 
 
     def calculate_fluence_single(self, mask=True, period = 2,manual=True,plot_name=""):
-        ts = self.toas - 5
-        te = self.toas + 5
-        if period > 1.9:
-            t_dur = 1.8
-            t_start = 4.1
-            fit_del = 15e-2
+        ts = self.toas - 2
+        te = self.toas + 2
+        if period > 0.5:
+            t_dur = 0.6
+            t_start = 1.7
+            fit_del = 5e-2
         else:
             t_dur = (period-0.05)*2
             t_start = 5-(t_dur/2)
