@@ -59,7 +59,7 @@ class statistics_basic:
         interp_res[interp_res > 1] = 1
         return interp_res
 
-    def convolve_p_detect(self, plot=True):
+    def convolve_p_detect(self, plot=True, low_width=False):
         # convolve the p_detect with the injected distribution
         # gaussian with sigma_amp_error
         true_snr_bins = np.linspace(0, 20, 500)
@@ -72,7 +72,11 @@ class statistics_basic:
         detected_width_bins = detected_width_bins[np.newaxis, :, np.newaxis]
         points_det = (detected_snr_bins, detected_width_bins)
         p_det_snr = self.p_detect_cpu(points_det)
-        amp_error = norm.pdf(detected_snr_bins, true_snr_bins, self.detected_error_snr)
+        if low_width:
+            print("Using the low width snr error")
+            amp_error = norm.pdf(detected_snr_bins, true_snr_bins, self.detected_error_snr_low_width)
+        else:
+            amp_error = norm.pdf(detected_snr_bins, true_snr_bins, self.detected_error_snr)
         # form the 3d array
         pdet_st_sd_wd = p_det_snr * amp_error
         # marginalize over the sd
@@ -87,9 +91,15 @@ class statistics_basic:
         # plt.legend()
         # plt.show()
         detected_width_bins = detected_width_bins[0, :, :, np.newaxis]
-        width_error = norm.pdf(
-            detected_width_bins, true_width_bins, self.detected_error_width
-        )
+        if low_width:
+            print("Using the low width width error")
+            width_error = norm.pdf(
+                detected_width_bins, true_width_bins, self.detected_error_width_low_width
+            )
+        else:
+            width_error = norm.pdf(
+                detected_width_bins, true_width_bins, self.detected_error_width
+            )
         # form the 3d array
         pdet_st_wt_wd = pdet_st_wd[:, :, np.newaxis] * width_error
         # marginalize over the wd
@@ -168,7 +178,7 @@ class statistics_basic:
             plt.show()
 
     def load_detection_fn(
-        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=True
+        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=False
     ):
         with open(detection_curve, "rb") as inf:
             inj_stats = dill.load(inf)
@@ -177,6 +187,8 @@ class statistics_basic:
             detected_snr_bins = inj_stats.forward_model_snr_arrs
             detected_width_bins = inj_stats.unique_widths
             detected_det_frac_snr = inj_stats.det_frac_foreward_model_matrix_snr
+            # plt.imshow(detected_det_frac_snr, aspect='auto')
+            # plt.show()
             # detected_snr_bins = inj_stats.unique_snrs
             # detected_width_bins = inj_stats.unique_widths
             # detected_det_frac_snr = inj_stats.det_frac_matrix_snr
@@ -208,11 +220,11 @@ class statistics_basic:
             :, np.argwhere(detected_width_bins_stage1 < width_cutoff)
         ] = 0
         detected_det_frac_snr_stage1[
-            :, np.argwhere(detected_width_bins_stage1 >30e-3)
+            :, np.argwhere(detected_width_bins_stage1 >28e-3)
         ] = 0
         #also remove the corner of width<5e-3 and snr<2.8
-        del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 2.8) & (detected_width_bins_stage1[np.newaxis, :] < 5e-3)
-        detected_det_frac_snr_stage1[del_mask] = 0
+        # del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 2.8) & (detected_width_bins_stage1[np.newaxis, :] < 5e-3)
+        # detected_det_frac_snr_stage1[del_mask] = 0
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
             (detected_snr_bins_stage1, detected_width_bins_stage1),
             detected_det_frac_snr_stage1,
@@ -223,7 +235,7 @@ class statistics_basic:
 
         detected_det_frac_snr[np.argwhere(detected_snr_bins < snr_cutoff), :] = 0
         detected_det_frac_snr[:, np.argwhere(detected_width_bins < width_cutoff)] = 0
-        detected_det_frac_snr[:, np.argwhere(detected_width_bins >30e-3 )] = 0
+        detected_det_frac_snr[:, np.argwhere(detected_width_bins >28e-3 )] = 0
 
 
         detected_fluence_bins = inj_stats.detected_bin_midpoints_fluence[0]
@@ -346,6 +358,10 @@ class statistics_basic:
         # assign the errors in the different directions
         self.detected_error_snr = inj_stats.detect_error_snr
         self.detected_error_width = inj_stats.detect_error_width
+
+        self.detected_error_snr_low_width = inj_stats.detect_error_snr_low_width
+        self.detected_error_width_low_width = inj_stats.detect_error_width_low_width
+
         self.detected_error_fluence = inj_stats.detect_error_fluence
         return snr_cutoff, width_cutoff
 

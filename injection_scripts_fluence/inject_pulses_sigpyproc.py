@@ -290,7 +290,7 @@ def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
     #fit a polynomial to the window
     #get the mean of the window
     stats_mean = np.mean(stats_data, axis=0)
-    amp,std,loc,sigma_width,fluence =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp),data,downsamp,plot=plot, fit_width_guess = p_width)
+    amp,std,loc,sigma_width,fluence =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp),data,downsamp,plot=plot, fit_width_guess = p_width, niter=1)
     std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
     SNR = amp/std
     print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width} inj amp: {p_SNR*std} fluence: {fluence}")

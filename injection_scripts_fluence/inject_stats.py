@@ -302,7 +302,7 @@ def find_polynomial_fit(x_std, ts_std, order = None):
 
     return poly, coeffs
 
-def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", fit_width_guess = 0.01, second_try = False):
+def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_name="", fit_width_guess = 0.01, second_try = False, niter=500):
     # calculates the SNR given a timeseries
     ind_max = nsamps
     w_bin = width / tsamp
@@ -330,7 +330,7 @@ def autofit_pulse(ts, tsamp, width, nsamps, ds_data, downsamp, plot=True, plot_n
     bounds=[(std, np.inf), (min(xind),max(xind)), (1e-6, fit_width_guess*2), (-10, 10)]
     minimizer_kwargs = dict(method="Nelder-Mead", bounds=bounds, args=args)
     x0 = [mamplitude, max_time, fit_width_guess, 0]
-    max_l = basinhopping(log_likelihood, x0, minimizer_kwargs=minimizer_kwargs, niter=100)
+    max_l = basinhopping(log_likelihood, x0, minimizer_kwargs=minimizer_kwargs, niter=niter)
     fitx = max_l.x
     fitx[0] = abs(fitx[0])
     fitx[1] = abs(fitx[1])
@@ -520,7 +520,7 @@ def logistic(x, k, x0):
     L = 1
     return L / (1 + np.exp(-k * (x - x0)))
 
-def peicewise_logistic(x, k1, k2, x0,cutoff):
+def piecewise_logistic(x, k1, k2, x0,cutoff):
     try:
         first_half = x[x<x0]
         second_half = x[x>=x0]
@@ -531,8 +531,30 @@ def peicewise_logistic(x, k1, k2, x0,cutoff):
     logistics2 = logistic(second_half, k2, x0)
     return np.concatenate((logistics1,logistics2))
 
-def gen_log(x,A,B,C,M,K,v):
-    return A+((K-A)/((C+np.exp(-B*(x-M)))**(1/v)))
+def piecewise_tanh(x, k1, k2, x0,cutoff):
+    try:
+        first_half = x[x<x0]
+        second_half = x[x>=x0]
+    except:
+        import pdb; pdb.set_trace()
+    logistics1 = tanh(first_half, k1, x0)
+    logistics1[first_half<cutoff] = 0
+    logistics2 = tanh(second_half, k2, x0)
+    return np.concatenate((logistics1,logistics2))
+
+def tanh(x, k, x0):
+    return 0.5+0.5*np.tanh(k * (x - x0))
+
+def gen_log(x,B,v,M,cutoff):
+    y = 1/((1+np.exp(-B*(x-M)))**(1/v))
+    y[x<cutoff] = 0
+    return y
+
+def forward_model(x, k1, k2, x0, cutoff):
+    #this is just a wrapper function so that I only need to change this one reference to change the function used
+    return gen_log(x, k1, k2, x0, cutoff)
+    # return piecewise_tanh(x, k1, k2, x0, cutoff)
+    # return piecewise_logistic(x, k1, k2, x0, cutoff)
 
 
 class inject_obj:
@@ -570,15 +592,16 @@ class inject_obj:
 
 
     def calculate_fluence_single(self, mask=True, period = 2,manual=True,plot_name=""):
-        ts = self.toas - 5
-        te = self.toas + 5
-        if period > 1.9:
-            t_dur = 1.8
-            t_start = 4.1
-            fit_del = 15e-2
+        extract_time = 2
+        ts = self.toas - extract_time
+        te = self.toas + extract_time
+        if period > 0.5:
+            t_dur = 0.5
+            t_start = 1.75
+            fit_del = 3e-2
         else:
             t_dur = (period-0.05)*2
-            t_start = 5-(t_dur/2)
+            t_start = extract_time-(t_dur/2)
             fit_del = t_dur*0.055
         fluence, std, amp, gaussian_amp, sigma_width, det_snr, approximate_toa = grab_spectra_manual(
             gf=self.filfile,
@@ -847,7 +870,7 @@ class inject_stats:
         axes[0,0].set_title("Detected Width")
 
         mesh = axes[0,1].pcolormesh(unique_widths, unique_snrs, det_matrix_snr)
-        mesh.set_clim(0.5,1.5)
+        mesh.set_clim(0.7,1.4)
         cbar = plt.colorbar(mesh,ax=axes[0,1])
         cbar.set_label("Detected SNR / Injected SNR")
         axes[0,1].set_xlabel("Injected Width (ms)")
@@ -873,7 +896,8 @@ class inject_stats:
         if hasattr(self, "base_fn"):
             plt.savefig(self.base_fn + "_snr_amp.png")
         else:
-            plt.show()
+            pass
+            # plt.show()
         unique_fluences, unique_width_fs, det_matrix_width_f = create_matrix(inj_fluence, inj_width, det_width,norm=1)
         unique_fluences, unique_width_fs, det_matrix_fluence = create_matrix(inj_fluence, inj_width, det_fluence,norm=0)
         unique_fluences, unique_width_fs, det_matrix_width_f_std = create_matrix(inj_fluence, inj_width, det_width_std,norm=-1)
@@ -917,7 +941,8 @@ class inject_stats:
         if hasattr(self, "base_fn"):
             plt.savefig(self.base_fn + "_fluence_amp.png")
         else:
-            plt.show()
+            pass
+            # plt.show()
         plt.close()
         ind = np.argsort(inj_snr)
         self.det_snr = det_snr[ind]
@@ -938,10 +963,16 @@ class inject_stats:
 
         sfm, wfm = np.meshgrid(unique_fluences, unique_width_fs, indexing="ij")
         fmask = (wfm > 12) & (wfm < 18) & (sfm > 0.14) & (sfm < 0.3)
+
+        low_width_mask = (wm < 4) & (sm > 3)
         #add the errors in quadrature
         self.detect_error_snr = np.sqrt(np.nanmean(det_matrix_snr_std[mask]**2))
         self.detect_error_width = np.sqrt(np.nanmean(det_matrix_width_std[mask]**2))
         self.detect_error_fluence = np.sqrt(np.nanmean(det_matrix_fluence_std[fmask]**2))
+
+        self.detect_error_snr_low_width = np.sqrt(np.nanmean(det_matrix_snr_std[low_width_mask]**2))
+        self.detect_error_width_low_width = np.sqrt(np.nanmean(det_matrix_width_std[low_width_mask]**2))
+        print(f"low width SNR error: {self.detect_error_snr_low_width}, low width width error: {self.detect_error_width_low_width}")
         print(f"SNR error: {self.detect_error_snr}, width error: {self.detect_error_width}, fluence error: {self.detect_error_fluence}")
 
     def detected_truth(self, si, truth_arr):
@@ -1066,7 +1097,7 @@ class inject_stats:
         self.unique_fluence = unique_fluence
         self.unique_width_fs = unique_width_fs
         self.det_matrix_fluence = det_matrix_fluence
-        num_bins = 40
+        num_bins = 20
         self.bin_detections_2d(self.all_det_amplitudes_snr, self.detected_amplitudes_snr, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=False)
         self.bin_detections_2d(self.all_det_amplitudes_fluence, self.detected_amplitudes_fluence, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=True)
         fig,axes = plt.subplots(2,2,figsize=(10,10))
@@ -1099,8 +1130,8 @@ class inject_stats:
         axes[1,1].set_xlabel("Width (ms)")
         axes[1,1].set_ylabel("Fluence (Jy s)")
         plt.tight_layout()
-        plt.show()
         plt.savefig(f"{title}.png")
+        plt.show()
         plt.close()
 
     def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
@@ -1155,18 +1186,26 @@ class inject_stats:
         detected_det_vals = detected_det_vals[det_mask]
         all_width_vals = all_width_vals[all_mask]
         detected_width_vals = detected_width_vals[det_mask]
+        #bin edges, 20 bins in det_vals 40 bins in width vals
+        if min(all_det_vals)>0:
+            bin_edges_snr = np.logspace(np.log10(min(all_det_vals)),np.log10(max(all_det_vals)),num_bins+1)
+            bin_edges_width = np.logspace(np.log10(min(all_width_vals)),np.log10(max(all_width_vals)),num_bins+1)
+        else:
+            print("log spacing error, found negative numbers, defaulting to linear")
+            bin_edges_snr = np.linspace(min(all_det_vals),max(all_det_vals),num_bins+1)
+            bin_edges_width = np.linspace(min(all_width_vals),max(all_width_vals),num_bins+1)
 
-        bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
-        bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins+1))
+        # bin_edges_snr = np.quantile(all_det_vals, np.linspace(0, 1, num_bins+1))
+        # bin_edges_width = np.quantile(all_width_vals, np.linspace(0, 1, num_bins+1))
         # bin_edges_snr = np.histogram_bin_edges(all_det_vals, bins=num_bins)
         # bin_edges_width = np.histogram_bin_edges(all_width_vals, bins=num_bins)
+
         #remove bin edges above max of self.inj_snr
         # if fluence:
         #     bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_fluence)+0.4]
         # else:
         #     bin_edges_snr = bin_edges_snr[bin_edges_snr<max(self.inj_snr)+0.5]
         # bin_edges_width = bin_edges_width[bin_edges_width<max(self.inj_width)+5e-3]
-
         all_2d_hist, xedges, yedges = np.histogram2d(all_det_vals, all_width_vals, bins=(bin_edges_snr,bin_edges_width))
         detected_2d_hist, xedges, yedges = np.histogram2d(detected_det_vals, detected_width_vals, bins=(bin_edges_snr,bin_edges_width))
         detected_2d_frac = detected_2d_hist/all_2d_hist
@@ -1210,7 +1249,9 @@ class inject_stats:
             def p_det_st(x, k1, k2, x0, det_err, cutoff):
                 sdet = np.linspace(min(x)-3*det_err,max(x)+3*det_err,1000)
                 sdet_giv_st = norm.pdf(sdet[:,np.newaxis],loc=x,scale=det_err)
-                pdet_giv_sdet = peicewise_logistic(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
+                # pdet_giv_sdet = peicewise_logistic(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
+                # pdet_giv_sdet = gen_log(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
+                pdet_giv_sdet = forward_model(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
                 integral = np.trapz(sdet_giv_st*pdet_giv_sdet,sdet,axis=0)
                 return integral
 
@@ -1225,19 +1266,27 @@ class inject_stats:
             cutoff = np.argwhere(det_fracs<0.05)
             cutoff = np.max(cutoff)
             self.forward_model_cutoffs.append(snrs[cutoff])
-            args = (x0,snrs,det_fracs,self.detect_error_snr,snrs[cutoff])
-            bounds = [(0, 500), (0, 500), (0, 20),(0.01,0.1)]
-            minimizer_kwargs = dict(method="Nelder-Mead", args=args,bounds=bounds)
-            init = [3,3,x0,0.02]
+            if self.unique_widths[i] > 4e-3:
+                args = (x0,snrs,det_fracs,self.detect_error_snr,snrs[cutoff])
+            else:
+                # print(f"using low width to model the selection effects")
+                # args = (x0,snrs,det_fracs,self.detect_error_snr_low_width,snrs[cutoff])
+                args = (x0,snrs,det_fracs,self.detect_error_snr,snrs[cutoff])
 
-            res = basinhopping(loglike, init, minimizer_kwargs=minimizer_kwargs,niter=100)
+            bounds = [(0, 50), (0, 50), (0, 20),(0.01,0.1)]
+            minimizer_kwargs = dict(method="Nelder-Mead", args=args,bounds=bounds)
+            init = [1,1,x0,0.02]
+
+            res = basinhopping(loglike, init, minimizer_kwargs=minimizer_kwargs,niter=50)
             #fit the model
             arg_closest_width_det = np.argmin(np.abs(self.detected_bin_midpoints_snr[1]-self.unique_widths[i]))
             k1,k2,x0,sigma = res.x
-            print(f"fitted sigma {sigma}")
+            print(f"fitted sigma {sigma} k1 {k1} k2 {k2} x0 {x0} cutoff {snrs[cutoff]} width {self.unique_widths[i]}")
             karr.append(res.x)
             plt.figure()
-            plt.plot(snr_interp_arr,peicewise_logistic(snr_interp_arr,k1,k2,x0,snrs[cutoff]),label="forward model")
+            # plt.plot(snr_interp_arr,peicewise_logistic(snr_interp_arr,k1,k2,x0,snrs[cutoff]),label="forward model")
+            plt.plot(snr_interp_arr,forward_model(snr_interp_arr,k1,k2,x0,snrs[cutoff]),label="forward model")
+            plt.plot(snr_interp_arr,p_det_st(snr_interp_arr,k1,k2,x0,self.detect_error_snr,snrs[cutoff]),label="forward model st_det")
             plt.plot(snrs,det_fracs,"x",label="data inj")
             plt.plot(self.detected_bin_midpoints_snr[0],self.detected_det_frac_snr[:,arg_closest_width_det],label=f"data det width {self.detected_bin_midpoints_snr[1][arg_closest_width_det]}")
             plt.legend()
@@ -1254,7 +1303,7 @@ class inject_stats:
         for i in range(len(self.unique_widths)):
             k1,k2,x0,sigma = self.karr[i]
             print(k1,k2,x0,sigma,self.unique_widths[i],self.forward_model_cutoffs[i])
-            self.det_frac_foreward_model_matrix_snr[:,i] = peicewise_logistic(self.forward_model_snr_arrs,k1,k2,x0,self.forward_model_cutoffs[i])
+            self.det_frac_foreward_model_matrix_snr[:,i] = forward_model(self.forward_model_snr_arrs,k1,k2,x0,self.forward_model_cutoffs[i])
         plt.figure()
         plt.title("forward modelled pdet|sdet")
         plt.pcolormesh(self.unique_widths*1000,self.forward_model_snr_arrs,self.det_frac_foreward_model_matrix_snr)

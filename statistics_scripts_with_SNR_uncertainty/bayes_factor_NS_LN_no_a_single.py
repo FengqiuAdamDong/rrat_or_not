@@ -70,6 +70,7 @@ def plot_fit_ln(max_mu, max_std, dets, sigma_det):
     ax.set_xlabel("SNR")
     ax.set_ylabel("Probability")
     ax.legend()
+    plt.tight_layout()
     plt.show()
 
 
@@ -98,21 +99,26 @@ def process_detection_results(real_det):
 
 def plot_detection_results(det_width, det_fluence, det_snr):
     print("mean width", np.mean(det_width))
-    fig, axs = plt.subplots(2, 2)
-    axs[0, 0].set_title("Widths")
-    axs[0, 0].hist(det_width, bins=50)
+    fig, axs = plt.subplots(1, 2)
+    axs[0].set_title("Widths")
+    axs[0].hist(det_width, bins=50)
+    axs[0].set_xlabel("Width (s)")
+    axs[0].set_ylabel("Counts")
 
-    axs[1, 0].set_title("Histogram of detected pulses")
-    axs[1, 0].hist(det_fluence, bins="auto", density=True)
-    axs[1, 0].set_xlabel("FLUENCE")
-    axs[1, 1].hist(det_snr, bins=50, label="snr")
-    axs[1, 1].set_title("detected snr")
-    axs[1, 1].set_xlabel("snr")
-    axs[1, 1].legend()
-    axs[0, 1].hist(det_snr, alpha=0.5, bins=50, label="fit")
-    axs[0, 1].set_title(f"detected snr ,ndet {len(det_snr)}")
-    axs[0, 1].set_xlabel("snr")
-    axs[0, 1].legend()
+
+    axs[1].hist(det_snr, bins=50)
+    axs[1].set_title(f"Detected Pulse S/N")
+    axs[1].set_xlabel("S/N")
+    plt.savefig("detection_results.pdf")
+    plt.tight_layout()
+    # axs[1, 0].set_title("Histogram of detected pulses")
+    # axs[1, 0].hist(det_fluence, bins="auto", density=True)
+    # axs[1, 0].set_xlabel("FLUENCE")
+    # axs[1, 1].hist(det_snr, bins=50, label="snr")
+    # axs[1, 1].set_title("detected snr")
+    # axs[1, 1].set_xlabel("snr")
+    # axs[1, 1].legend()
+
     # plt.figure()
     # plt.scatter(np.log(det_width), np.log(det_snr), alpha=0.5,s=1)
     # plt.xlabel("log width")
@@ -166,7 +172,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     return np.array([ptmu, ptsigma, ptmu_w, ptsigma_w, ptN])
 
 
-def loglikelihood(theta, det_snr, det_width, likelihood_calc):
+def loglikelihood(theta, det_snr, det_width, likelihood_calc, low_width_flag):
     # convert to strict upper limit of the lognorm
     # convert to the standard mu and sigma of a lognorm
     # print("theta",theta)
@@ -195,6 +201,7 @@ def loglikelihood(theta, det_snr, det_width, likelihood_calc):
         use_a=False,
         use_cutoff=True,
         cuda_device=cuda_device,
+        low_width=low_width_flag,
     )
 
 
@@ -222,6 +229,9 @@ if __name__ == "__main__":
     #    print(f"skipping {png_fp}")
     #    sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
+    #if the width is very narrow use the low width flag
+    low_width_flag = np.mean(det_width) < 4e-3
+    low_width_flag = False
     print(real_det, config_det)
     (
         detection_curve,
@@ -243,7 +253,7 @@ if __name__ == "__main__":
         snr_cutoff=snr_thresh,
         width_cutoff=width_thresh,
     )
-    likelihood_calc.convolve_p_detect()
+    likelihood_calc.convolve_p_detect(low_width=low_width_flag)
 
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
@@ -253,9 +263,9 @@ if __name__ == "__main__":
     det_snr = det_snr[mask]
     det_width = det_width[mask]
 
-    remove_mask = (det_snr < 2.8)&(det_width < 5e-3)
-    det_snr = det_snr[~remove_mask]
-    det_width = det_width[~remove_mask]
+    # remove_mask = (det_snr < 2.8)&(det_width < 5e-3)
+    # det_snr = det_snr[~remove_mask]
+    # det_width = det_width[~remove_mask]
 
     likelihood_calc.calculate_pdet(det_snr,det_width)
     print(f"number of detections {len(det_snr)}")
@@ -305,7 +315,7 @@ if __name__ == "__main__":
         loglikelihood,
         pt_Uniform_N,
         nDims,
-        logl_args=[det_snr, det_width, likelihood_calc],
+        logl_args=[det_snr, det_width, likelihood_calc, low_width_flag],
         nlive=256,
         ptform_args=[max_det, max_width, logn_N_range],
     )

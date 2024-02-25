@@ -26,7 +26,7 @@ def process_detection_results(real_det):
 
 
 det_fluence, det_width, det_snr, noise_std = process_detection_results(sys.argv[1])
-mask = np.array([det_snr > 0])
+mask = (det_snr > 0)
 det_fluence = det_fluence[mask]
 det_width = det_width[mask]
 det_snr = det_snr[mask]

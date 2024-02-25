@@ -55,11 +55,13 @@ def create_lognorm_pulses(mu,std,mu_w,std_w,p,f,d,dm,downsamp=3,stats_window=0.9
     plt.hist(pulse_snrs,bins="auto",density=True)
     x = np.linspace(0.001,max(pulse_snrs),10000)
     plt.plot(x,lognorm_dist(x,mu,std))
-
     plt.figure()
     plt.hist(pulse_widths,bins="auto",density=True)
     x = np.linspace(0.001,max(pulse_widths),10000)
     plt.plot(x,lognorm_dist(x,mu_w,std_w))
+    #find the pulsar brighter than 2 sigma and wider than 2e-3
+    mask = (pulse_snrs > 2) & (pulse_widths > 2e-3)
+    print(sum(mask))
     plt.show()
 
     print(min(toa),max(toa))
@@ -79,9 +81,9 @@ if __name__ =="__main__":
     args = parser.parse_args()
 
     DM = 100
-    mu = 1.0
+    mu = 0.5
     std = 0.2
-    mu_w = -6.21
+    mu_w = -4.3
     std_w = 0.2
     FN_ext = float(args.ext)
     ifn = args.fil

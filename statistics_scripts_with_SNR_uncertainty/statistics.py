@@ -368,6 +368,7 @@ class statistics_ln(sb):
         width_arr=None,
         use_a=False,
         use_cutoff=True,
+        low_width=False,
         cuda_device=0,
     ):
     # print("starting loglike")
@@ -400,8 +401,16 @@ class statistics_ln(sb):
             raise Exception(" N<n")
 
         # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
-        sigma_snr = self.detected_error_snr
-        sigma_width = self.detected_error_width
+        if low_width:
+            print("using low width error")
+            sigma_snr = self.detected_error_snr_low_width
+            sigma_width = self.detected_error_width_low_width
+        else:
+            sigma_snr = self.detected_error_snr
+            sigma_width = self.detected_error_width
+
+
+
         n = len(snr_arr)
         f, p_det_f = self.first(
             snr_arr,
@@ -460,6 +469,7 @@ class statistics_ln(sb):
         width_arr=None,
         use_a=False,
         use_cutoff=True,
+        low_width=False,
         cuda_device=0,
     ):
         # print("starting loglike")
@@ -493,8 +503,14 @@ class statistics_ln(sb):
                 raise Exception(" N<n")
 
             # print(f"mu: {mu}, std: {std}, N: {N}, a: {a}, lower_c: {lower_c}, upper_c: {upper_c}")
-            sigma_snr = self.detected_error_snr
-            sigma_width = self.detected_error_width
+            if low_width:
+                # print("using low width error")
+                sigma_snr = self.detected_error_snr_low_width
+                sigma_width = self.detected_error_width_low_width
+            else:
+                sigma_snr = self.detected_error_snr
+                sigma_width = self.detected_error_width
+
             n = len(snr_arr)
             f, p_det_f = self.first_cupy(
                 snr_arr,
