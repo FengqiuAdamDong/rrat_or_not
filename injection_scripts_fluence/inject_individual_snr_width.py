@@ -23,13 +23,12 @@ if __name__ == "__main__":
     filename = sample_injections['filename'].tolist()
     maskfn = sample_injections['maskfn'].tolist()
     #round all the values in grid to 4sf
-    grid = np.round(grid,5)
-    snr = np.round(snr,5)
+    snr = np.round(snr,4)
     dm = np.round(dm,5)
     width = np.round(width,5)
-    snr_mask = (grid[:,1] == snr)
-    dm_mask = (grid[:,2] == dm)
-    width_mask = (grid[:,3] == width)
+    snr_mask = (np.round(grid[:,1],4) == snr)
+    dm_mask = (np.round(grid[:,2],5) == dm)
+    width_mask = (np.round(grid[:,3],5) == width)
     mask = snr_mask & dm_mask & width_mask
 
     inject_grid = grid[mask,:]

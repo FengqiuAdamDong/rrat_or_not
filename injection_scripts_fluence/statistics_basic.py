@@ -1,1 +1,0 @@
-/home/adam/Documents/rrat_or_not_with_width/rrat_or_not/injection_scripts_fluence/../statistics_scripts_with_SNR_uncertainty/statistics_basic.py

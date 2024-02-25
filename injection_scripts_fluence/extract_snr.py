@@ -9,6 +9,12 @@ import sys
 import csv
 import os
 
+import dill
+import multiprocessing as mp
+dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
+mp.reduction.ForkingPickler = dill.Pickler
+mp.reduction.dump = dill.dump
+# multiprocessing.queues._ForkingPickler = dill.Pickler
 class det_obj(inject_obj):
     # det obj is inherited from injection object....
     def __init__(
@@ -71,8 +77,9 @@ class det_stats:
 
             # for faster debugging
             # self.sorted_pulses = self.sorted_pulses[0:10]
-            with ProcessPool(nodes=24) as p:
-                self.sorted_pulses = p.map(run_calc, self.sorted_pulses)
+            # with ProcessPool(nodes=2) as p:
+            with mp.Pool(16) as p:
+                self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
 
         else:
             for i,s in enumerate(self.sorted_pulses):
