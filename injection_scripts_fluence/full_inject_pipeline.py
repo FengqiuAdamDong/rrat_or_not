@@ -24,15 +24,16 @@ def run_inject_pulses(fil_files,dir_path):
         if os.path.exists('sample_injections.npz'):
             print(f"sample_injections.npz exists for {fil_name} so skipping")
             continue
-        mask_name = fil+'_rfifind.mask'
+        mask_name = fil_name+'_rfifind.mask'
         command = f"python {dir_path}/inject_pulses_sigpyproc.py --m {mask_name} --d 150 --n 50 --sbatch --multi 1 {fil}"
         print(command)
         os.system(command)
         os.chdir(pulsar_dir)
 
-def run_check_inject_pulses(fil_files):
+def run_check_inject_pulses(dir_path):
     command = f"python {dir_path}/inject_status_check.py"
     print(command)
+    print(os.getcwd())
     os.system(command)
 
 def get_job_count_status(username="adamdong"):
@@ -65,6 +66,6 @@ if __name__=="__main__":
                 time.sleep(job_status_after_check)
                 job_status_after_check = get_job_count_status()
                 print(f"job_status_after_check: {job_status_after_check}")
-            run_check_inject_pulses(fil_files)
+            run_check_inject_pulses(dir_path)
             jobs_still_to_run = get_job_count_status()
         #the next task is to run check_single_pulse.py
