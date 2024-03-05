@@ -20,8 +20,12 @@ def run_inject_pulses(fil_files,dir_path):
         #remove the .fil extension
         fil_name = fil.split('.')[0]
         os.chdir(fil_name)
+        #check if "sample_injections.npz" exists
+        if os.path.exists('sample_injections.npz'):
+            continue
         mask_name = fil+'_rfifind.mask'
         command = f"python {dir_path}/inject_pulses_sigpyproc.py --m {mask_name} --d 150 --n 50 --sbatch --multi 1 {fil}"
+        print(command)
         os.system(command)
         os.chdir(pulsar_dir)
 
@@ -30,6 +34,7 @@ def run_check_inject_pulses(fil_files):
     for fil in fil_files:
         fil_file_string += fil+' '
     command = f"python {dir_path}/inject_status_check.py {fil_file_string}"
+    print(command)
     os.system(command)
 
 def get_job_count_status(username="adamdong"):
@@ -51,6 +56,7 @@ if __name__=="__main__":
         os.chdir(pulsar)
         fil_files = os.listdir()
         fil_files = [x for x in fil_files if x.endswith('.fil')]
+        #check if sample_injections.npz exists
         run_inject_pulses(fil_files,dir_path)
         #pause for 30 minutes
         time.sleep(1800)
