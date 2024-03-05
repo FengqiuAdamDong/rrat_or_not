@@ -37,6 +37,17 @@ def run_check_inject_pulses(dir_path):
     print(os.getcwd())
     os.system(command)
 
+def run_check_single_pulse(dir_path):
+    command = f"{dir_path}/run_check_single_pulse.sh -d 100"
+    print(command)
+    os.system(command)
+
+def run_detect_injected_pulses(fil_files,dir_path):
+    fil_file_string = ' '.join(fil_files)
+    command = f"python {dir_path}/multiple_detect_multiple_jobs.sh {fil_file_string}"
+    print(command)
+    os.system(command)
+
 def get_job_count_status(username="adamdong"):
     command = f"squeue -u {username} | wc -l"
     job_count = int(os.popen(command).read())
@@ -69,4 +80,20 @@ if __name__=="__main__":
                 print(f"job_status_after_check: {job_status_after_check}")
             run_check_inject_pulses(dir_path)
             jobs_still_to_run = get_job_count_status()
+        #run chipspipe
+        jobs_still_to_run = 2
+        while jobs_still_to_run > 1:
+            job_status_after_check = get_job_count_status()
+            print(f"job_status_after_check: {job_status_after_check}")
+            while job_status_after_check > 1:
+                time.sleep(job_status_after_check)
+                job_status_after_check = get_job_count_status()
+                print(f"job_status_after_check: {job_status_after_check}")
+            run_check_single_pulse(dir_path)
+            jobs_still_to_run = get_job_count_status()
+
+        #run detect jobs
+        jobs_still_to_run = 2
+        while jobs_still_to_run > 1:
+
         #the next task is to run check_single_pulse.py
