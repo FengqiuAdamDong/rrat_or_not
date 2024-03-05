@@ -39,7 +39,10 @@ def get_job_count_status(username="adamdong"):
 
 if __name__=="__main__":
     #read in text file containing the list of pulsars
-    pulsar_list = np.genfromtxt('pulsar_list.txt', dtype='str')
+    pulsars = np.genfromtxt('pulsar_list.txt', dtype='str')
+    if pulsars.size == 1:
+        pulsar_list = [pulsars]
+
     import pdb; pdb.set_trace()
     dir_path = os.path.dirname(os.path.realpath(__file__))
     main_dir = os.getcwd()
