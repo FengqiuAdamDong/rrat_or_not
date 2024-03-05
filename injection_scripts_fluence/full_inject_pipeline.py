@@ -42,8 +42,8 @@ if __name__=="__main__":
     pulsars = np.genfromtxt('pulsar_list.txt', dtype='str')
     if pulsars.size == 1:
         pulsar_list = [pulsars]
-
-    import pdb; pdb.set_trace()
+    #convert all to str
+    pulsar_list = [str(x) for x in pulsar_list]
     dir_path = os.path.dirname(os.path.realpath(__file__))
     main_dir = os.getcwd()
     for pulsar in pulsar_list:
