@@ -95,5 +95,15 @@ if __name__=="__main__":
         #run detect jobs
         jobs_still_to_run = 2
         while jobs_still_to_run > 1:
+            job_status_after_check = get_job_count_status()
+            print(f"job_status_after_check: {job_status_after_check}")
+            while job_status_after_check > 1:
+                time.sleep(job_status_after_check)
+                job_status_after_check = get_job_count_status()
+                print(f"job_status_after_check: {job_status_after_check}")
+            run_detect_injected_pulses(fil_files,dir_path)
+            jobs_still_to_run = get_job_count_status()
+
+        os.chdir(main_dir)
 
         #the next task is to run check_single_pulse.py
