@@ -33,10 +33,8 @@ def run_inject_pulses(fil_files,dir_path):
 def run_check_inject_pulses(fil_files):
     fil_file_string = ''
     for fil in fil_files:
-        fil_file_string += fil+' '
-    print(fil_file_string)
-    import pdb; pdb.set_trace()
-    command = f"python {dir_path}/inject_status_check.py {fil_file_string}"
+        fil_file_string += ' '+fil
+    command = f"python {dir_path}/inject_status_check.py{fil_file_string}"
     print(command)
     os.system(command)
 
