@@ -22,6 +22,7 @@ def run_inject_pulses(fil_files,dir_path):
         os.chdir(fil_name)
         #check if "sample_injections.npz" exists
         if os.path.exists('sample_injections.npz'):
+            print(f"sample_injections.npz exists for {fil_name} so skipping")
             continue
         mask_name = fil+'_rfifind.mask'
         command = f"python {dir_path}/inject_pulses_sigpyproc.py --m {mask_name} --d 150 --n 50 --sbatch --multi 1 {fil}"
@@ -59,12 +60,13 @@ if __name__=="__main__":
         #check if sample_injections.npz exists
         run_inject_pulses(fil_files,dir_path)
         #pause for 30 minutes
-        time.sleep(1800)
         jobs_still_to_run = 2
         while jobs_still_to_run > 1:
             job_status_after_check = get_job_count_status()
+            print(f"job_status_after_check: {job_status_after_check}")
             while job_status_after_check > 1:
                 time.sleep(job_status_after_check*3)
                 job_status_after_check = get_job_count_status()
+                print(f"job_status_after_check: {job_status_after_check}")
             run_check_inject_pulses(fil_files)
             jobs_still_to_run = get_job_count_status()
