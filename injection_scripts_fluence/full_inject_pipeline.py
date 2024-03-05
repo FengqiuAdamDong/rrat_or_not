@@ -23,6 +23,7 @@ def run_inject_pulses(fil_files,dir_path):
         #check if "sample_injections.npz" exists
         if os.path.exists('sample_injections.npz'):
             print(f"sample_injections.npz exists for {fil_name} so skipping")
+            os.chdir(pulsar_dir)
             continue
         mask_name = fil_name+'_rfifind.mask'
         command = f"python {dir_path}/inject_pulses_sigpyproc.py --m {mask_name} --d 150 --n 50 --sbatch --multi 1 {fil}"
