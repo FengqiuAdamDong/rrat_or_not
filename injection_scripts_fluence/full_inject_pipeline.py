@@ -12,7 +12,7 @@ import os
 import sys
 import csv
 import numpy as np
-
+import time
 
 def run_inject_pulses(fil_files,dir_path):
     pulsar_dir = os.getcwd()
@@ -25,6 +25,18 @@ def run_inject_pulses(fil_files,dir_path):
         os.system(command)
         os.chdir(pulsar_dir)
 
+def run_check_inject_pulses(fil_files):
+    fil_file_string = ''
+    for fil in fil_files:
+        fil_file_string += fil+' '
+    command = f"python {dir_path}/inject_status_check.py {fil_file_string}"
+    os.system(command)
+
+def get_job_count_status(username="adamdong"):
+    command = f"squeue -u {username} | wc -l"
+    job_count = int(os.popen(command).read())
+    return job_count
+
 if __name__=="__main__":
     #read in text file containing the list of pulsars
     pulsar_list = np.genfromtxt('pulsar_list.txt', dtype='str')
@@ -35,3 +47,14 @@ if __name__=="__main__":
         os.chdir(pulsar)
         fil_files = os.listdir()
         fil_files = [x for x in fil_files if x.endswith('.fil')]
+        run_inject_pulses(fil_files,dir_path)
+        #pause for 30 minutes
+        time.sleep(1800)
+        jobs_still_to_run = 2
+        while jobs_still_to_run > 1:
+            job_status_after_check = get_job_count_status()
+            while job_status_after_check > 1:
+                time.sleep(job_status_after_check*3)
+                job_status_after_check = get_job_count_status()
+            run_check_inject_pulses(fil_files)
+            jobs_still_to_run = get_job_count_status()
