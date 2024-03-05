@@ -31,10 +31,7 @@ def run_inject_pulses(fil_files,dir_path):
         os.chdir(pulsar_dir)
 
 def run_check_inject_pulses(fil_files):
-    fil_file_string = ''
-    for fil in fil_files:
-        fil_file_string += ' '+fil
-    command = f"python {dir_path}/inject_status_check.py{fil_file_string}"
+    command = f"python {dir_path}/inject_status_check.py"
     print(command)
     os.system(command)
 
