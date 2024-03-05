@@ -34,6 +34,8 @@ def run_check_inject_pulses(fil_files):
     fil_file_string = ''
     for fil in fil_files:
         fil_file_string += fil+' '
+    print(fil_file_string)
+    import pdb; pdb.set_trace()
     command = f"python {dir_path}/inject_status_check.py {fil_file_string}"
     print(command)
     os.system(command)
@@ -70,3 +72,4 @@ if __name__=="__main__":
                 print(f"job_status_after_check: {job_status_after_check}")
             run_check_inject_pulses(fil_files)
             jobs_still_to_run = get_job_count_status()
+        #the next task is to run check_single_pulse.py
