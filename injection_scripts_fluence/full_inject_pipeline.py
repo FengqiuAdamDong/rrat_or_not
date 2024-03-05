@@ -65,7 +65,7 @@ if __name__=="__main__":
             job_status_after_check = get_job_count_status()
             print(f"job_status_after_check: {job_status_after_check}")
             while job_status_after_check > 1:
-                time.sleep(job_status_after_check*3)
+                time.sleep(job_status_after_check)
                 job_status_after_check = get_job_count_status()
                 print(f"job_status_after_check: {job_status_after_check}")
             run_check_inject_pulses(fil_files)
