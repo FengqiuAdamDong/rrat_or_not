@@ -44,7 +44,7 @@ def run_check_single_pulse(dir_path):
 
 def run_detect_injected_pulses(fil_files,dir_path):
     fil_file_string = ' '.join(fil_files)
-    command = f"python {dir_path}/multiple_detect_multiple_jobs.sh {fil_file_string}"
+    command = f"{dir_path}/multiple_detect_multiple_jobs.sh {fil_file_string}"
     print(command)
     os.system(command)
 
