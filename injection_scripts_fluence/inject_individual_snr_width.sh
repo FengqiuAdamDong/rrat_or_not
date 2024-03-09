@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=def-istairs
 #SBATCH --export=NONE
-#SBATCH --time=01:00:00
+#SBATCH --time=00:20:00
 #SBATCH --mem=16GB
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=inject_individual_snr_width
