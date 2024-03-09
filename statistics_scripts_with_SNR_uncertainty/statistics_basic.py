@@ -196,7 +196,11 @@ class statistics_basic:
             detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
             detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
             detected_det_frac_snr = inj_stats.detected_det_frac_snr
-
+            #create a dataframe of the detection fraction
+        detected_det_frac_snr = pd.DataFrame(detected_det_frac_snr)
+        detected_det_frac_snr.interpolate( axis=0, inplace=True, limit_direction='both')
+        detected_det_frac_snr = detected_det_frac_snr.to_numpy()
+        # detected_det_frac_snr = df
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
             (detected_snr_bins, detected_width_bins),
             detected_det_frac_snr,
