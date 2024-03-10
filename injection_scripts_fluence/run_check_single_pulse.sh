@@ -31,6 +31,10 @@ do
         #check that inject_fol exists
         if [ -d "$inject_fol" ]; then
             rfifind_files=$(ls $inject_fol/*rfifind* | wc -l)
+            #check that cands.csv exists
+            if [ ! -f "$inject_fol/cands.csv" ]; then
+                continue
+            fi
             #if less than 5 then remove the directory and continue
             if [ $rfifind_files -lt 5 ]; then
                 echo "not enough rfifind files, removing directory"
