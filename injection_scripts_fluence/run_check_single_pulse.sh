@@ -22,16 +22,17 @@ do
     cd $FOL
     #copy the filterbank file back in
     #check how many rfifind files there are in the directory
-    inject_files=$(ls *SNR*.fil)
     echo $inject_files
     #loop over all inject files
-    for inject in $inject_files
+    shopt -s nullglob
+
+    for inject in *SNR*.fil
     do
         #strip the extension
         inject_fol="${inject%.*}"
         #check that inject_fol exists
         if [ -d "$inject_fol" ]; then
-            rfifind_files=$(ls $inject_fol/*rfifind* | wc -l)
+            rfifind_files=$(find $inject_fol/ -name "*rfifind*" | wc -l)
             #check that cands.csv exists
             if [ ! -f "$inject_fol/cands.csv" ]; then
                 continue
