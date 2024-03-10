@@ -22,7 +22,7 @@ do
     cd $FOL
     #copy the filterbank file back in
     #check how many rfifind files there are in the directory
-    inject_files=(*SNR*.fil)
+    inject_files=$(ls *SNR*.fil)
     echo $inject_files
     #loop over all inject files
     for inject in $inject_files
