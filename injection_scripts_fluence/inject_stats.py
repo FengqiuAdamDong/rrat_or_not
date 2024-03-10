@@ -594,13 +594,13 @@ class inject_obj:
 
 
     def calculate_fluence_single(self, mask=True, period = 2,manual=True,plot_name=""):
-
-        ts = self.toas - 2
-        te = self.toas + 2
+        extract_time = 2
+        ts = self.toas - extract_time
+        te = self.toas + extract_time
         if period > 0.5:
             t_dur = 0.6
             t_start = 1.7
-            fit_del = 5e-2
+            fit_del = 8e-2
         else:
             t_dur = (period-0.05)*2
             t_start = extract_time-(t_dur/2)

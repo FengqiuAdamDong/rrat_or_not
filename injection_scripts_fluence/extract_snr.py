@@ -3,13 +3,10 @@ import argparse
 import numpy as np
 from inject_stats import inject_obj
 from inject_stats import get_mask_fn
-from pathos.pools import ProcessPool
 import dill
 import sys
 import csv
 import os
-
-import dill
 import multiprocessing as mp
 dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
 mp.reduction.ForkingPickler = dill.Pickler
@@ -80,7 +77,6 @@ class det_stats:
             # with ProcessPool(nodes=2) as p:
             with mp.Pool(16) as p:
                 self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
-
         else:
             for i,s in enumerate(self.sorted_pulses):
                 plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
