@@ -38,7 +38,7 @@ do
             fi
             #if less than 5 then remove the directory and continue
             if [ $rfifind_files -lt 5 ]; then
-                echo "not enough rfifind files, removing directory"
+                echo "$inject_fol not enough rfifind files, removing directory"
                 #rm -r $inject_fol
             fi
         else
