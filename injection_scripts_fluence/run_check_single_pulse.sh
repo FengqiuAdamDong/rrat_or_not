@@ -24,9 +24,6 @@ do
     cd $FOL
     #copy the filterbank file back in
     #check how many rfifind files there are in the directory
-    echo $inject_files
-    #loop over all inject files
-
     for inject in *SNR*.fil
     do
         #strip the extension
