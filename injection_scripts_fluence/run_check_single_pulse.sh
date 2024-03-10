@@ -39,15 +39,14 @@ do
             #if less than 5 then remove the directory and continue
             if [ $rfifind_files -lt 5 ]; then
                 echo "not enough rfifind files, removing directory"
-                #rm -r inject_fol
+                #rm -r $inject_fol
             fi
+        else
+            echo "$inject_fol does not exist, continuing"
         fi
 
     done
-    read var1
-    if [ $rfifind_files -lt 5 ]; then
-        echo "Not enough rfifind files, skipping"
-    fi
+
     if [ "$LOCAL" != true ]; then
         "$SCRIPT_DIR"/check_single_pulse.sh -b -d $dm *SNR*.fil
         "$SCRIPT_DIR"/check_single_pulse.sh -f *SNR*.fil
