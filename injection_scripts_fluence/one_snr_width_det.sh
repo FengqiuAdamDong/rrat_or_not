@@ -21,10 +21,10 @@ PULSAR=$(echo "$fil" | rev | cut -f2- -d '.' | rev)
 EXT="${fil##*.}"
 
 if [ "$LOCAL" != true ]; then
-    module use /project/6004902/chimepsr-software/v1/environment-modules
+    module use /project/def-istairs/chimepsr-software/v1/environment-modules/
     module load presto
     module load chime-psr
-    source ~/extract_snr_py310/bin/activate
+    source ~/rrat_or_not_width/bin/activate
 else
     SLURM_TMPDIR='/media/adam/d0fdb915-c69f-4fba-9759-ed1844c4685b/tmpdir/'$PULSAR
     echo $SLURM_TMPDIR
