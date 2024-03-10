@@ -13,6 +13,8 @@ if [ "$LOCAL" != true ]; then
 else
     SCRIPT_DIR="/home/adam/Documents/CHIME-Pulsar_automated_filterbank"
 fi
+
+shopt -s nullglob
 for f in *.fil
 do
     #strip the extension
@@ -24,7 +26,6 @@ do
     #check how many rfifind files there are in the directory
     echo $inject_files
     #loop over all inject files
-    shopt -s nullglob
 
     for inject in *SNR*.fil
     do
