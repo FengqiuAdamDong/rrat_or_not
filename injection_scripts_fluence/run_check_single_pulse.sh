@@ -30,7 +30,7 @@ do
         inject_fol="${inject%.*}"
         #check that inject_fol exists
         if [ -d "$inject_fol" ]; then
-            rfifind_files=$(ls inject_fol/*rfifind* | wc -l)
+            rfifind_files=$(ls $inject_fol/*rfifind* | wc -l)
             #if less than 5 then remove the directory and continue
             if [ $rfifind_files -lt 5 ]; then
                 echo "not enough rfifind files, removing directory"
