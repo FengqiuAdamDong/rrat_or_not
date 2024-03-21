@@ -19,7 +19,7 @@ do
     cd $FOL
     echo $PWD
     if [ -f "inj_stats.dill" ]; then
-        echo "inj_stats.dill already exists, skipping"
+        #echo "inj_stats.dill already exists, skipping"
         cd ..
         continue
     fi
@@ -28,7 +28,7 @@ do
         PULSAR=$(echo "$inj" | rev | cut -f2- -d '.' | rev)
         inj_stats_name="$PULSAR"_inj_stats.dill
         if [ -f "$inj_stats_name" ]; then
-            echo "$inj_stats_name already exists, skipping"
+            #echo "$inj_stats_name already exists, skipping"
             continue
         fi
         #copy the filterbank file back in
