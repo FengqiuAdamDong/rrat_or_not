@@ -1365,10 +1365,11 @@ if __name__ == "__main__":
             inj_stats = dill.load(inf)
         fns = args.l
         inj_stats = inject_stats(**inj_stats.__dict__)
+        inj_stats.set_base_fn("_")
         inj_stats.repopulate_io()
         inj_stats.amplitude_statistics()
         inj_stats.compare(fns)
-        plt.show()
+        # plt.show()
         inj_stats.forward_model_det()
         inj_stats.generate_forward_model_grid()
 
