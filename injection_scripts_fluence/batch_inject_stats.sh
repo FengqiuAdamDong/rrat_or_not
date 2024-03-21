@@ -6,13 +6,13 @@ source ~/rrat_or_not/bin/activate
 AFP="$(dirname $(readlink -f $0))"
 for d in */ ; do
     echo $d
+    cd $d
     for fol in */ ; do
         #check if there are any *SNR*.dill files in the folder
         cd $fol
         count=(`find ./ -maxdepth 1 -name "*SNR*.dill"`)
         if [ ${#count[@]} == 0 ]
         then
-            echo $PWD
             cd ..
             continue
         fi
