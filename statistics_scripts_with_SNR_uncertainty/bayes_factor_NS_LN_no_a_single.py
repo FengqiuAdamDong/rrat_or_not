@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
-    width_wide_thresh = 30e-3
+    width_wide_thresh = 28e-3
     # filter the det_snr
     mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
     det_snr = det_snr[mask]
