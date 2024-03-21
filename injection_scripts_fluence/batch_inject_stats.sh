@@ -8,10 +8,13 @@ for d in */ ; do
     echo $d
     for fol in */ ; do
         #check if there are any *SNR*.dill files in the folder
-        if [ ! -f $fol/*SNR*.dill ]; then
+        cd $fol
+        count=(`find ./ -maxdepth 1 -name "*SNR*.dill"`)
+        if [ ${#count[@]} == 0 ]
+        then
+            cd ..
             continue
         fi
-        cd $fol
         python $AFP/combine_multiple_inj.py *SNR*.dill
         cd ..
     done
