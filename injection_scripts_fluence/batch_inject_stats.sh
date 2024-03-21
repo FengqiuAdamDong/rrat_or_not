@@ -12,6 +12,7 @@ for d in */ ; do
         count=(`find ./ -maxdepth 1 -name "*SNR*.dill"`)
         if [ ${#count[@]} == 0 ]
         then
+            echo $PWD
             cd ..
             continue
         fi
