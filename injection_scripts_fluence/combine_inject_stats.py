@@ -13,6 +13,7 @@ import scipy.fft as fft
 # import smplotlib
 from inject_stats import create_matrix
 
+
 class inject_stats_collection(inject_stats):
     def __init__(self):
         self.inj_stats = []
@@ -27,6 +28,8 @@ class inject_stats_collection(inject_stats):
         self.detect_error_snr_arr = []
         self.detect_error_width_arr = []
         self.detect_error_fluence_arr = []
+        self.detect_error_snr_low_width_arr = []
+        self.detect_error_width_low_width_arr = []
     def calculate_detection_curve(self, csvs="1"):
         # build statistics
         snrs = []
@@ -50,7 +53,8 @@ class inject_stats_collection(inject_stats):
                 self.detect_error_snr_arr.append(inst.detect_error_snr)
                 self.detect_error_width_arr.append(inst.detect_error_width)
                 self.detect_error_fluence_arr.append(inst.detect_error_fluence)
-
+                self.detect_error_snr_low_width_arr.append(inst.detect_error_snr_low_width)
+                self.detect_error_width_low_width_arr.append(inst.detect_error_width_low_width)
 
                 plt.close("all")
                 for si in inst.sorted_inject:
@@ -68,22 +72,30 @@ class inject_stats_collection(inject_stats):
 
 
                     self.det_fluence.append(si.det_fluence)
-        self.det_snr = np.array(self.det_snr).flatten()
         self.detected_pulses = np.array(self.detected_pulses).flatten()
+
+        self.det_snr = np.array(self.det_snr).flatten()
         self.inj_snr = np.array(self.inj_snr).flatten()
+
         self.det_width = np.array(self.det_width).flatten()
         self.inj_width = np.array(self.inj_width).flatten()
+
         self.det_fluence = np.array(self.det_fluence).flatten()
         self.inj_fluence = self.inj_snr * self.inj_width/0.3989
 
         self.detect_error_snr_arr = np.array(self.detect_error_snr_arr)
         self.detect_error_width_arr = np.array(self.detect_error_width_arr)
         self.detect_error_fluence_arr = np.array(self.detect_error_fluence_arr)
+        self.detect_error_snr_low_width_arr = np.array(self.detect_error_snr_low_width_arr)
+        self.detect_error_width_low_width_arr = np.array(self.detect_error_width_low_width_arr)
         #filter out the outliers of detect_error_snr_arr
         # print("filtering out # of outliers: ", np.sum(self.detect_error_snr_arr > 0.5))
-        self.detect_error_snr = np.mean(self.detect_error_snr_arr[self.detect_error_snr_arr < 0.5])
-        self.detect_error_width = np.mean(self.detect_error_width_arr[self.detect_error_snr_arr < 0.5])
-        self.detect_error_fluence = np.mean(self.detect_error_fluence_arr[self.detect_error_snr_arr < 0.5])
+        self.detect_error_snr = np.sqrt(np.mean((self.detect_error_snr_arr[self.detect_error_snr_arr < 0.5])**2))
+        self.detect_error_width = np.sqrt(np.mean((self.detect_error_width_arr[self.detect_error_snr_arr < 0.5])**2))
+        self.detect_error_fluence = np.sqrt(np.mean(self.detect_error_fluence_arr[self.detect_error_snr_arr < 0.5]**2))
+        self.detect_error_snr_low_width = np.sqrt(np.mean(self.detect_error_snr_low_width_arr[self.detect_error_snr_arr < 1]**2))
+        self.detect_error_width_low_width = np.sqrt(np.mean(self.detect_error_width_low_width_arr[self.detect_error_snr_arr < 1]**2))
+
         #create a matrix of the detection fraction
         unique_snr = np.unique(self.inj_snr)
         unique_width = np.unique(self.inj_width)
@@ -93,13 +105,25 @@ class inject_stats_collection(inject_stats):
             for j, width in enumerate(unique_width):
                 mask = (self.inj_snr == snr) & (self.inj_width == width)
                 self.det_frac_matrix_snr[i, j] = np.sum(self.detected_pulses[mask]) / np.sum(mask)
-        self.unique_snrs = unique_snr
-        self.unique_widths = unique_width
+
         detected_det_vals = self.det_snr[self.detected_pulses]
         detected_width_vals = self.det_width[self.detected_pulses]
         detected_fluence_vals = self.det_fluence[self.detected_pulses]
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=20,fluence=False)
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_fluence, detected_fluence_vals, num_bins=20,fluence=True)
+
+        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=40,fluence=False)
+        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_fluence, detected_fluence_vals, num_bins=40,fluence=True)
+
+        #define the same values as the inj_stats.compare function
+        self.unique_snrs = unique_snr
+        self.unique_widths = unique_width
+        self.detected_widths = detected_width_vals
+        self.detected_amplitudes_snr = detected_det_vals
+        self.detected_amplitudes_fluence = detected_fluence_vals
+        self.all_det_amplitudes_snr = self.det_snr
+        self.all_det_widths = self.det_width
+        self.all_det_amplitudes_fluence = self.det_fluence
+
+
 
         fig, axes = plt.subplots(1, 2, figsize=(10, 10))
         mesh = axes[0].pcolormesh(unique_width*1000, unique_snr, self.det_frac_matrix_snr, cmap="viridis")
@@ -126,32 +150,6 @@ class inject_stats_collection(inject_stats):
 
 
 
-def combine_images():
-    import os
-    import glob
-    from PIL import Image
-
-    image_array = glob.glob("*fit_snr.png")
-    images = [Image.open(x) for x in image_array]
-    widths, heights = zip(*(i.size for i in images))
-    row_len = 10
-    total_width = widths[0] * row_len
-    max_height = (int(len(heights) / row_len) + 1) * heights[0]
-
-    new_im = Image.new("RGB", (total_width, max_height))
-
-    x_offset = 0
-    y_offset = 0
-    for i, im in enumerate(images):
-        new_im.paste(im, (x_offset, y_offset))
-        if (i > 0) & ((i % row_len) == 0):
-            y_offset += im.size[1]
-            x_offset = 0
-        else:
-            x_offset += im.size[0]
-
-    new_im.save("detection_curves_all_combined.jpg")
-
 
 # All inputs are
 if __name__ == "__main__":
@@ -173,6 +171,8 @@ if __name__ == "__main__":
             continue
 
     inj_collection.calculate_detection_curve()
+    inj_collection.forward_model_det()
+    inj_collection.generate_forward_model_grid()
     import dill
     with open("inj_stats_combine_fitted.dill", "wb") as of:
         dill.dump(inj_collection, of)

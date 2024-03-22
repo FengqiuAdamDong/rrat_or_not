@@ -1099,7 +1099,7 @@ class inject_stats:
         self.unique_fluence = unique_fluence
         self.unique_width_fs = unique_width_fs
         self.det_matrix_fluence = det_matrix_fluence
-        num_bins = 20
+        num_bins = 40
         self.bin_detections_2d(self.all_det_amplitudes_snr, self.detected_amplitudes_snr, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=False)
         self.bin_detections_2d(self.all_det_amplitudes_fluence, self.detected_amplitudes_fluence, self.all_det_widths, self.detected_widths, num_bins=num_bins,plot=False, fluence=True)
         fig,axes = plt.subplots(2,2,figsize=(10,10))
