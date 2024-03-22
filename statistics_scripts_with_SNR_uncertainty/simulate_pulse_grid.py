@@ -385,7 +385,7 @@ mode = args.mode
 if mode == "Lognorm":
     mu_arr = np.linspace(-0.5, 1, 10)
     std_arr = [args.s]
-    mu_w_arr = np.linspace(-6.3, -4.5, 10)
+    mu_w_arr = np.linspace(-6.5, -4.5, 10)
     std_w_arr = [0.3]
 elif mode == "Exp":
     k_arr = np.linspace(0.5, 2, 5)
@@ -408,7 +408,7 @@ from statistics import statistics_ln
 if __name__ == "__main__":
     # simulate pulses one at a time
     snr_cutoff = 2.0
-    width_cutoff = 5e-3
+    width_cutoff = 2e-3
     sb = statistics_ln(inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff)
     sb.convolve_p_detect()
     for mu in mu_arr:

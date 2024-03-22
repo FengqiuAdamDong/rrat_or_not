@@ -73,6 +73,12 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
     )
     return pdf
 
+def exponential_dist_cupy(x, k):
+    pdf = cp.zeros(x.shape)
+    pdf[x > 0] = k * cp.exp(-k * x[x > 0])
+    return pdf
+
+
 
 class statistics_ln(sb):
     def calculate_pdet(self, amp, width):
@@ -95,17 +101,30 @@ class statistics_ln(sb):
         a=0,
         lower_c=0,
         upper_c=np.inf,
+        w_dist = "ln",
     ):
         sigma_lim = 5
         true_upper = mu + (sigma_lim * std)
         true_lower = mu - (sigma_lim * std)
         true_amp_array = cp.linspace(true_lower, true_upper, 1000)
-        true_upper = mu_w + (sigma_lim * std_w)
-        true_lower = mu_w - (sigma_lim * std_w)
-        true_width_array = cp.linspace(true_lower, true_upper, 1001)
+
         true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
-        true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
-        points = (cp.exp(true_amp_array[:, cp.newaxis]), cp.exp(true_width_array[cp.newaxis, :]))
+
+        if w_dist == "ln":
+            true_upper = mu_w + (sigma_lim * std_w)
+            true_lower = mu_w - (sigma_lim * std_w)
+            true_width_array = cp.linspace(true_lower, true_upper, 1001)
+            true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
+            points = (cp.exp(true_amp_array[:, cp.newaxis]), cp.exp(true_width_array[cp.newaxis, :]))
+        elif w_dist == "exp":
+            #in the exp case, mu_w is the rate parameter
+            true_lower = 1e-13
+            true_upper = -1*np.log(0.001)/mu_w
+            true_width_array = cp.linspace(true_lower, true_upper, 1001)
+            true_dist_width = exponential_dist_cupy(true_width_array, mu_w)
+            points = (cp.exp(true_amp_array[:, cp.newaxis]), true_width_array[cp.newaxis, :])
+
+
         pdet = self.p_detect_cpu_true_cupy(points)
         # plt.figure()
         # plt.pcolormesh( cp.exp(true_amp_array).get(),cp.exp(true_width_array).get(), pdet.get().T)
@@ -163,32 +182,33 @@ class statistics_ln(sb):
 
     def first_cupy(
         self,
-        amp,
-        width,
+        amp, #detected amps
+        width, #detected widths
         mu,
         std,
         mu_w,
         std_w,
-        sigma_amp=0.4,
-        sigma_w=1e-3,
+        sigma_amp,
+        sigma_w,
         a=0,
         lower_c=0,
         upper_c=np.inf,
+        w_dist = "ln",
     ):
         x_len = 1000
         # amp is the detected amps
         # width is the detected widths
         # make an array of lower and upper limits for the true_log amp array
         sigma_lim = 8
-        true_lower = amp - sigma_lim * sigma_amp
-        true_lower[true_lower < 0] = cp.exp(-20)
-        true_upper = amp + sigma_lim * sigma_amp
+        true_lower_gauss = amp - sigma_lim * sigma_amp
+        true_upper_gauss = amp + sigma_lim * sigma_amp
+        true_upper_ln = cp.exp(mu + std * 5)
+        true_lower = cp.maximum(true_lower_gauss, cp.exp(-20))
+        true_upper = cp.minimum(true_upper_ln, true_upper_gauss)
+        if (true_lower > true_upper).any():
+            return -cp.inf, self.p_det_cupy
         # generate a mesh of amps
-        # true_amp_mesh = cp.zeros((len(amp), x_len))
         true_amp_mesh = cp.linspace(cp.log(true_lower),cp.log(true_upper),x_len).T
-
-        # for i, (l, u) in enumerate(zip(true_lower, true_upper)):
-            # true_amp_mesh[i, :] = cp.linspace(cp.log(l), cp.log(u), x_len)
 
         amp = amp[:, cp.newaxis]
         gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
@@ -198,20 +218,46 @@ class statistics_ln(sb):
         integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)
         # now do the same for width
         x_len = 1001
-        true_lower_w = width - sigma_lim * sigma_w
-        true_lower_w[true_lower_w < 0] = cp.exp(-20)
-        true_upper_w = width + sigma_lim * sigma_w
-        # generate a mesh of widths
-        true_w_mesh = cp.linspace(cp.log(true_lower_w),cp.log(true_upper_w),x_len).T
-        # true_w_mesh = cp.zeros((len(width), x_len))
-        # for i, (l, u) in enumerate(zip(true_lower_w, true_upper_w)):
-            # true_w_mesh[i, :] = cp.linspace(np.log(l), np.log(u), x_len)
-        width = width[:, cp.newaxis]
-        gaussian_error_w = gaussian_cupy(width, cp.exp(true_w_mesh), sigma_w)
-        lognorm_w_dist = gaussian_cupy(true_w_mesh, mu_w, std_w)
-        mult_w = gaussian_error_w * lognorm_w_dist
+
+        if w_dist == "ln":
+            true_lower_w_gauss = width - sigma_lim * sigma_w
+            true_upper_w_gauss = width + sigma_lim * sigma_w
+            true_upper_w_alt = cp.exp(mu_w + std_w*5)
+
+            true_lower_w = cp.maximum(cp.exp(-20), true_lower_w_gauss)
+            true_upper_w = cp.minimum(true_upper_w_gauss, true_upper_w_alt)
+            # generate a mesh of widths
+            if (true_lower_w > true_upper_w).any():
+                return -cp.inf, self.p_det_cupy
+
+            true_w_mesh = cp.linspace(cp.log(true_lower_w),cp.log(true_upper_w),x_len).T
+
+            lognorm_w_dist = gaussian_cupy(true_w_mesh, mu_w, std_w)
+            w_dist = lognorm_w_dist
+            width = width[:, cp.newaxis]
+            gaussian_error_w = gaussian_cupy(width, cp.exp(true_w_mesh), sigma_w)
+
+        elif w_dist == "exp":
+            true_upper_w = width + sigma_lim * sigma_w
+            true_lower_w = width - sigma_lim * sigma_w
+            true_lower_w_alt = 1e-20
+            true_upper_w_alt = -1*np.log(0.001)/mu_w
+            true_lower_w = cp.maximum(true_lower_w, true_lower_w_alt)
+            true_upper_w = cp.minimum(true_upper_w, true_upper_w_alt)
+            if (true_lower_w > true_upper_w).any():
+                return -cp.inf, self.p_det_cupy
+
+
+            true_w_mesh = cp.linspace(true_lower_w,true_upper_w,x_len).T
+            exp_w_dist = exponential_dist_cupy(true_w_mesh, mu_w)
+            w_dist = exp_w_dist
+            width = width[:, cp.newaxis]
+            gaussian_error_w = gaussian_cupy(width, true_w_mesh, sigma_w)
+
+        mult_w = gaussian_error_w * w_dist
         # integral over true_w_mesh
         integral_w = cp.trapz(mult_w, true_w_mesh, axis=1)
+
         # #multiple against each other
         # convolve the two arrays
         # interpolate the values for amp
@@ -224,6 +270,8 @@ class statistics_ln(sb):
         # import pdb; pdb.set_trace()
         # indmin = np.argmin(likelihood)
         # print(f"amp = {amp[indmin]}, width = {width[indmin]} likelihood = {likelihood[indmin]}")
+        if cp.isnan(loglike).any():
+            import pdb; pdb.set_trace()
         return cp.sum(loglike), self.p_det_cupy
 
     def first(
@@ -471,6 +519,7 @@ class statistics_ln(sb):
         use_cutoff=True,
         low_width=False,
         cuda_device=0,
+        w_dist="ln",
     ):
         # print("starting loglike")
         with cp.cuda.Device(cuda_device):
@@ -524,6 +573,7 @@ class statistics_ln(sb):
                 a=a,
                 lower_c=lower_c,
                 upper_c=upper_c,
+                w_dist=w_dist,
             )
             first_time = time.time()
             # print("finished f")
@@ -543,6 +593,7 @@ class statistics_ln(sb):
                 a=a,
                 lower_c=lower_c,
                 upper_c=upper_c,
+                w_dist=w_dist,
             )
             second_time = time.time()
             # print("finished s")

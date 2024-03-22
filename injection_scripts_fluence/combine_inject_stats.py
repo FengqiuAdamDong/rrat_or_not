@@ -109,9 +109,9 @@ class inject_stats_collection(inject_stats):
         detected_det_vals = self.det_snr[self.detected_pulses]
         detected_width_vals = self.det_width[self.detected_pulses]
         detected_fluence_vals = self.det_fluence[self.detected_pulses]
-
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=40,fluence=False)
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_fluence, detected_fluence_vals, num_bins=40,fluence=True)
+        nbins = 30
+        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=nbins,fluence=False)
+        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_fluence, detected_fluence_vals, num_bins=nbins,fluence=True)
 
         #define the same values as the inj_stats.compare function
         self.unique_snrs = unique_snr
@@ -171,8 +171,8 @@ if __name__ == "__main__":
             continue
 
     inj_collection.calculate_detection_curve()
-    inj_collection.forward_model_det()
-    inj_collection.generate_forward_model_grid()
+    # inj_collection.forward_model_det()
+    # inj_collection.generate_forward_model_grid()
     import dill
     with open("inj_stats_combine_fitted.dill", "wb") as of:
         dill.dump(inj_collection, of)
