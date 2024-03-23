@@ -178,7 +178,7 @@ class statistics_basic:
             plt.show()
 
     def load_detection_fn(
-        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=True
+        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=False
     ):
         with open(detection_curve, "rb") as inf:
             inj_stats = dill.load(inf)
