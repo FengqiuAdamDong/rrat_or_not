@@ -101,30 +101,40 @@ class statistics_ln(sb):
         a=0,
         lower_c=0,
         upper_c=np.inf,
+        amp_dist="ln",
         w_dist = "ln",
     ):
         sigma_lim = 5
-        true_upper = mu + (sigma_lim * std)
-        true_lower = mu - (sigma_lim * std)
-        true_amp_array = cp.linspace(true_lower, true_upper, 1000)
+        if amp_dist == "ln":
+            true_upper = mu + (sigma_lim * std)
+            true_lower = mu - (sigma_lim * std)
+            true_amp_array = cp.linspace(true_lower, true_upper, 1000)
+            true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
+            points_amp = cp.exp(true_amp_array[:, cp.newaxis])
 
-        true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
+        elif amp_dist == "exp":
+            true_lower = 1e-13
+            true_upper = -1*np.log(0.001)/mu
+            true_amp_array = cp.linspace(true_lower, true_upper, 1000)
+            true_dist_amp = exponential_dist_cupy(true_amp_array, mu)
+            points_amp = true_amp_array[cp.newaxis, :]
+
 
         if w_dist == "ln":
             true_upper = mu_w + (sigma_lim * std_w)
             true_lower = mu_w - (sigma_lim * std_w)
             true_width_array = cp.linspace(true_lower, true_upper, 1001)
             true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
-            points = (cp.exp(true_amp_array[:, cp.newaxis]), cp.exp(true_width_array[cp.newaxis, :]))
+            points_width = cp.exp(true_width_array[cp.newaxis, :])
         elif w_dist == "exp":
             #in the exp case, mu_w is the rate parameter
             true_lower = 1e-13
             true_upper = -1*np.log(0.001)/mu_w
             true_width_array = cp.linspace(true_lower, true_upper, 1001)
             true_dist_width = exponential_dist_cupy(true_width_array, mu_w)
-            points = (cp.exp(true_amp_array[:, cp.newaxis]), true_width_array[cp.newaxis, :])
+            points_width = true_width_array[cp.newaxis, :]
 
-
+        points = (points_amp, points_width)
         pdet = self.p_detect_cpu_true_cupy(points)
         # plt.figure()
         # plt.pcolormesh( cp.exp(true_amp_array).get(),cp.exp(true_width_array).get(), pdet.get().T)

@@ -41,7 +41,8 @@ class inject_stats_collection(inject_stats):
                 # only compare csv_1
                 csv = f"{f}/positive_bursts_1.csv"
                 print(f)
-                inst.set_base_fn(f)
+                plot_name = f.split("/")[-1]
+                inst.set_base_fn(plot_name)
                 inst.amplitude_statistics(title=f)
                 if inst.detect_error_snr > 0.5:
                     print(f"skipping {f} because of detect_error_snr")
@@ -49,8 +50,9 @@ class inject_stats_collection(inject_stats):
                 if inst.detect_error_width > 2.5e-3:
                     print(f"skipping {f} because of detect_error_width")
                     continue
+                #strip f of only the folder name
 
-                inst.compare([csv], title=f+"_det_curve")
+                inst.compare([csv], title=plot_name+"_det_curve")
                 self.detect_error_snr_arr.append(inst.detect_error_snr)
                 self.detect_error_width_arr.append(inst.detect_error_width)
                 self.detect_error_fluence_arr.append(inst.detect_error_fluence)
