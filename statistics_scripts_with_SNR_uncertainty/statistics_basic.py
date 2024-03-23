@@ -130,50 +130,34 @@ class statistics_basic:
             mesh.set_clim(0, 1)
             ax[0].set_xlabel("Injected SNR")
             ax[0].set_ylabel("Injected Width (ms)")
-            ax[0].set_title("interpolated")
+            ax[0].set_title("True by convolved with detected")
+
+
+            test_snr = np.linspace(0, 20, 1000)
+            test_width = np.linspace(0, 60, 1000) * 1e-3
+            points = (test_snr[:, np.newaxis], test_width[np.newaxis, :])
+            test_pdet_st_wt = self.p_detect_cpu_true(points)
+            mesh = ax[1].pcolormesh(test_snr, test_width * 1e3, test_pdet_st_wt.T)
+            mesh.set_clim(0, 1)
+            ax[1].set_xlabel("Injected SNR")
+            ax[1].set_ylabel("Injected Width (ms)")
+            ax[1].set_title("True by convolved and then interpolated")
+            # set ax2 xlim and ylim to be the same as ax0
+            ax[1].set_xlim(ax[0].get_xlim())
+            ax[1].set_ylim(ax[0].get_ylim())
+            plt.tight_layout()
+
             true_snr_bins = true_snr_bins[0, 0, :, np.newaxis]
             true_width_bins = true_width_bins[np.newaxis, :]
             points = (true_snr_bins, true_width_bins)
             interp_inj_mesh = self.p_detect_cpu_injected(points)
-            mesh = ax[1].pcolormesh(
+            mesh = ax[2].pcolormesh(
                 true_snr_bins[:, 0], true_width_bins[0, :] * 1e3, interp_inj_mesh.T
             )
             mesh.set_clim(0, 1)
-            ax[1].set_xlabel("Injected SNR")
-            ax[1].set_ylabel("Injected Width (ms)")
-            ax[1].set_title("injected value")
-            test_snr = np.linspace(0, 20, 100)
-            test_width = np.linspace(0, 60, 100) * 1e-3
-            points = (test_snr[:, np.newaxis], test_width[np.newaxis, :])
-            test_pdet_st_wt = self.p_detect_cpu_true(points)
-            mesh = ax[2].pcolormesh(test_snr, test_width * 1e3, test_pdet_st_wt.T)
-            mesh.set_clim(0, 1)
             ax[2].set_xlabel("Injected SNR")
             ax[2].set_ylabel("Injected Width (ms)")
-            ax[2].set_title("interpolated injected value")
-            # set ax2 xlim and ylim to be the same as ax0
-            ax[2].set_xlim(ax[0].get_xlim())
-            ax[2].set_ylim(ax[0].get_ylim())
-            plt.tight_layout()
-
-            fig, ax = plt.subplots(1, 3, figsize=(10, 5))
-            ax[0].plot(true_snr_bins[:, 0], interp_inj_mesh[:, 400], label="injected")
-            ax[0].plot(true_snr_bins[:, 0], pdet_st_wt[:, 400], label="convolved")
-            ax[0].set_xlim(min(self.injected_snr), max(self.injected_snr))
-            ax[0].legend()
-            ax[0].set_xlabel("Injected SNR")
-
-            ax[1].plot(
-                true_width_bins[0, :] * 1e3, interp_inj_mesh[400, :], label="injected"
-            )
-            ax[1].plot(true_width_bins[0, :] * 1e3, pdet_st_wt[400, :], label="convolved")
-            ax[1].set_xlim(min(self.injected_width) * 1e3, max(self.injected_width) * 1e3)
-
-            ax[1].legend()
-            ax[1].set_xlabel("Injected Width (ms)")
-            ax[2].plot(detected_width_bins[:, 0, 0] * 1e3,p_det_snr[250, : , 0], label="detected")
-            ax[2].set_xlabel("detected width (ms)")
-
+            ax[2].set_title("true injected interpolated")
 
             plt.show()
 

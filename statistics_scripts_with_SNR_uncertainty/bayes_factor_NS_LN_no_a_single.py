@@ -55,25 +55,6 @@ def read_config(filename, det_snr):
         flux_cal,
     )
 
-
-def plot_fit_ln(max_mu, max_std, dets, sigma_det):
-    fit_x = np.linspace(1e-9, 50, 10000)
-    fit_y = statistics.first_plot(fit_x, max_mu, max_std, sigma_det)
-    fig, ax = plt.subplots(1, 1)
-    ax.hist(
-        dets,
-        bins="auto",
-        density=True,
-        label=f"max_mu={max_mu:.2f}, max_std={max_std:.2f}",
-    )
-    ax.plot(fit_x, fit_y, label="fit")
-    ax.set_xlabel("SNR")
-    ax.set_ylabel("Probability")
-    ax.legend()
-    plt.tight_layout()
-    plt.show()
-
-
 def process_detection_results(real_det):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
@@ -105,24 +86,11 @@ def plot_detection_results(det_width, det_fluence, det_snr):
     axs[0].set_xlabel("Width (s)")
     axs[0].set_ylabel("Counts")
 
-
     axs[1].hist(det_snr, bins=50)
     axs[1].set_title(f"Detected Pulse S/N")
     axs[1].set_xlabel("S/N")
     plt.savefig("detection_results.pdf")
     plt.tight_layout()
-    # axs[1, 0].set_title("Histogram of detected pulses")
-    # axs[1, 0].hist(det_fluence, bins="auto", density=True)
-    # axs[1, 0].set_xlabel("FLUENCE")
-    # axs[1, 1].hist(det_snr, bins=50, label="snr")
-    # axs[1, 1].set_title("detected snr")
-    # axs[1, 1].set_xlabel("snr")
-    # axs[1, 1].legend()
-
-    # plt.figure()
-    # plt.scatter(np.log(det_width), np.log(det_snr), alpha=0.5,s=1)
-    # plt.xlabel("log width")
-    # plt.ylabel("log snr")
     plt.show()
 
 
@@ -232,7 +200,6 @@ if __name__ == "__main__":
     #if the width is very narrow use the low width flag
     low_width_flag = np.mean(det_width) < 4e-3
     low_width_flag = False
-    print(real_det, config_det)
     (
         detection_curve,
         logn_N_range,
@@ -258,6 +225,7 @@ if __name__ == "__main__":
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
     width_wide_thresh = 28e-3
+    print("width_wide_thresh", width_wide_thresh)
     # filter the det_snr
     mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
     det_snr = det_snr[mask]
@@ -270,44 +238,15 @@ if __name__ == "__main__":
     likelihood_calc.calculate_pdet(det_snr,det_width)
     print(f"number of detections {len(det_snr)}")
     plot_detection_results(det_width, det_fluence, det_snr)
-    print(
-        "logn_N_range",
-        logn_N_range,
-        "logn_mu_range",
-        logn_mu_range,
-        "logn_std_range",
-        logn_std_range,
-        "logn_mu_w_range",
-        logn_mu_w_range,
-        "logn_std_w_range",
-        logn_std_w_range,
-    )
-    # load the lookup table
-    # xlim_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['xlim_second']
-    # mu_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['mu']
-    # std_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['std']
-    # N_lookup = np.load("xlim_second_lookup.npz",allow_pickle=1)['N']
-    # mg,sg,ng = np.meshgrid(mu_lookup,std_lookup,N_lookup,indexing='ij')
-    # xlim_interp = RegularGridInterpolator((mu_lookup,std_lookup,N_lookup), xlim_lookup,bounds_error=False,fill_value=None)
+
     nDims = 5
-    # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
-    # ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-    # nlive=10000,pool=pool, queue_size=pool.njobs)
-    # dill_fn = real_det.split("/")[-1]
-    # dill_fn = dill_fn.split(".")[0]
-    # checkpoint_fn = os.path.join(folder, f"{dill_fn}_checkpoint.h5")
-    # ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
     checkpoint_fn = f"{dill_fn}_logn.h5"
     print("checkpoint_fn", checkpoint_fn)
-    # with Pool(1, loglikelihood, pt_Uniform_N, logl_args = [det_snr,xlim_interp]) as pool:
-    #     print("starting sampling")
-    #     ln_sampler_a = dynesty.NestedSampler(pool.loglike, pool.prior_transform, nDims,
-    #                                         nlive=256,pool=pool, queue_size=pool.njobs)
-    #     print("starting run_nested")
-    #     ln_sampler_a.run_nested(checkpoint_file=checkpoint_fn)
+
     print("starting sampling")
     max_det = np.max(det_snr)
     max_width = np.max(det_width)
