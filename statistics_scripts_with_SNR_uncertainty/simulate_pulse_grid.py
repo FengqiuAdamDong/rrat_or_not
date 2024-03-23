@@ -388,7 +388,7 @@ if mode == "Lognorm":
     mu_w_arr = np.linspace(-6.5, -4.5, 10)
     std_w_arr = [0.3]
 elif mode == "Exp":
-    k_arr = np.linspace(0.5, 2, 5)
+    mu_arr = np.linspace(0.5, 2, 5)
     # use mu as k_arr
     mu_arr = k_arr
     # the std arr is ignored for exp distribution
