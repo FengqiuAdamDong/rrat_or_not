@@ -12,6 +12,7 @@ from scipy.stats import norm
 import scipy.fft as fft
 # import smplotlib
 from inject_stats import create_matrix
+import glob
 
 
 class inject_stats_collection(inject_stats):
@@ -153,10 +154,19 @@ class inject_stats_collection(inject_stats):
 
 # All inputs are
 if __name__ == "__main__":
-    fil_files = sys.argv[1:]
+    import argparse
+    parser = argparse.ArgumentParser(description="combines injections from multiple files into one file")
+    parser.add_argument("path", type=str, help="path to the folder containing the .fil files")
+    args = parser.parse_args()
+    path = args.path
+
     inj_collection = inject_stats_collection()
-    for i, f in enumerate(fil_files):
-        folder_name = f.replace(".fil", "")
+    #recursively glob all files with inj_stats.dill fn
+    inj_stats_dir = glob.glob(f"{path}/**/inj_stats.dill", recursive=True)
+
+    for i, f in enumerate(inj_stats_dir):
+        #get the folder name
+        folder_name = "/".join(f.split("/")[:-1])
         try:
             with open(folder_name + "/inj_stats.dill", "rb") as inf:
                 inj_stats = dill.load(inf)
