@@ -896,6 +896,7 @@ class inject_stats:
         axes[1,1].set_title("Detected SNR STD")
         plt.tight_layout()
         if hasattr(self, "base_fn"):
+            print("saving amplitude_statistics plot 1")
             plt.savefig(self.base_fn + "_snr_amp.png")
         else:
             pass
@@ -941,6 +942,7 @@ class inject_stats:
         axes[1,1].set_title("Detected FLUENCE STD")
         plt.tight_layout()
         if hasattr(self, "base_fn"):
+            print("saving amplitude_statistics plot 2")
             plt.savefig(self.base_fn + "_fluence_amp.png")
         else:
             pass
@@ -1133,7 +1135,6 @@ class inject_stats:
         axes[1,1].set_ylabel("Fluence (Jy s)")
         plt.tight_layout()
         plt.savefig(f"{title}.png")
-        plt.show()
         plt.close()
 
     def bin_detections(self,all_det_vals, detected_det_vals, num_bins=20,plot=False):
