@@ -74,8 +74,7 @@ def lognorm_dist(x, mu, sigma, lower_c=0, upper_c=np.inf):
     return pdf
 
 def exponential_dist_cupy(x, k):
-    pdf = cp.zeros(x.shape)
-    pdf[x > 0] = k * cp.exp(-k * x[x > 0])
+    pdf = k * cp.exp(-k * x)
     return pdf
 
 
