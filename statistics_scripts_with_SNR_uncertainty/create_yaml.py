@@ -46,7 +46,9 @@ for pulsar,period in zip(pulsar_name,pulsar_period):
         try:
             obs_time += get_obs_time(fil_file,mask_file)
         except Exception as e:
-            print(e)
+            #print the traceback
+            import traceback
+            traceback.print_exc()
             print(f"Error with {fil_file} ,probably not processed")
             #write out the fil file that is not processed into a text file
             with open('not_processed.txt','a') as f:
