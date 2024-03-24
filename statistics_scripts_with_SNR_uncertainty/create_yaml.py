@@ -43,7 +43,13 @@ for pulsar,period in zip(pulsar_name,pulsar_period):
     obs_time = 0
     for fil_file in fil_files:
         mask_file = fil_file.replace('.fil','_rfifind.mask')
-        obs_time += get_obs_time(fil_file,mask_file)
+        try:
+            obs_time += get_obs_time(fil_file,mask_file)
+        except:
+            print(f"Error with {fil_file} ,probably not processed")
+            #write out the fil file that is not processed into a text file
+            with open('not_processed.txt','a') as f:
+                f.write(f"{fil_file}\n")
     #only use the middle 80% of the data
     obs_time = obs_time*0.8
     N = obs_time/period
