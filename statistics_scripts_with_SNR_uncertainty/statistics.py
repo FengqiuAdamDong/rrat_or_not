@@ -175,7 +175,7 @@ class statistics_ln(sb):
         true_upper_gauss = amp + sigma_lim * sigma_amp
         if amp_dist == "ln":
             true_upper_ln = cp.exp(mu + (std * 5))
-            true_lower_ln = cp.exp(mu - (std * 5))
+            true_lower_ln = cp.maximum(cp.exp(mu - (std * 5)), 1e-20)
             true_lower = cp.maximum(true_lower_gauss, true_lower_ln)
             true_upper = cp.minimum(true_upper_ln, true_upper_gauss)
             if (true_lower > true_upper).any():
@@ -212,7 +212,7 @@ class statistics_ln(sb):
         if w_dist == "ln":
 
             true_upper_w_alt = cp.exp(mu_w + std_w*5)
-            true_lower_w_alt = cp.exp(mu_w - std_w*5)
+            true_lower_w_alt = np.maximum(cp.exp(mu_w - std_w*5),1e-20)
 
             true_lower_w = cp.maximum(true_lower_w_alt, true_lower_w_gauss)
             true_upper_w = cp.minimum(true_upper_w_gauss, true_upper_w_alt)

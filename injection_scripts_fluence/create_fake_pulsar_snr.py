@@ -62,7 +62,8 @@ def create_lognorm_pulses(mu,std,mu_w,std_w,p,f,d,dm,downsamp=3,stats_window=0.9
     #find the pulsar brighter than 2 sigma and wider than 2e-3
     mask = (pulse_snrs > 2) & (pulse_widths > 2e-3)
     print(sum(mask))
-    plt.show()
+    plt.close()
+    # plt.show()
 
     print(min(toa),max(toa))
     return grid_coords,stats_window,downsamp
@@ -81,10 +82,10 @@ if __name__ =="__main__":
     args = parser.parse_args()
 
     DM = 100
-    mu = 0.5
-    std = 0.2
-    mu_w = -4.3
-    std_w = 0.2
+    mu = 1.5
+    std = 0.4
+    mu_w = -6.21
+    std_w = 0.4
     FN_ext = float(args.ext)
     ifn = args.fil
     p = args.p

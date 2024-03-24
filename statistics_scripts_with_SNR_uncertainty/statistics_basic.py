@@ -162,7 +162,7 @@ class statistics_basic:
             plt.show()
 
     def load_detection_fn(
-        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=True
+        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=False
     ):
         with open(detection_curve, "rb") as inf:
             inj_stats = dill.load(inf)
@@ -173,13 +173,15 @@ class statistics_basic:
             detected_det_frac_snr = inj_stats.det_frac_foreward_model_matrix_snr
             # plt.imshow(detected_det_frac_snr, aspect='auto')
             # plt.show()
-            # detected_snr_bins = inj_stats.unique_snrs
-            # detected_width_bins = inj_stats.unique_widths
-            # detected_det_frac_snr = inj_stats.det_frac_matrix_snr
+
         else:
-            detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
-            detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
-            detected_det_frac_snr = inj_stats.detected_det_frac_snr
+            # detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
+            # detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
+            # detected_det_frac_snr = inj_stats.detected_det_frac_snr
+
+            detected_snr_bins = inj_stats.unique_snrs
+            detected_width_bins = inj_stats.unique_widths
+            detected_det_frac_snr = inj_stats.det_frac_matrix_snr
             #create a dataframe of the detection fraction
         detected_det_frac_snr = pd.DataFrame(detected_det_frac_snr)
         detected_det_frac_snr.interpolate( axis=0, inplace=True, limit_direction='both')
@@ -211,7 +213,7 @@ class statistics_basic:
             :, np.argwhere(detected_width_bins_stage1 >28e-3)
         ] = 0
         #also remove the corner of width<5e-3 and snr<2.8
-        # del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 2.8) & (detected_width_bins_stage1[np.newaxis, :] < 5e-3)
+        # del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 6) & (detected_width_bins_stage1[np.newaxis, :] < 6e-3)
         # detected_det_frac_snr_stage1[del_mask] = 0
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
             (detected_snr_bins_stage1, detected_width_bins_stage1),

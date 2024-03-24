@@ -217,7 +217,7 @@ if __name__ == "__main__":
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
-    checkpoint_fn = f"{dill_fn}_logn.h5"
+    checkpoint_fn = f"{dill_fn}_expexp.h5"
     print("checkpoint_fn", checkpoint_fn)
 
     print("starting sampling")
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
     ln_a_sresults = ln_sampler_a.results
     # save the result in a npz file
-    np.savez(f"{real_det}_logn_results.npz", results=ln_sampler_a.__dict__)
+    np.savez(f"{real_det}_expexp_results.npz", results=ln_sampler_a.__dict__)
     fg, ax = dyplot.cornerplot(
         ln_a_sresults,
         color="dodgerblue",

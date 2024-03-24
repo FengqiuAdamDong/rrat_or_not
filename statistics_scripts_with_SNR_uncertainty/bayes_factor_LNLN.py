@@ -233,7 +233,7 @@ if __name__ == "__main__":
     det_snr = det_snr[mask]
     det_width = det_width[mask]
 
-    # remove_mask = (det_snr < 2.8)&(det_width < 5e-3)
+    # remove_mask = (det_snr < 6)&(det_width < 6e-3)
     # det_snr = det_snr[~remove_mask]
     # det_width = det_width[~remove_mask]
 
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     dill_fn = real_det.split("/")[-1]
     dill_fn = dill_fn.split(".")[:-1]
     dill_fn = ".".join(dill_fn)
-    checkpoint_fn = f"{dill_fn}_logn.h5"
+    checkpoint_fn = f"{dill_fn}_lnln.h5"
     print("checkpoint_fn", checkpoint_fn)
 
     print("starting sampling")
@@ -265,7 +265,7 @@ if __name__ == "__main__":
 
     ln_a_sresults = ln_sampler_a.results
     # save the result in a npz file
-    np.savez(f"{real_det}_logn_results.npz", results=ln_sampler_a.__dict__)
+    np.savez(f"{real_det}_lnln_results.npz", results=ln_sampler_a.__dict__)
     fg, ax = dyplot.cornerplot(
         ln_a_sresults,
         color="dodgerblue",
