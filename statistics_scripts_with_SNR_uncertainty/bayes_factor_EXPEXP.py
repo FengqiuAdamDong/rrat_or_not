@@ -24,7 +24,6 @@ import scipy.stats as stats
 def read_config(filename, det_snr):
     with open(filename, "r") as file:
         data = yaml.safe_load(file)
-
     # Extract the sorted items into variables
     detection_curve = data["detection_curve"]
     logn_N_range = data["logn_N_range"]
