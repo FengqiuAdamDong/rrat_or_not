@@ -54,7 +54,7 @@ for pulsar,period in zip(pulsar_name,pulsar_period):
     #create the yaml file
     yaml_dict = {
         'detection_curve': 'inj_stats_combine_fitted.dill',
-        'logn_N_range': [-1, N],
+        'logn_N_range': [-1, float(N)],
         'snr_thresh': 2.0,
         'width_thresh': width_thresh,
     }
