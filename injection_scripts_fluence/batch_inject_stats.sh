@@ -2,7 +2,7 @@
 # recursively go through and perform the inject_stats to get the inj_stats.dill files
 
 source ~/util/load_presto.sh
-source ~/rrat_or_not/bin/activate
+source ~/rrat_or_not_width/bin/activate
 AFP="$(dirname $(readlink -f $0))"
 for d in */ ; do
     echo $d

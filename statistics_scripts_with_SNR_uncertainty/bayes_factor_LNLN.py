@@ -276,5 +276,5 @@ if __name__ == "__main__":
         quantiles=None,
         max_n_ticks=3,
     )
-    plt.savefig(f"{real_det}_logn_a_corner.png")
+    plt.savefig(f"{real_det}_lnln_corner.png")
     plt.close()
