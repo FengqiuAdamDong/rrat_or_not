@@ -17,6 +17,7 @@ import dill
 import argparse
 import os
 import yaml
+import cupy as cp
 
 
 def simulate_and_process_data(
@@ -35,7 +36,7 @@ def simulate_and_process_data(
     plot=True,
     out_fol="simulated_dir",
     snr_cutoff=2.0,
-    width_cutoff=5e-3
+    width_cutoff=5e-3,
 ):
     detected_pulses_snr = []
     detected_pulses_width = []
@@ -55,26 +56,31 @@ def simulate_and_process_data(
 
     while len(detected_pulses_snr) < detected_req:
         print(f"detected pulses: {len(detected_pulses_snr)}")
-        obs_t = int(detected_req/10)
+        obs_t = int(detected_req / 10)
         p = 1
         f = 1
         if mode == "Exp":
             pulses = simulate_pulses_exp(
                 obs_t, p, f, mu_ln, a, random=False, lower=lower, upper=upper
             )
+            pulses_width = simulate_pulses_exp(
+                obs_t, p, f, w_mu_ln, a, random=False, lower=0, upper=np.inf
+            )
         elif mode == "Lognorm":
             pulses = simulate_pulses(
                 obs_t, p, f, mu_ln, std_ln, a, lower=lower, upper=upper, random=False
             )
+            pulses_width = simulate_pulses(
+                obs_t, p, f, w_mu_ln, w_std_ln, a, lower=0, upper=np.inf, random=False
+            )
+
         elif mode == "Gauss":
             pulses, a, b = simulate_pulses_gauss(
                 obs_t, p, f, mu_ln, std_ln, random=True
             )
+
         rv_snr = norm(loc=0, scale=sigma_snr).rvs(len(pulses))
         d_pulses = rv_snr + pulses
-        pulses_width = simulate_pulses(
-            obs_t, p, f, w_mu_ln, w_std_ln, a, lower=0, upper=np.inf, random=False
-        )
         rv_width = norm(loc=0, scale=sigma_width).rvs(len(pulses_width))
         d_pulses_width = rv_width + pulses_width
 
@@ -124,6 +130,7 @@ def simulate_and_process_data(
             label="detected true data snr",
             alpha=0.5,
         )
+        axes[0].legend()
         axes[1].hist(
             detected_pulses_width,
             bins="auto",
@@ -145,6 +152,7 @@ def simulate_and_process_data(
             label="detected true data width",
             alpha=0.5,
         )
+        axes[1].legend()
         axes[2].hist(
             detected_pulses_fluence,
             bins="auto",
@@ -190,39 +198,69 @@ def simulate_and_process_data(
             len(total_pulses_snr),
             inj_file,
             yaml_fn,
-            snr_cutoff = snr_cutoff,
-            width_cutoff = width_cutoff,
+            snr_cutoff=snr_cutoff,
+            width_cutoff=width_cutoff,
         )
     elif mode == "Exp":
-        write_yaml_exp(mu_ln, a, len(total_pulses_snr), inj_file, yaml_fn)
+        write_yaml_exp(
+            mu_ln,
+            w_mu_ln,
+            a,
+            len(total_pulses_snr),
+            inj_file,
+            yaml_fn,
+            snr_cutoff=snr_cutoff,
+            width_cutoff=width_cutoff,
+        )
 
     if plot:
-        snr_array = np.linspace(0, 20, 1000)
-        width_array = np.linspace(0, 20, 1001) * 1e-3
-        # likelihood, p_det = sb.first_plot(detected_pulses_snr, detected_pulses_width,
-        #                                                                                             mu_ln, std_ln,
-        #                                                                                             w_mu_ln, w_std_ln,
-        #                                                                                             sigma_amp = sigma_snr,
-        #                                                                                             sigma_w = sigma_width,
-        #                                                                                             a=a,
-        #                                                                                             lower_c=lower,
-        #                                                                                             upper_c=upper,)
-        likelihood, p_det = sb.first_plot(
-            snr_array,
-            width_array,
-            mu_ln,
-            std_ln,
-            w_mu_ln,
-            w_std_ln,
-            sigma_amp=sigma_snr,
-            sigma_w=sigma_width,
-            a=a,
-            lower_c=lower,
-            upper_c=upper,
-        )
+        snr_array = np.linspace(0, 80, 1000)
+        width_array = np.linspace(0, 30, 1001) * 1e-3
+
+        likelihood = np.zeros((len(snr_array), len(width_array)))
+        for i, snr in enumerate(snr_array):
+            snr_array_temp = np.ones_like(width_array) * snr
+            width_array_temp = width_array
+            snr_array_temp = cp.asarray(snr_array_temp)
+            width_array_temp = cp.asarray(width_array_temp)
+            sb.calculate_pdet(snr_array_temp, width_array_temp)
+            if mode == "Lognorm":
+                loglike_sum, loglike_all = sb.first_cupy(
+                    snr_array_temp,
+                    width_array_temp,
+                    mu_ln,
+                    std_ln,
+                    w_mu_ln,
+                    w_std_ln,
+                    sigma_amp=sigma_snr,
+                    sigma_w=sigma_width,
+                    a=a,
+                    lower_c=lower,
+                    upper_c=upper,
+                    amp_dist="ln",
+                    w_dist="ln",
+                )
+            elif mode == "Exp":
+                loglike_sum, loglike_all = sb.first_cupy(
+                    snr_array_temp,
+                    width_array_temp,
+                    mu_ln,
+                    0,
+                    w_mu_ln,
+                    0,
+                    sigma_amp=sigma_snr,
+                    sigma_w=sigma_width,
+                    a=a,
+                    lower_c=lower,
+                    upper_c=upper,
+                    amp_dist="exp",
+                    w_dist="exp",
+                )
+            likelihood[i, :] = np.exp(loglike_all.get())
         likelihood_norm = likelihood / np.trapz(
-            np.trapz(likelihood, snr_array, axis=1), width_array
+            np.trapz(likelihood, snr_array, axis=0), width_array
         )
+        likelihood_norm = likelihood_norm.T
         # make a 2d histogram of the detections
         fig, axes = plt.subplots(1, 2, figsize=(15, 5))
         h, xedges, yedges, mesh = axes[0].hist2d(
@@ -245,7 +283,6 @@ def simulate_and_process_data(
         axes[1].set_xlim(axes[0].get_xlim())
         axes[1].set_ylim(axes[0].get_ylim())
         plt.show()
-
         # plot the marginalised distributions
         marg_l_amp = np.trapz(likelihood_norm, width_array, axis=0)
         marg_l_w = np.trapz(likelihood_norm, snr_array, axis=1)
@@ -267,7 +304,9 @@ def simulate_and_process_data(
         plt.show()
 
 
-def write_yaml(mu, std, mu_w, std_w, a, N, inj_file, output_fn, snr_cutoff=2,width_cutoff=5e-3):
+def write_yaml(
+    mu, std, mu_w, std_w, a, N, inj_file, output_fn, snr_cutoff=2, width_cutoff=5e-3
+):
     mu = float(mu)
     mu_arr = [mu - 1, mu + 1]
     mu_w = float(mu_w)
@@ -294,25 +333,27 @@ def write_yaml(mu, std, mu_w, std_w, a, N, inj_file, output_fn, snr_cutoff=2,wid
         yaml.dump(data, my_file)
 
 
-def write_yaml_exp(k, a, N, inj_file, output_fn, snr_thresh=2):
+def write_yaml_exp(k, k_w, a, N, inj_file, output_fn, snr_cutoff=2, width_cutoff=5e-3):
     # in this case mu is the k variable for the exponential distribution
     k = float(k)
+    k_w = float(k_w)
     k_low = k - 1
     if k_low < 0:
         k_low = 0.1
     k_arr = [k_low, k + 1]
-
     data = {
-        "exp_N_range": [-1, N * 2],
+        "exp_N_range": [-1, N * 3],
         "exp_k_range": list(k_arr),
-        "logn_N_range": [-1, N * 2],
+        "logn_N_range": [-1, N * 3],
         "logn_mu_range": [-2, 2],
         "logn_std_range": [0.01, 2],
         "detection_curve": inj_file,
-        "snr_thresh": snr_thresh,
+        "snr_thresh": snr_cutoff,
+        "width_thresh": width_cutoff,
         "a": a,
         "N": N,
         "k": k,
+        "k_w": k_w,
     }
     with open(output_fn, "w") as my_file:
         yaml.dump(data, my_file)
@@ -383,16 +424,18 @@ mode = args.mode
 # load the detection file
 # sb = statistics_basic.statistics_basic(inj_file,plot=True)
 if mode == "Lognorm":
-    mu_arr = np.linspace(-0.5, 1, 10)
+    mu_arr = np.linspace(0.5, 1, 10)
     std_arr = [args.s]
-    mu_w_arr = np.linspace(-6.5, -4.5, 10)
+    mu_w_arr = np.linspace(-4.3, -4.5, 10)
     std_w_arr = [0.3]
+
 elif mode == "Exp":
-    mu_arr = np.linspace(0.5, 2, 5)
+    mu_arr = np.linspace(0.1, 10, 10)
     # use mu as k_arr
-    mu_arr = k_arr
+    mu_w_arr = np.linspace(50, 1000, 10)
     # the std arr is ignored for exp distribution
     std_arr = [0.5]
+    std_w_arr = [0.5]
 
 detected_req = args.detected_req
 print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
@@ -400,32 +443,20 @@ from inject_stats import inject_obj
 from numpy.random import normal
 from statistics import statistics_ln
 
-# from statistics import lognorm_dist
-# from statistics import mean_var_to_mu_std
-# from statistics import mu_std_to_mean_var
-# from statistics_exp import k_to_mean_var
-#
 if __name__ == "__main__":
     # simulate pulses one at a time
     snr_cutoff = 2.0
     width_cutoff = 2e-3
-    sb = statistics_ln(inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff)
+    sb = statistics_ln(
+        inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff
+    )
     sb.convolve_p_detect()
     for mu in mu_arr:
         for w_mu_ln in mu_w_arr:
             std = std_arr[0]
             w_std_ln = std_w_arr[0]
             lower = 0
-            if mode == "Lognorm":
-                # use the upper cutoff to be 50x the mean
-                mean, var = sb.mu_std_to_mean_var(mu, std)
-                median = np.exp(mu)
-                # set upper to 50x median
-                upper = 50 * median
-            elif mode == "Exp":
-                mean, var = k_to_mean_var(mu)
-                median = np.log(2) / mu
-                upper = 50 * median
+            upper = np.inf
             simulate_and_process_data(
                 detected_req,
                 mode,
@@ -439,7 +470,6 @@ if __name__ == "__main__":
                 a,
                 inj_file,
                 dill_file,
-                # plot=True,
                 plot=False,
                 out_fol=output_fol,
                 snr_cutoff=snr_cutoff,
