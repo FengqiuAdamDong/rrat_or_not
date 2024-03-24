@@ -10,6 +10,7 @@ if __name__ == '__main__':
         os.makedirs('pulsar_inj_stats')
     for p in path:
         #remove the filename
+        print(f"Moving {p}")
         folder = p.replace('inj_stats.dill', '')
         positive_burst_file = folder + 'positive_bursts_1.csv'
         #get the folder name
@@ -18,6 +19,8 @@ if __name__ == '__main__':
         if not os.path.exists('pulsar_inj_stats/' + folder_name):
             os.makedirs('pulsar_inj_stats/' + folder_name)
         #copy the inj_stats.dill file to the new directory
+        print(f"Copying {p} to pulsar_inj_stats/{folder_name}/inj_stats.dill")
         shutil.copy(p, 'pulsar_inj_stats/' + folder_name + '/inj_stats.dill')
         #copy the positive_bursts_1.csv file to the new directory
+        print(f"Copying {positive_burst_file} to pulsar_inj_stats/{folder_name}/positive_bursts_1.csv")
         shutil.copy(positive_burst_file, 'pulsar_inj_stats/' + folder_name + '/positive_bursts_1.csv')
