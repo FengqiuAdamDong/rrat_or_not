@@ -113,8 +113,8 @@ class statistics_ln(sb):
             points_amp = cp.exp(true_amp_array[:, cp.newaxis])
 
         elif amp_dist == "exp":
-            true_lower = 1e-13
-            true_upper = -1*np.log(0.001)/mu
+            true_lower = 1e-20
+            true_upper = -1*np.log(0.00001)/mu
             true_amp_array = cp.linspace(true_lower, true_upper, 1000)
             true_dist_amp = exponential_dist_cupy(true_amp_array, mu)
             points_amp = true_amp_array[:,cp.newaxis]
@@ -127,8 +127,8 @@ class statistics_ln(sb):
             points_width = cp.exp(true_width_array[cp.newaxis, :])
         elif w_dist == "exp":
             #in the exp case, mu_w is the rate parameter
-            true_lower = 1e-13
-            true_upper = -1*np.log(0.001)/mu_w
+            true_lower = 1e-20
+            true_upper = -1*np.log(0.00001)/mu_w
             true_width_array = cp.linspace(true_lower, true_upper, 1001)
             true_dist_width = exponential_dist_cupy(true_width_array, mu_w)
             points_width = true_width_array[cp.newaxis, :]
@@ -165,7 +165,7 @@ class statistics_ln(sb):
         amp_dist="ln",
         w_dist = "ln",
     ):
-        x_len = 1000
+        x_len = 10000
         # amp is the detected amps
         # width is the detected widths
         # make an array of lower and upper limits for the true_log amp array
@@ -188,8 +188,8 @@ class statistics_ln(sb):
             lognorm_amp_dist = gaussian_cupy(true_amp_mesh, mu, std)
             amp_dist = lognorm_amp_dist
         elif amp_dist == "exp":
-            true_lower_exp = 1e-13
-            true_upper_exp = -1 * cp.log(0.0001) / mu
+            true_lower_exp = 1e-20
+            true_upper_exp = -1 * cp.log(0.00001) / mu
             true_lower = cp.maximum(true_lower_gauss, true_lower_exp)
             true_upper = cp.minimum(true_upper_gauss, true_upper_exp)
             if (true_lower > true_upper).any():
@@ -206,7 +206,7 @@ class statistics_ln(sb):
         integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)
 
         # now do the same for width
-        x_len = 1001
+        x_len = 10001
         true_lower_w_gauss = width - sigma_lim * sigma_w
         true_upper_w_gauss = width + sigma_lim * sigma_w
         if w_dist == "ln":
@@ -228,7 +228,7 @@ class statistics_ln(sb):
 
         elif w_dist == "exp":
             true_lower_w_alt = 1e-20
-            true_upper_w_alt = -1*np.log(0.0001)/mu_w
+            true_upper_w_alt = -1*np.log(0.00001)/mu_w
             true_lower_w = cp.maximum(true_lower_w_gauss, true_lower_w_alt)
             true_upper_w = cp.minimum(true_upper_w_gauss, true_upper_w_alt)
             if (true_lower_w > true_upper_w).any():

@@ -231,7 +231,7 @@ if __name__ == "__main__":
 
     ln_a_sresults = ln_sampler_a.results
     # save the result in a npz file
-    np.savez(f"{real_det}_expln_results.npz", results=ln_sampler_a.__dict__)
+    np.savez(f"{real_det}_expln_results.npz", results=ln_sampler_a.results)
     fg, ax = dyplot.cornerplot(
         ln_a_sresults,
         color="dodgerblue",

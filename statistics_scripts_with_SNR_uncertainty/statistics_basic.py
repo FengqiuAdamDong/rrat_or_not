@@ -175,13 +175,13 @@ class statistics_basic:
             # plt.show()
 
         else:
-            # detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
-            # detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
-            # detected_det_frac_snr = inj_stats.detected_det_frac_snr
+            detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
+            detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
+            detected_det_frac_snr = inj_stats.detected_det_frac_snr
 
-            detected_snr_bins = inj_stats.unique_snrs
-            detected_width_bins = inj_stats.unique_widths
-            detected_det_frac_snr = inj_stats.det_frac_matrix_snr
+            # detected_snr_bins = inj_stats.unique_snrs
+            # detected_width_bins = inj_stats.unique_widths
+            # detected_det_frac_snr = inj_stats.det_frac_matrix_snr
             #create a dataframe of the detection fraction
         detected_det_frac_snr = pd.DataFrame(detected_det_frac_snr)
         detected_det_frac_snr.interpolate( axis=0, inplace=True, limit_direction='both')
