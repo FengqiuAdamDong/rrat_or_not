@@ -36,6 +36,9 @@ with open(csv_file, 'r') as f:
         pulsar_period.append(float(row[2]))
 
 for pulsar,period in zip(pulsar_name,pulsar_period):
+    #ignore if pulsar begins with #
+    if pulsar[0] == '#':
+        continue
     fil_files = glob.glob(f"{pulsar}/fdp/*fdp.fil")
     obs_time = 0
     for fil_file in fil_files:
