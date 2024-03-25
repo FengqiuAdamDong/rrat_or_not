@@ -11,5 +11,5 @@
 #
 source ~/util/load_presto.sh
 source ~/rrat_or_not_width/bin/activate
-python ~/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_LNEXP.py -i $1
+python ~/rrat_or_not_with_width/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_LNEXP.py -i $1
 # python bayes_factor_NS_LN_no_a_single.py -i $1
