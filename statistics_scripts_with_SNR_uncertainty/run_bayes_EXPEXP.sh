@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --account=def-istairs
 #SBATCH --export=NONE
-#SBATCH --time=1:00:00
-#SBATCH --mem=4GB
+#SBATCH --time=3:00:00
+#SBATCH --mem=16GB
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=bayes_factor_EXPEXP
 #SBATCH --output=%x-%j.out

@@ -62,19 +62,23 @@ class dynesty_plot:
         delete_fn = []
         for f in self.filename:
             #check that the png was made i.e. the run finished
-            png_fn = f.replace("_logn.h5",".dill")+"_logn_a_corner.png"
-            if not os.path.isfile(png_fn):
-                print(f"WARNING: {png_fn} does not exist, skipping")
-                #delete f from self.filename
-                delete_fn.append(f)
-                continue
+            # png_fn = f.replace("_logn.h5",".dill")+"_logn_a_corner.png"
+            # if not os.path.isfile(png_fn):
+            #     print(f"WARNING: {png_fn} does not exist, skipping")
+            #     #delete f from self.filename
+            #     delete_fn.append(f)
+            #     continue
 
             if f.endswith('.npz'):
-                self.data.append(np.load(f,allow_pickle=True)['results'])
+                self.data.append(np.load(f,allow_pickle=True)['results'].tolist())
+                print(f)
+                evidence = self.data[-1].logz[-1]
+                evidence_error = self.data[-1].logzerr[-1]
+                print(f"evidence for {evidence}+-{evidence_error}")
             elif f.endswith('.h5'):
-                self.data.append(dynesty.NestedSampler.restore(f))
-                evidence = self.data[-1].results.logz[-1]
-                evidence_error = self.data[-1].results.logzerr[-1]
+                self.data.append(dynesty.NestedSampler.restore(f).results)
+                evidence = self.data[-1].logz[-1]
+                evidence_error = self.data[-1].logzerr[-1]
                 print(f"evidence for {evidence}+-{evidence_error}")
         for f in delete_fn:
             self.filename.remove(f)
@@ -89,11 +93,11 @@ class dynesty_plot:
             exp_fn = '_'.join(split[:-1])+'_exp.h5'
             exp_sampler = dynesty.NestedSampler.restore(exp_fn)
             #get the logn evidence
-            exp_evidence = exp_sampler.results.logz[-1]
-            exp_evidence_error = exp_sampler.results.logzerr[-1]
+            exp_evidence = exp_sampler.logz[-1]
+            exp_evidence_error = exp_sampler.logzerr[-1]
 
-            logn_evidence = logn_sampler.results.logz[-1]
-            logn_evidence_error = logn_sampler.results.logzerr[-1]
+            logn_evidence = logn_sampler.logz[-1]
+            logn_evidence_error = logn_sampler.logzerr[-1]
             #propagate the errors
             evidence_error = np.sqrt(exp_evidence_error**2+logn_evidence_error**2)
 
@@ -119,11 +123,11 @@ class dynesty_plot:
             logn_fn = '_'.join(split[:-1])+'_logn.h5'
             logn_sampler = dynesty.NestedSampler.restore(logn_fn)
             #get the logn evidence
-            exp_evidence = exp_sampler.results.logz[-1]
-            exp_evidence_error = exp_sampler.results.logzerr[-1]
+            exp_evidence = exp_sampler.logz[-1]
+            exp_evidence_error = exp_sampler.logzerr[-1]
 
-            logn_evidence = logn_sampler.results.logz[-1]
-            logn_evidence_error = logn_sampler.results.logzerr[-1]
+            logn_evidence = logn_sampler.logz[-1]
+            logn_evidence_error = logn_sampler.logzerr[-1]
 
             evidence_error = np.sqrt(exp_evidence_error**2+logn_evidence_error**2)
             print("exp evidence",exp_evidence,"logn evidence",logn_evidence,"comparison",exp_evidence-logn_evidence,"error",evidence_error)
@@ -148,7 +152,7 @@ class dynesty_plot:
         quantiles = []
         for f,d in zip(self.filename,self.data):
             if plot:
-                corner = dyplot.cornerplot(d.results, labels=labels)
+                corner = dyplot.cornerplot(d, labels=labels)
                 if (period > 0) & (obs_time > 0):
                     #if these two global variables are set
                     try:
@@ -163,10 +167,10 @@ class dynesty_plot:
 
                 plt.savefig(f.strip(".h5")+"_corner.png")
                 plt.close()
-            mean,cov = dynesty.utils.mean_and_cov(d.results.samples,d.results.importance_weights())
+            mean,cov = dynesty.utils.mean_and_cov(d.samples,d.importance_weights())
             quantile = []
-            for i in range(d.results.samples.shape[1]):
-                quantile.append(np.array(dynesty.utils.quantile(d.results.samples[:,i],[0.159,0.50,0.841],d.results.importance_weights())))
+            for i in range(d.samples.shape[1]):
+                quantile.append(np.array(dynesty.utils.quantile(d.samples[:,i],[0.159,0.50,0.841],d.importance_weights())))
             quantile = np.array(quantile)
             diag_cov = np.diag(cov)
             std = np.sqrt(diag_cov)
@@ -276,6 +280,9 @@ class dynesty_plot:
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
+        #loglog plot
+        plt.xscale('log')
+        plt.yscale('log')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
         plt.title(f"{self.dets} detections true sigma = {true_sigmas[0]}")
@@ -293,42 +300,64 @@ class dynesty_plot:
 
         for fn,centre,errors in zip(self.filename,self.means,self.stds):
             #get the mu and sigma from the filename
-            split = fn.split('_')
+            split = fn.split('.dill')
             #join all but the last element
-            yaml_file = '_'.join(split[:-1])+'.yaml'
+            yaml_file = split[0]+'.yaml'
             #load the yaml file
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
-                true_centres.append(np.array([yaml_data['k'],yaml_data['N']]))
+                true_centres.append(np.array([yaml_data['k'],yaml_data['k_w'],yaml_data['N']]))
         #plot the first element of the ratios
         true_ks = [r[0] for r in true_centres]
         ks = [r[0] for r in self.means]
         k_errs = [r[0] for r in self.stds]
 
-        true_Ns = [r[1] for r in true_centres]
-        Ns = [r[1] for r in self.means]
-        N_errs = [r[1] for r in self.stds]
+        true_k2s = [r[1] for r in true_centres]
+        k2s = [r[1] for r in self.means]
+        k2_errs = [r[1] for r in self.stds]
+
+        true_Ns = [r[2] for r in true_centres]
+        Ns = [r[2] for r in self.means]
+        N_errs = [r[2] for r in self.stds]
 
         plt.figure()
         max_k = max([max(true_ks),max(ks)])
         min_k = min([min(true_ks),min(ks)])
-        plt.errorbar(true_ks,ks,yerr=k_errs,label="k",linestyle='None',marker='o')
+        plt.errorbar(true_ks,ks,yerr=k_errs,label="k1",linestyle='None',marker='o')
         x = np.linspace(min_k,max_k,100)
         plt.plot(x,x,'r--')
         plt.xlabel(r"True $k$")
         plt.ylabel(r"recovered $k$")
         plt.title(f"{self.dets} detections")
         plt.savefig(f"{self.dets}_ks.pdf")
+        plt.savefig(f"{self.dets}_ks.png")
+        plt.figure()
 
         plt.figure()
+        max_k = max([max(true_k2s),max(k2s)])
+        min_k = min([min(true_k2s),min(k2s)])
+        plt.errorbar(true_k2s,k2s,yerr=k2_errs,label="k2",linestyle='None',marker='o')
+        x = np.linspace(min_k,max_k,100)
+        plt.plot(x,x,'r--')
+        plt.xlabel(r"True $k_w$")
+        plt.ylabel(r"recovered $k_w$")
+        plt.title(f"{self.dets} detections")
+        plt.savefig(f"{self.dets}_k2s.pdf")
+        plt.savefig(f"{self.dets}_k2s.png")
+        plt.figure()
+
         max_N = max([max(true_Ns),max(Ns)])
         x = np.linspace(0,max_N,100)
         plt.errorbar(true_Ns,Ns,yerr=N_errs,label="N",linestyle='None',marker='o')
+        #log log plot
+        plt.xscale('log')
+        plt.yscale('log')
         plt.xlabel("True N")
         plt.ylabel("recovered N")
         plt.title(f"{self.dets} detections")
         plt.plot(x,x,'r--')
         plt.savefig(f"{self.dets}_exp_Ns.pdf")
+        plt.savefig(f"{self.dets}_exp_Ns.png")
         #plt.scatter(true_Ns,N_ratios,label="N")
         plt.legend()
 
@@ -448,8 +477,8 @@ if __name__=="__main__":
     dp = dynesty_plot(filenames)
     dp.load_filenames()
     if args.exp:
-        dp.plot_corner(labels=[r"$K$","N"],plot=True)
-        dp.plot_fit_exp()
+        dp.plot_corner(labels=[r"k1","k2","N"],plot=False)
+        # dp.plot_fit_exp()
         if plot_accuracy:
             dp.plot_accuracy_exp()
         if args.bayes_ratio:
