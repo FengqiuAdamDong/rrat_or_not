@@ -24,14 +24,20 @@ import scipy.stats as stats
 def read_config(filename, det_snr):
     with open(filename, "r") as file:
         data = yaml.safe_load(file)
-
     # Extract the sorted items into variables
     detection_curve = data["detection_curve"]
     logn_N_range = data["logn_N_range"]
-    logn_mu_range = data["logn_mu_range"]
-    logn_std_range = data["logn_std_range"]
-    logn_mu_w_range = data["logn_mu_w_range"]
-    logn_std_w_range = data["logn_std_w_range"]
+
+    try:
+        logn_mu_range = data["logn_mu_range"]
+        logn_std_range = data["logn_std_range"]
+        logn_mu_w_range = data["logn_mu_w_range"]
+        logn_std_w_range = data["logn_std_w_range"]
+    except:
+        logn_mu_range = [0, 0]
+        logn_std_range = [0, 0]
+        logn_mu_w_range = [0, 0]
+        logn_std_w_range = [0, 0]
 
     snr_thresh = data["snr_thresh"]
     width_thresh = data["width_thresh"]

@@ -470,7 +470,7 @@ if __name__ == "__main__":
                 a,
                 inj_file,
                 dill_file,
-                plot=True,
+                plot=False,
                 out_fol=output_fol,
                 snr_cutoff=snr_cutoff,
                 width_cutoff=width_cutoff,
