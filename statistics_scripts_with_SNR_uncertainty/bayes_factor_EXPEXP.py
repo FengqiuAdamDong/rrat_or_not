@@ -106,7 +106,6 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
 
     ptk = stats.truncnorm.ppf(x[0], a=-1, b= np.inf, loc=1, scale=1)
     ptk_w = stats.truncnorm.ppf(x[1], a=-500, b= np.inf, loc=500, scale=300)
-
     ptN = stats.randint.ppf(x[2], logn_N_range[0], logn_N_range[1])
     return np.array([ptk, ptk_w, ptN])
 

@@ -77,6 +77,9 @@ def exponential_dist_cupy(x, k):
     pdf = k * cp.exp(-k * x)
     return pdf
 
+def exponential_dist_lnx(x, k):
+    pdf = k * cp.exp(x-k*cp.exp(x))
+    return pdf
 
 
 class statistics_ln(sb):
@@ -104,33 +107,37 @@ class statistics_ln(sb):
         w_dist = "ln",
     ):
         sigma_lim = 5
+        xlen_amp = 1000
+        xlen_width = 1001
+
         if amp_dist == "ln":
             true_upper = mu + (sigma_lim * std)
             true_lower = mu - (sigma_lim * std)
-            true_amp_array = cp.linspace(true_lower, true_upper, 1000)
+            true_amp_array = cp.linspace(true_lower, true_upper, xlen_amp)
             true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
             points_amp = cp.exp(true_amp_array[:, cp.newaxis])
 
         elif amp_dist == "exp":
-            true_lower = 1e-20
-            true_upper = -1*np.log(0.00001)/mu
-            true_amp_array = cp.linspace(true_lower, true_upper, 1000)
-            true_dist_amp = exponential_dist_cupy(true_amp_array, mu)
-            points_amp = true_amp_array[:,cp.newaxis]
+            true_lower = cp.log(1/mu)-6
+            true_upper = cp.log(1/mu)+2.5
+            true_amp_array = cp.linspace(true_lower, true_upper, xlen_amp)
+            true_dist_amp = exponential_dist_lnx(true_amp_array, mu)
+            points_amp = cp.exp(true_amp_array[:,cp.newaxis])
 
         if w_dist == "ln":
             true_upper = mu_w + (sigma_lim * std_w)
             true_lower = mu_w - (sigma_lim * std_w)
-            true_width_array = cp.linspace(true_lower, true_upper, 1001)
+            true_width_array = cp.linspace(true_lower, true_upper, xlen_width)
             true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
             points_width = cp.exp(true_width_array[cp.newaxis, :])
         elif w_dist == "exp":
             #in the exp case, mu_w is the rate parameter
-            true_lower = 1e-20
-            true_upper = -1*np.log(0.00001)/mu_w
-            true_width_array = cp.linspace(true_lower, true_upper, 1001)
-            true_dist_width = exponential_dist_cupy(true_width_array, mu_w)
-            points_width = true_width_array[cp.newaxis, :]
+            true_lower = cp.log(1/mu_w)-6
+            true_upper = cp.log(1/mu_w)+2.5
+            true_width_array = cp.linspace(true_lower, true_upper, xlen_width)
+            true_dist_width = exponential_dist_lnx(true_width_array, mu_w)
+            points_width = cp.exp(true_width_array[cp.newaxis, :])
+
         points = (points_amp, points_width)
         pdet = self.p_detect_cpu_true_cupy(points)
 
@@ -164,7 +171,7 @@ class statistics_ln(sb):
         amp_dist="ln",
         w_dist = "ln",
     ):
-        x_len = 10000
+        x_len = 1000
         # amp is the detected amps
         # width is the detected widths
         # make an array of lower and upper limits for the true_log amp array
@@ -186,18 +193,19 @@ class statistics_ln(sb):
             gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
             lognorm_amp_dist = gaussian_cupy(true_amp_mesh, mu, std)
             amp_dist = lognorm_amp_dist
+
         elif amp_dist == "exp":
-            true_lower_exp = 1e-20
-            true_upper_exp = -1 * cp.log(0.00001) / mu
+            true_lower_exp = (1/mu)*cp.exp(-6)
+            true_upper_exp = (1/mu)*cp.exp(2.5)
             true_lower = cp.maximum(true_lower_gauss, true_lower_exp)
             true_upper = cp.minimum(true_upper_gauss, true_upper_exp)
             if (true_lower > true_upper).any():
                 return -cp.inf, cp.nan
 
             amp = amp[:, cp.newaxis]
-            true_amp_mesh = cp.linspace(true_lower, true_upper, x_len).T
-            gaussian_error_amp = gaussian_cupy(amp, true_amp_mesh, sigma_amp)
-            exponential_amp_dist = exponential_dist_cupy(true_amp_mesh, mu)
+            true_amp_mesh = cp.linspace(cp.log(true_lower), cp.log(true_upper), x_len).T
+            gaussian_error_amp = gaussian_cupy(amp, cp.exp(true_amp_mesh), sigma_amp)
+            exponential_amp_dist = exponential_dist_lnx(true_amp_mesh, mu)
             amp_dist = exponential_amp_dist
 
         #integrate over the true amplitude
@@ -205,7 +213,7 @@ class statistics_ln(sb):
         integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)
 
         # now do the same for width
-        x_len = 10001
+        x_len = 1001
         true_lower_w_gauss = width - sigma_lim * sigma_w
         true_upper_w_gauss = width + sigma_lim * sigma_w
         if w_dist == "ln":
@@ -226,18 +234,18 @@ class statistics_ln(sb):
             gaussian_error_w = gaussian_cupy(width, cp.exp(true_w_mesh), sigma_w)
 
         elif w_dist == "exp":
-            true_lower_w_alt = 1e-20
-            true_upper_w_alt = -1*np.log(0.00001)/mu_w
+            true_lower_w_alt = (1/mu_w)*cp.exp(-6)
+            true_upper_w_alt = (1/mu_w)*cp.exp(2.5)
             true_lower_w = cp.maximum(true_lower_w_gauss, true_lower_w_alt)
             true_upper_w = cp.minimum(true_upper_w_gauss, true_upper_w_alt)
             if (true_lower_w > true_upper_w).any():
                 return -cp.inf, cp.nan
 
             width = width[:, cp.newaxis]
-            true_w_mesh = cp.linspace(true_lower_w,true_upper_w,x_len).T
-            exp_w_dist = exponential_dist_cupy(true_w_mesh, mu_w)
+            true_w_mesh = cp.linspace(cp.log(true_lower_w),cp.log(true_upper_w),x_len).T
+            gaussian_error_w = gaussian_cupy(width, cp.exp(true_w_mesh), sigma_w)
+            exp_w_dist = exponential_dist_lnx(true_w_mesh, mu_w)
             w_dist = exp_w_dist
-            gaussian_error_w = gaussian_cupy(width, true_w_mesh, sigma_w)
         mult_w = gaussian_error_w * w_dist
         # integral over true_w_mesh
         integral_w = cp.trapz(mult_w, true_w_mesh, axis=1)
@@ -252,6 +260,7 @@ class statistics_ln(sb):
         # print(f"amp = {amp[indmin]}, width = {width[indmin]} likelihood = {likelihood[indmin]}")
         if cp.isnan(loglike).any():
             import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         return cp.sum(loglike), loglike
 
     #################CUPY END#####################
@@ -268,6 +277,12 @@ class statistics_ln(sb):
         amp_dist="ln",
         w_dist="ln",
     ):
+        if amp_dist == "exp":
+            if X["mu"] < 0:
+                return -np.inf
+        if w_dist == "exp":
+            if X["mu_w"] < 0:
+                return -np.inf
         # print("starting loglike")
         with cp.cuda.Device(cuda_device):
             start = time.time()
