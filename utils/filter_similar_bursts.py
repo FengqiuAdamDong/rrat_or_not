@@ -8,8 +8,10 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-csv_path" ,nargs='+' , help="path to folder containing the files")
 parser.add_argument("-dm", help="dm of the burst",type=float)
+parser.add_argument("-copy", help="copy",type=bool,default=False)
 args = parser.parse_args()
 csv_path = args.csv_path
+copy = args.copy
 dm_arr = []
 tcand_arr = []
 tstart_arr = []
@@ -30,24 +32,24 @@ for csv in csv_path:
         csv_reader = reader(read_obj, delimiter=',')
         for row in csv_reader:
             file_path = row[0]
-            if os.path.isfile(file_path+".h5"):
-                string = file_path
-                tcand_match = re.search(r"_tcand_(\d+\.\d+)", string)
-                tcand = float(tcand_match.group(1))
-                # print(f"tcand: {tcand}")
-                tcand_arr.append(tcand)
+            # if os.path.isfile(file_path+".h5"):
+            string = file_path
+            tcand_match = re.search(r"_tcand_(\d+\.\d+)", string)
+            tcand = float(tcand_match.group(1))
+            # print(f"tcand: {tcand}")
+            tcand_arr.append(tcand)
 
-                dm_match = re.search(r"_dm_(\d+\.\d+)", string)
-                dm = float(dm_match.group(1))
-                # print(f"dm: {dm}")
-                dm_arr.append(dm)
+            dm_match = re.search(r"_dm_(\d+\.\d+)", string)
+            dm = float(dm_match.group(1))
+            # print(f"dm: {dm}")
+            dm_arr.append(dm)
 
-                tstart_match = re.search(r"cand_tstart_(\d+\.\d+)", string)
-                tstart = float(tstart_match.group(1))
-                # print(f"tstart: {tstart}")
-                tstart_arr.append(int(tstart))
-                filename_arr.append(extract_filename_from_path(file_path))
-                path_arr.append(file_path)
+            tstart_match = re.search(r"cand_tstart_(\d+\.\d+)", string)
+            tstart = float(tstart_match.group(1))
+            # print(f"tstart: {tstart}")
+            tstart_arr.append(int(tstart))
+            filename_arr.append(extract_filename_from_path(file_path))
+            path_arr.append(file_path)
 
 
 
@@ -113,20 +115,20 @@ for i,ufn in enumerate(unique_filenames):
         os.mkdir(f"filtered_{i}")
     import shutil
     print(f"copying {len(unique_path)} files")
-
-    for fn in unique_path:
-        copy_counter += 1
-        fn = fn + ".png"
-        # print(f"coping {fn}")
-        shutil.copy(fn, f"filtered_{i}/")
-    #check that all the files are there
-    files = os.listdir(f"filtered_{i}")
-    for fn in unique_path:
-        fn = fn + ".png"
-        fn = fn.split("/")[-1]
-        if fn not in files:
-            print(f"file {fn} not found")
-            import pdb; pdb.set_trace()
+    if copy: 
+        for fn in unique_path:
+            copy_counter += 1
+            fn = fn + ".png"
+            # print(f"coping {fn}")
+            shutil.copy(fn, f"filtered_{i}/")
+        #check that all the files are there
+        files = os.listdir(f"filtered_{i}")
+        for fn in unique_path:
+            fn = fn + ".png"
+            fn = fn.split("/")[-1]
+            if fn not in files:
+                print(f"file {fn} not found")
+                import pdb; pdb.set_trace()
     #if the filtered.csv file already exists delete it and i=0
     if i == 0:
         if os.path.exists("filtered.csv"):

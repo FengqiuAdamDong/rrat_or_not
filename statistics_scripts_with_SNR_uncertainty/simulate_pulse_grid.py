@@ -55,8 +55,8 @@ def simulate_and_process_data(
     sigma_fluence = sb.detected_error_fluence
 
     while len(detected_pulses_snr) < detected_req:
-        print(f"detected pulses: {len(detected_pulses_snr)}")
-        obs_t = int(detected_req / 10)
+        # print(f"detected pulses: {len(detected_pulses_snr)}")
+        obs_t = int(detected_req)
         p = 1
         f = 1
         if mode == "Exp":
@@ -166,6 +166,7 @@ def simulate_and_process_data(
     print("len detected", len(detected_pulses_snr))
     print("generated", len(total_pulses_snr))
     print("mean", np.mean(total_pulses_snr), "variance", np.std(total_pulses_snr) ** 2)
+    print("mu", mu_ln, "mu_w", w_mu_ln)
     print("detection error snr", sigma_snr)
     print("detection error width", sigma_width)
     print("detection error fluence", sigma_fluence)

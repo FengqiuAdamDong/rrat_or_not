@@ -11,7 +11,7 @@ import multiprocessing as mp
 dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
 mp.reduction.ForkingPickler = dill.Pickler
 mp.reduction.dump = dill.dump
-# multiprocessing.queues._ForkingPickler = dill.Pickler
+#mp.queues._ForkingPickler = dill.Pickler
 class det_obj(inject_obj):
     # det obj is inherited from injection object....
     def __init__(

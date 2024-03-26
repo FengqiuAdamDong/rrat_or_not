@@ -5,6 +5,8 @@ from bayes_factor_NS_LN_no_a_single import loglikelihood
 from bayes_factor_NS_LN_no_a_single import pt_Uniform_N
 from dynesty import plotting as dyplot
 import smplotlib
+import yaml
+from statistics import statistics_ln
 
 class post_process:
     def __init__(self, fns):
@@ -27,6 +29,7 @@ class post_process:
 
     def load_data(self,fn):
         data = np.load(fn, allow_pickle=True)['results'].tolist()
+
         return data
 
     def plot_corner(self, ):
@@ -63,13 +66,37 @@ class post_process:
         plt.savefig('log_evidence.png')
         plt.close()
 
+    def plot_fit(self, yaml_file):
+        #load yaml file
+        with open(yaml_file, 'r') as stream:
+            try:
+                yaml_data = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                print(exc)
+        snr_thresh = yaml_data['snr_thresh']
+        width_thresh = yaml_data['width_thresh']
+        detection_curve = yaml_data['detection_curve']
+        flux_cal = 1
+        likelihood_calc = statistics_ln(
+            detection_curve,
+            plot=True,
+            flux_cal=flux_cal,
+            snr_cutoff=snr_thresh,
+            width_cutoff=width_thresh,
+        )
+        pass
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('fn', nargs='+' , help='filename')
+    parser.add_argument('--plot_fit', type=str, default="", help='plot fit, defaults to nothing and not plot fit, must give yaml file')
     args = parser.parse_args()
     fns = args.fn
+    yaml_file = args.plot_fit
 
     pp = post_process(fns)
+    if yaml_file != "":
+        pp.plot_fit(yaml_file)
     pp.plot_corner()
     pp.plot_bayes_ratio()
