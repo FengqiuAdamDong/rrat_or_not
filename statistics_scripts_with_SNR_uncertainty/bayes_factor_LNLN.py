@@ -28,6 +28,8 @@ def read_config(filename, det_snr):
     # Extract the sorted items into variables
     detection_curve = data["detection_curve"]
     logn_N_range = data["logn_N_range"]
+    #convert to ints
+    logn_N_range = [int(x) for x in logn_N_range]
     try:
         logn_mu_range = data["logn_mu_range"]
         logn_std_range = data["logn_std_range"]
@@ -196,15 +198,7 @@ if __name__ == "__main__":
     cuda_device = 0
 
     config_det = real_det.replace(".dill", ".yaml")
-    with open(config_det, "r") as inf:
-        config = yaml.safe_load(inf)
 
-    # for real_det,config_det in zip(dill_files,config_files):
-    # check if png already made
-    # png_fp = f"{real_det}_logn_a_corner.png"
-    # if os.path.exists(png_fp):
-    #    print(f"skipping {png_fp}")
-    #    sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     #if the width is very narrow use the low width flag
     low_width_flag = np.mean(det_width) < 4e-3
@@ -220,8 +214,9 @@ if __name__ == "__main__":
         width_thresh,
         flux_cal,
     ) = read_config(config_det, det_snr)
+
     det_snr = det_snr * flux_cal  # convert to flux units
-    detection_curve = config["detection_curve"]
+    #load the selection effects
     likelihood_calc = statistics_ln(
         detection_curve,
         plot=True,

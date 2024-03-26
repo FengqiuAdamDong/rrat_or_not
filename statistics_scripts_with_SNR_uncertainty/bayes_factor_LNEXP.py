@@ -19,86 +19,9 @@ import glob
 import yaml
 import cupy as cp
 import scipy.stats as stats
-
-
-def read_config(filename, det_snr):
-    with open(filename, "r") as file:
-        data = yaml.safe_load(file)
-    # Extract the sorted items into variables
-    detection_curve = data["detection_curve"]
-    logn_N_range = data["logn_N_range"]
-
-    try:
-        logn_mu_range = data["logn_mu_range"]
-        logn_std_range = data["logn_std_range"]
-        logn_mu_w_range = data["logn_mu_w_range"]
-        logn_std_w_range = data["logn_std_w_range"]
-    except:
-        logn_mu_range = [0, 0]
-        logn_std_range = [0, 0]
-        logn_mu_w_range = [0, 0]
-        logn_std_w_range = [0, 0]
-
-    snr_thresh = data["snr_thresh"]
-    width_thresh = data["width_thresh"]
-    try:
-        flux_cal = data["flux_cal"]
-    except:
-        flux_cal = 1
-    logn_N_range[1] = logn_N_range[1]
-    if logn_N_range[0] == -1:
-        # change to full range
-        logn_N_range[0] = len(det_snr) + 1
-    return (
-        detection_curve,
-        logn_N_range,
-        logn_mu_range,
-        logn_std_range,
-        logn_mu_w_range,
-        logn_std_w_range,
-        snr_thresh,
-        width_thresh,
-        flux_cal,
-    )
-
-def process_detection_results(real_det):
-    with open(real_det, "rb") as inf:
-        det_class = dill.load(inf)
-
-    det_fluence = []
-    det_width = []
-    det_snr = []
-    noise_std = []
-
-    for pulse_obj in det_class.sorted_pulses:
-        if pulse_obj.det_amp != -1:
-            det_fluence.append(pulse_obj.det_fluence)
-            det_width.append(pulse_obj.det_std)
-            det_snr.append(pulse_obj.det_snr)
-            noise_std.append(pulse_obj.noise_std)
-    det_fluence = np.array(det_fluence)
-    det_width = np.array(det_width)
-    det_snr = np.array(det_snr)
-    noise_std = np.array(noise_std)
-
-    return det_fluence, det_width, det_snr, noise_std
-
-
-def plot_detection_results(det_width, det_fluence, det_snr):
-    print("mean width", np.mean(det_width))
-    fig, axs = plt.subplots(1, 2)
-    axs[0].set_title("Widths")
-    axs[0].hist(det_width, bins=50)
-    axs[0].set_xlabel("Width (s)")
-    axs[0].set_ylabel("Counts")
-
-    axs[1].hist(det_snr, bins=50)
-    axs[1].set_title(f"Detected Pulse S/N")
-    axs[1].set_xlabel("S/N")
-    plt.savefig("detection_results.pdf")
-    plt.tight_layout()
-    plt.show()
-
+from bayes_factor_LNLN import read_config
+from bayes_factor_LNLN import process_detection_results
+from bayes_factor_LNLN import plot_detection_results
 
 def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # need to set conditional prior for mu and sigma
@@ -161,15 +84,7 @@ if __name__ == "__main__":
     cuda_device = 0
 
     config_det = real_det.replace(".dill", ".yaml")
-    with open(config_det, "r") as inf:
-        config = yaml.safe_load(inf)
 
-    # for real_det,config_det in zip(dill_files,config_files):
-    # check if png already made
-    # png_fp = f"{real_det}_logn_a_corner.png"
-    # if os.path.exists(png_fp):
-    #    print(f"skipping {png_fp}")
-    #    sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
     #if the width is very narrow use the low width flag
     low_width_flag = np.mean(det_width) < 4e-3
@@ -186,7 +101,6 @@ if __name__ == "__main__":
         flux_cal,
     ) = read_config(config_det, det_snr)
     det_snr = det_snr * flux_cal  # convert to flux units
-    detection_curve = config["detection_curve"]
     likelihood_calc = statistics_ln(
         detection_curve,
         plot=True,

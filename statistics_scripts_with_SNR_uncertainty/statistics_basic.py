@@ -62,11 +62,11 @@ class statistics_basic:
     def convolve_p_detect(self, plot=True, low_width=False):
         # convolve the p_detect with the injected distribution
         # gaussian with sigma_amp_error
-        true_snr_bins = np.linspace(0, 20, 500)
+        true_snr_bins = np.linspace(0, 100, 500)
         true_snr_bins = true_snr_bins[np.newaxis, np.newaxis, :]
         true_width_bins = np.linspace(0, 60, 501) * 1e-3
 
-        detected_snr_bins = np.linspace(0, 25, 502)
+        detected_snr_bins = np.linspace(0, 105, 502)
         detected_width_bins = np.linspace(0, 65, 503) * 1e-3
         detected_snr_bins = detected_snr_bins[:, np.newaxis, np.newaxis]
         detected_width_bins = detected_width_bins[np.newaxis, :, np.newaxis]
@@ -133,7 +133,7 @@ class statistics_basic:
             ax[0].set_title("True by convolved with detected")
 
 
-            test_snr = np.linspace(0, 20, 1000)
+            test_snr = np.linspace(0, 100, 1000)
             test_width = np.linspace(0, 60, 1000) * 1e-3
             points = (test_snr[:, np.newaxis], test_width[np.newaxis, :])
             test_pdet_st_wt = self.p_detect_cpu_true(points)
@@ -297,7 +297,7 @@ class statistics_basic:
             fill_value=None,
         )
 
-        snr_arr = np.linspace(0, 50, 1000)
+        snr_arr = np.linspace(0, 100, 1000)
         width_arr = np.linspace(1, 60, 1000)*1e-3
         fluence_arr = np.linspace(0, 1, 1000)
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")
@@ -317,6 +317,7 @@ class statistics_basic:
             ax[0].set_ylabel("snr")
             cbar = plt.colorbar(mesh, ax=ax[0])
             cbar.set_label("detection fraction")
+            #set log axis
             mesh = ax[1].pcolormesh(
                 detected_width_bins * 1e3, detected_snr_bins, detected_det_frac_snr
             )
