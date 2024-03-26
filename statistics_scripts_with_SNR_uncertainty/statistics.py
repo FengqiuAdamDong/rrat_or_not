@@ -87,8 +87,12 @@ class statistics_ln(sb):
         amp = cp.array(amp)
         width = cp.array(width)
         p_det = self.p_detect_cupy((amp, width))
-        self.p_det_cupy = p_det
-        self.p_det = p_det.get()
+
+        self.p_det_unfiltered = p_det
+        self.p_det_cupy = self.p_det_unfiltered[self.p_det_unfiltered > 0]
+
+        self.p_det = self.p_det_cupy.get()
+
 
     def second_cupy(
         self,
@@ -256,7 +260,6 @@ class statistics_ln(sb):
         # probably don't need this line of debug
         # likelihood = likelihood[self.p_det_cupy > 0]
         loglike = cp.log(likelihood)
-
         # print(f"amp = {amp[indmin]}, width = {width[indmin]} likelihood = {likelihood[indmin]}")
         if cp.isnan(loglike).any():
             import pdb; pdb.set_trace()
