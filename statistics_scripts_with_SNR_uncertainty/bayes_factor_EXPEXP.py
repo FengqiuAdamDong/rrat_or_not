@@ -197,11 +197,14 @@ if __name__ == "__main__":
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
     width_wide_thresh = 28e-3
+    upper_snr_thresh = 30
     print("width_wide_thresh", width_wide_thresh)
     # filter the det_snr
-    mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
+    mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh) & (det_snr < upper_snr_thresh)
     det_snr = det_snr[mask]
     det_width = det_width[mask]
+    #set a threshold for the upper limit of the SNR, this is because if the SNR is too high the extrapolation breaks
+
 
     # remove_mask = (det_snr < 2.8)&(det_width < 5e-3)
     # det_snr = det_snr[~remove_mask]
