@@ -93,8 +93,7 @@ def process_detection_results(real_det, snr_thresh, width_thresh):
     det_snr = det_snr[mask]
     det_width = det_width[mask]
 
-    low_width_flag = np.mean(det_width) < 4e-3
-    low_width_flag = False
+    low_width_flag = np.mean(det_width) < 5e-3
 
     # which
     return det_fluence, det_width, det_snr, noise_std, low_width_flag, logn_lower

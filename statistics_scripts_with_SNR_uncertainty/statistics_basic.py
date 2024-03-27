@@ -182,6 +182,7 @@ class statistics_basic:
         flux_cal=1,
         use_interp=False,
     ):
+        print(f"using interp: {use_interp}")
         with open(detection_curve, "rb") as inf:
             inj_stats = dill.load(inf)
 
@@ -330,14 +331,17 @@ class statistics_basic:
             mesh = ax[0].pcolormesh(width_grid * 1e3, snr_arr, interp_res_snr)
             ax[0].set_xlabel("width")
             ax[0].set_ylabel("snr")
+            ax[0].set_title("Interped det frac")
             cbar = plt.colorbar(mesh, ax=ax[0])
             cbar.set_label("detection fraction")
             # set log axis
+
             mesh = ax[1].pcolormesh(
                 detected_width_bins * 1e3, detected_snr_bins, detected_det_frac_snr
             )
             ax[1].set_xlabel("width")
             ax[1].set_ylabel("snr")
+            ax[1].set_title("detected det frac")
             cbar = plt.colorbar(mesh, ax=ax[1])
             cbar.set_label("detection fraction")
 
