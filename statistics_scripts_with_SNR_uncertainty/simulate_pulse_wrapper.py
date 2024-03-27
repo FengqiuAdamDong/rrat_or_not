@@ -17,7 +17,8 @@ import argparse
 import dill
 from inject_stats import inject_obj
 
-def process_data(dill_file,detected_data,output_fn, plot=True):
+
+def process_data(dill_file, detected_data, output_fn, plot=True):
     """
     Process the data from a Dill file and create a fake data file.
 
@@ -40,7 +41,7 @@ def process_data(dill_file,detected_data,output_fn, plot=True):
     if plot:
         plt.figure()
         plt.hist(det_snr, bins="auto", density=True, label="real data")
-        plt.hist(detected_data, bins="auto", density=True, label="fake data",alpha=0.5)
+        plt.hist(detected_data, bins="auto", density=True, label="fake data", alpha=0.5)
         plt.legend()
 
     filfiles = np.full(len(det_snr), "abc", dtype=str)
@@ -50,7 +51,7 @@ def process_data(dill_file,detected_data,output_fn, plot=True):
 
     inject_obj_arr = []
     for snr in detected_data:
-        #create a new inject_obj and just fill with fake data
+        # create a new inject_obj and just fill with fake data
         temp = inject_obj()
         temp.det_snr = snr
         temp.det_fluence = snr
@@ -77,7 +78,6 @@ def process_data(dill_file,detected_data,output_fn, plot=True):
     return det_snr
 
 
-
 parser = argparse.ArgumentParser(description="Simulate some pulses")
 parser.add_argument(
     "-mu",
@@ -92,7 +92,7 @@ parser.add_argument("-p", type=float, default=1, help="standard deviation")
 parser.add_argument("-f", type=float, default=1, help="standard deviation")
 parser.add_argument("-d", type=str, default="", help="dill_file")
 parser.add_argument(
-    "-cutoff", nargs=2, default=[0,np.inf],type=float, help="cutoffs for distribution"
+    "-cutoff", nargs=2, default=[0, np.inf], type=float, help="cutoffs for distribution"
 )
 parser.add_argument("-inj_file", type=str, help="injection_file.dill")
 parser.add_argument(
@@ -114,7 +114,7 @@ inj_file = args.inj_file
 cutoff = args.cutoff
 lower = cutoff[0]
 upper = cutoff[1]
-statistics_basic.load_detection_fn(inj_file,plot=False)
+statistics_basic.load_detection_fn(inj_file, plot=False)
 from statistics import lognorm_dist
 from statistics import mean_var_to_mu_std
 
@@ -122,7 +122,6 @@ mu, std = mean_var_to_mu_std(mu, std**2)
 
 print("mu", mu, "std", std)
 if __name__ == "__main__":
-
     from numpy.random import normal
     import statistics
 
@@ -155,9 +154,9 @@ if __name__ == "__main__":
     print("detection error", sigma_snr)
     # plt.hist(n, bins="auto")
     # plt.xlabel("Number of pulses detected")
-    print("detected",len(detected_pulses))
+    print("detected", len(detected_pulses))
     out_fn = "fake_data.dill"
-    detected_pulses = process_data(dill_file,detected_pulses,out_fn,plot=True)
+    detected_pulses = process_data(dill_file, detected_pulses, out_fn, plot=True)
 
     snr_array = np.linspace(0, 20, 10000)
     if mode == "Lognorm":
@@ -172,7 +171,9 @@ if __name__ == "__main__":
     # shift the distribution to the right
     p_dist = p_dist / np.trapz(p_dist, snr_array)
     plt.figure()
-    plt.hist(detected_pulses, bins="auto", density=True, alpha=0.5, label="new fake data")
+    plt.hist(
+        detected_pulses, bins="auto", density=True, alpha=0.5, label="new fake data"
+    )
     plt.plot(snr_array, statistics.p_detect(snr_array), label="det_prob")
     plt.plot(snr_array, lognorm_dist(snr_array, mu, std), label="lognorm")
     plt.plot(snr_array, p_dist, label="detection function")

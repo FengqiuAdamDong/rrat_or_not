@@ -10,7 +10,13 @@ from scipy.stats import norm
 
 class statistics_basic:
     def __init__(
-        self, detection_curve, flux_cal=1, snr_cutoff=2, width_cutoff=5e-3, plot=True
+        self,
+        detection_curve,
+        flux_cal=1,
+        snr_cutoff=2,
+        width_cutoff=5e-3,
+        plot=True,
+        low_width_flag=False,
     ):
         self.load_detection_fn(
             detection_curve,
@@ -18,6 +24,7 @@ class statistics_basic:
             snr_cutoff=snr_cutoff,
             width_cutoff=width_cutoff,
             plot=plot,
+            use_interp=low_width_flag,
         )
 
     def p_detect_cpu(self, points, fluence=False):
@@ -74,9 +81,13 @@ class statistics_basic:
         p_det_snr = self.p_detect_cpu(points_det)
         if low_width:
             print("Using the low width snr error")
-            amp_error = norm.pdf(detected_snr_bins, true_snr_bins, self.detected_error_snr_low_width)
+            amp_error = norm.pdf(
+                detected_snr_bins, true_snr_bins, self.detected_error_snr_low_width
+            )
         else:
-            amp_error = norm.pdf(detected_snr_bins, true_snr_bins, self.detected_error_snr)
+            amp_error = norm.pdf(
+                detected_snr_bins, true_snr_bins, self.detected_error_snr
+            )
         # form the 3d array
         pdet_st_sd_wd = p_det_snr * amp_error
         # marginalize over the sd
@@ -94,7 +105,9 @@ class statistics_basic:
         if low_width:
             print("Using the low width width error")
             width_error = norm.pdf(
-                detected_width_bins, true_width_bins, self.detected_error_width_low_width
+                detected_width_bins,
+                true_width_bins,
+                self.detected_error_width_low_width,
             )
         else:
             width_error = norm.pdf(
@@ -132,7 +145,6 @@ class statistics_basic:
             ax[0].set_ylabel("Injected Width (ms)")
             ax[0].set_title("True by convolved with detected")
 
-
             test_snr = np.linspace(0, 100, 1000)
             test_width = np.linspace(0, 60, 1000) * 1e-3
             points = (test_snr[:, np.newaxis], test_width[np.newaxis, :])
@@ -162,7 +174,13 @@ class statistics_basic:
             plt.show()
 
     def load_detection_fn(
-        self, detection_curve, plot=True, snr_cutoff=2.0, width_cutoff=5e-3, flux_cal=1, use_interp=False
+        self,
+        detection_curve,
+        plot=True,
+        snr_cutoff=2.0,
+        width_cutoff=5e-3,
+        flux_cal=1,
+        use_interp=False,
     ):
         with open(detection_curve, "rb") as inf:
             inj_stats = dill.load(inf)
@@ -178,13 +196,12 @@ class statistics_basic:
             detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
             detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
             detected_det_frac_snr = inj_stats.detected_det_frac_snr
-
             # detected_snr_bins = inj_stats.unique_snrs
             # detected_width_bins = inj_stats.unique_widths
             # detected_det_frac_snr = inj_stats.det_frac_matrix_snr
-            #create a dataframe of the detection fraction
+            # create a dataframe of the detection fraction
         detected_det_frac_snr = pd.DataFrame(detected_det_frac_snr)
-        detected_det_frac_snr.interpolate( axis=0, inplace=True, limit_direction='both')
+        detected_det_frac_snr.interpolate(axis=0, inplace=True, limit_direction="both")
         detected_det_frac_snr = detected_det_frac_snr.to_numpy()
         # detected_det_frac_snr = df
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
@@ -196,7 +213,7 @@ class statistics_basic:
         # do a stage of this interpolation process so that the interpolated cut-off is at the right place
         # this is only needed if the injected grid is not really fine
         detected_snr_bins_stage1 = np.linspace(0, max(detected_snr_bins), 1000)
-        detected_width_bins_stage1 = np.linspace(0,35e-3 , 1000)
+        detected_width_bins_stage1 = np.linspace(0, 35e-3, 1000)
         detected_det_frac_snr_stage1 = self.p_detect_cpu(
             (
                 detected_snr_bins_stage1[:, np.newaxis],
@@ -210,9 +227,9 @@ class statistics_basic:
             :, np.argwhere(detected_width_bins_stage1 < width_cutoff)
         ] = 0
         detected_det_frac_snr_stage1[
-            :, np.argwhere(detected_width_bins_stage1 >28e-3)
+            :, np.argwhere(detected_width_bins_stage1 > 28e-3)
         ] = 0
-        #also remove the corner of width<5e-3 and snr<2.8
+        # also remove the corner of width<5e-3 and snr<2.8
         # del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 6) & (detected_width_bins_stage1[np.newaxis, :] < 6e-3)
         # detected_det_frac_snr_stage1[del_mask] = 0
         self.detected_interp_snr = scipy.interpolate.RegularGridInterpolator(
@@ -222,11 +239,9 @@ class statistics_basic:
             fill_value=None,
         )
 
-
         detected_det_frac_snr[np.argwhere(detected_snr_bins < snr_cutoff), :] = 0
         detected_det_frac_snr[:, np.argwhere(detected_width_bins < width_cutoff)] = 0
-        detected_det_frac_snr[:, np.argwhere(detected_width_bins >28e-3 )] = 0
-
+        detected_det_frac_snr[:, np.argwhere(detected_width_bins > 28e-3)] = 0
 
         detected_fluence_bins = inj_stats.detected_bin_midpoints_fluence[0]
         detected_width_f_bins = inj_stats.detected_bin_midpoints_fluence[1]
@@ -298,7 +313,7 @@ class statistics_basic:
         )
 
         snr_arr = np.linspace(0, 100, 1000)
-        width_arr = np.linspace(1, 60, 1000)*1e-3
+        width_arr = np.linspace(1, 60, 1000) * 1e-3
         fluence_arr = np.linspace(0, 1, 1000)
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")
         points = (snr_grid, width_grid)
@@ -317,7 +332,7 @@ class statistics_basic:
             ax[0].set_ylabel("snr")
             cbar = plt.colorbar(mesh, ax=ax[0])
             cbar.set_label("detection fraction")
-            #set log axis
+            # set log axis
             mesh = ax[1].pcolormesh(
                 detected_width_bins * 1e3, detected_snr_bins, detected_det_frac_snr
             )

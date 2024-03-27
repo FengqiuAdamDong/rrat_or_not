@@ -224,9 +224,9 @@ def simulate_and_process_data(
             width_array_temp = width_array
             snr_array_temp = cp.asarray(snr_array_temp)
             width_array_temp = cp.asarray(width_array_temp)
-            sb.calculate_pdet(snr_array_temp, width_array_temp)
+            sb.calculate_pdet(snr_array_temp, width_array_temp, filter=False)
             if mode == "Lognorm":
-                loglike_sum, loglike_all = sb.first_cupy(
+                loglike_sum, loglike_all = sb.first_cupy_plot(
                     snr_array_temp,
                     width_array_temp,
                     mu_ln,

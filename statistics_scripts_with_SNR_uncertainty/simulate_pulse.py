@@ -5,29 +5,30 @@ import os
 from scipy.stats import expon
 import statistics_basic
 
-def n_detect(snr_emit,width_emit,sb,fluence=False):
+
+def n_detect(snr_emit, width_emit, sb, fluence=False):
     # snr emit is the snr that the emitted pulse has
-    points = (snr_emit,width_emit)
-    p = sb.p_detect_cpu(points,fluence=fluence)
+    points = (snr_emit, width_emit)
+    p = sb.p_detect_cpu(points, fluence=fluence)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
     detected_snr = snr_emit[rands < p]
     detected_width = width_emit[rands < p]
     index = np.where(rands < p)
-    return detected_snr,detected_width,index
+    return detected_snr, detected_width, index
 
-def n_detect_true(snr_true,width_true,sb,fluence=False):
+
+def n_detect_true(snr_true, width_true, sb, fluence=False):
     # snr true is the snr that the trueted pulse has
-    points = (snr_true,width_true)
-    p = sb.p_detect_cpu_true(points,fluence=fluence)
+    points = (snr_true, width_true)
+    p = sb.p_detect_cpu_true(points, fluence=fluence)
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
     detected_snr = snr_true[rands < p]
     detected_width = width_true[rands < p]
-    return detected_snr,detected_width
-
+    return detected_snr, detected_width
 
 
 # so in this script we need to simulate N pulses from a pulsar
@@ -43,15 +44,15 @@ def simulate_pulses(obs_t, period, f, mu, std, a, lower, upper, random=True):
         pulse_N = int(N * f)
     pulse_snr = []
     while pulse_N > len(pulse_snr):
-        snr = np.random.lognormal(mu, std, 1)+a
+        snr = np.random.lognormal(mu, std, 1) + a
         snr = snr[0]
-        if snr > (lower+a) and snr < (upper+a):
+        if snr > (lower + a) and snr < (upper + a):
             pulse_snr.append(snr)
     pulse_snr = np.array(pulse_snr)
     return pulse_snr
 
 
-def simulate_pulses_exp(obs_t, period, f, k,a,lower,upper, random=True):
+def simulate_pulses_exp(obs_t, period, f, k, a, lower, upper, random=True):
     # we simulate the pulses as a power law instead of a log normal
     # number of pulses
     N = int(obs_t / period)
@@ -64,9 +65,9 @@ def simulate_pulses_exp(obs_t, period, f, k,a,lower,upper, random=True):
         pulse_N = int(N * f)
     pulse_snr = []
     while pulse_N > len(pulse_snr):
-        snr = expon.rvs(scale=1/k,size=pulse_N)+a
+        snr = expon.rvs(scale=1 / k, size=pulse_N) + a
         snr = snr[0]
-        if snr > (lower+a) and snr < (upper+a):
+        if snr > (lower + a) and snr < (upper + a):
             pulse_snr.append(snr)
     pulse_snr = np.array(pulse_snr)
     return pulse_snr
@@ -76,9 +77,10 @@ def simulate_pulses_exp(obs_t, period, f, k,a,lower,upper, random=True):
 def simulate_pulses_gauss(obs_t, period, f, mu, std, random=True):
     # number of pulses
     from scipy.stats import truncnorm
-    #get clips
-    a = -mu/std
-    b = (100-mu)/std
+
+    # get clips
+    a = -mu / std
+    b = (100 - mu) / std
 
     N = int(obs_t / period)
     # draw N random variables between 0 and 1
@@ -89,8 +91,8 @@ def simulate_pulses_gauss(obs_t, period, f, mu, std, random=True):
     else:
         pulse_N = int(N * f)
 
-    pulse_snr = truncnorm.rvs(a=a,b=b,loc=mu,scale=std,size=pulse_N)
-    return pulse_snr,a,b
+    pulse_snr = truncnorm.rvs(a=a, b=b, loc=mu, scale=std, size=pulse_N)
+    return pulse_snr, a, b
 
 
 if __name__ == "__main__":

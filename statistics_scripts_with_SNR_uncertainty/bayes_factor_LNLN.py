@@ -28,7 +28,7 @@ def read_config(filename):
     # Extract the sorted items into variables
     detection_curve = data["detection_curve"]
     logn_N_range = data["logn_N_range"]
-    #convert to ints
+    # convert to ints
     logn_N_range = [int(x) for x in logn_N_range]
     try:
         logn_mu_range = data["logn_mu_range"]
@@ -40,7 +40,6 @@ def read_config(filename):
         logn_std_range = [0, 0]
         logn_mu_w_range = [0, 0]
         logn_std_w_range = [0, 0]
-
 
     snr_thresh = data["snr_thresh"]
     width_thresh = data["width_thresh"]
@@ -60,7 +59,8 @@ def read_config(filename):
         flux_cal,
     )
 
-def process_detection_results(real_det, snr_thresh, width_thresh, likelihood_calc):
+
+def process_detection_results(real_det, snr_thresh, width_thresh):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
 
@@ -79,27 +79,52 @@ def process_detection_results(real_det, snr_thresh, width_thresh, likelihood_cal
     det_width = np.array(det_width)
     det_snr = np.array(det_snr)
     noise_std = np.array(noise_std)
-    logn_lower = len(det_snr)+1
+    logn_lower = len(det_snr) + 1
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
     width_wide_thresh = 28e-3
     print("width_wide_thresh", width_wide_thresh)
     # filter the det_snr
-    mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
+    mask = (
+        (det_snr > snr_thresh)
+        & (det_width > width_thresh)
+        & (det_width < width_wide_thresh)
+    )
     det_snr = det_snr[mask]
     det_width = det_width[mask]
 
     low_width_flag = np.mean(det_width) < 4e-3
     low_width_flag = False
 
+    # which
+    return det_fluence, det_width, det_snr, noise_std, low_width_flag, logn_lower
+
+
+def load_selection_effects(
+    detection_curve,
+    snr_thresh,
+    width_thresh,
+    flux_cal,
+    det_snr,
+    det_width,
+    low_width_flag,
+):
+    # load the selection effects
+    likelihood_calc = statistics_ln(
+        detection_curve,
+        plot=True,
+        flux_cal=flux_cal,
+        snr_cutoff=snr_thresh,
+        width_cutoff=width_thresh,
+        low_width_flag=low_width_flag,
+    )
     likelihood_calc.convolve_p_detect(low_width=low_width_flag)
-    likelihood_calc.calculate_pdet(det_snr,det_width)
-    #remove the values with p_det = 0
+    likelihood_calc.calculate_pdet(det_snr, det_width)
+    # remove the values with p_det = 0
     mask = likelihood_calc.p_det_unfiltered.get() > 0
     det_snr = det_snr[mask]
     det_width = det_width[mask]
-    #which
-    return det_fluence, det_width, det_snr, noise_std, likelihood_calc, low_width_flag, logn_lower
+    return likelihood_calc, det_snr, det_width
 
 
 def plot_detection_results(det_width, det_fluence, det_snr):
@@ -133,7 +158,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # min_mu = 0.99
     # max_mu = 1.01
     # ptmu = (max_mu - min_mu) * x[0] + min_mu
-    ptmu = stats.norm.ppf(x[0],loc=0, scale=4)
+    ptmu = stats.norm.ppf(x[0], loc=0, scale=4)
 
     # ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
     # min_mu_w = np.log(max_width / 100)
@@ -142,7 +167,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # max_mu_w = -4.301
 
     # ptmu_w = (max_mu_w - min_mu_w) * x[2] + min_mu_w
-    ptmu_w = stats.norm.ppf(x[2],loc=-4.6, scale=3)
+    ptmu_w = stats.norm.ppf(x[2], loc=-4.6, scale=3)
 
     # min_pt_sigma = 0.19
     # max_pt_sigma = 0.21
@@ -214,7 +239,7 @@ if __name__ == "__main__":
 
     config_det = real_det.replace(".dill", ".yaml")
 
-    #if the width is very narrow use the low width flag
+    # if the width is very narrow use the low width flag
     (
         detection_curve,
         logn_N_range,
@@ -227,16 +252,25 @@ if __name__ == "__main__":
         flux_cal,
     ) = read_config(config_det)
 
-    #load the selection effects
-    likelihood_calc = statistics_ln(
+    (
+        det_fluence,
+        det_width,
+        det_snr,
+        noise_std,
+        low_width_flag,
+        logN_lower,
+    ) = process_detection_results(real_det, snr_thresh, width_thresh)
+
+    likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,
-        plot=True,
-        flux_cal=flux_cal,
-        snr_cutoff=snr_thresh,
-        width_cutoff=width_thresh,
+        snr_thresh,
+        width_thresh,
+        flux_cal,
+        det_snr,
+        det_width,
+        low_width_flag,
     )
 
-    det_fluence, det_width, det_snr, noise_std, likelihood_calc, low_width_flag, logN_lower = process_detection_results(real_det, snr_thresh, width_thresh, likelihood_calc)
     if logn_N_range[0] == -1:
         logn_N_range[0] = logN_lower
 

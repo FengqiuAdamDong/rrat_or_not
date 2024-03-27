@@ -22,17 +22,18 @@ import scipy.stats as stats
 from bayes_factor_LNLN import read_config
 from bayes_factor_LNLN import process_detection_results
 from bayes_factor_LNLN import plot_detection_results
+from bayes_factor_LNLN import load_selection_effects
+
 
 def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # need to set conditional prior for mu and sigma
     # lets set the sigma prior to be always between 0 and 2
 
-    ptmu = stats.norm.ppf(x[0],loc=0, scale=4)
-    ptmu_w = stats.truncnorm.ppf(x[2], a=-500, b= np.inf, loc=500, scale=300)
+    ptmu = stats.norm.ppf(x[0], loc=0, scale=4)
+    ptmu_w = stats.truncnorm.ppf(x[2], a=-500, b=np.inf, loc=500, scale=300)
     ptsigma = stats.invgamma.ppf(x[1], a=1.938)
     ptN = stats.randint.ppf(x[-1], logn_N_range[0], logn_N_range[1])
     return np.array([ptmu, ptsigma, ptmu_w, ptN])
-
 
 
 def loglikelihood(theta, det_snr, det_width, likelihood_calc, low_width_flag):
@@ -85,7 +86,7 @@ if __name__ == "__main__":
 
     config_det = real_det.replace(".dill", ".yaml")
 
-    #if the width is very narrow use the low width flag
+    # if the width is very narrow use the low width flag
     (
         detection_curve,
         logn_N_range,
@@ -98,16 +99,26 @@ if __name__ == "__main__":
         flux_cal,
     ) = read_config(config_det)
 
-    #load the selection effects
-    likelihood_calc = statistics_ln(
+    # load the selection effects
+    (
+        det_fluence,
+        det_width,
+        det_snr,
+        noise_std,
+        low_width_flag,
+        logN_lower,
+    ) = process_detection_results(real_det, snr_thresh, width_thresh)
+
+    likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,
-        plot=True,
-        flux_cal=flux_cal,
-        snr_cutoff=snr_thresh,
-        width_cutoff=width_thresh,
+        snr_thresh,
+        width_thresh,
+        flux_cal,
+        det_snr,
+        det_width,
+        low_width_flag,
     )
 
-    det_fluence, det_width, det_snr, noise_std, likelihood_calc, low_width_flag, logN_lower = process_detection_results(real_det, snr_thresh, width_thresh, likelihood_calc)
     if logn_N_range[0] == -1:
         logn_N_range[0] = logN_lower
 

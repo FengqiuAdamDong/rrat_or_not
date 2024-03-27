@@ -55,6 +55,7 @@ def read_config(filename, det_snr):
         flux_cal,
     )
 
+
 def process_detection_results(real_det):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
@@ -109,7 +110,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # min_mu = 0.99
     # max_mu = 1.01
     # ptmu = (max_mu - min_mu) * x[0] + min_mu
-    ptmu = stats.norm.ppf(x[0],loc=0, scale=4)
+    ptmu = stats.norm.ppf(x[0], loc=0, scale=4)
 
     # ptN = (logn_N_range[1] - logn_N_range[0]) * x[2] + logn_N_range[0]
     # min_mu_w = np.log(max_width / 100)
@@ -118,7 +119,7 @@ def pt_Uniform_N(x, max_det, max_width, logn_N_range):
     # max_mu_w = -4.301
 
     # ptmu_w = (max_mu_w - min_mu_w) * x[2] + min_mu_w
-    ptmu_w = stats.norm.ppf(x[2],loc=-4.6, scale=3)
+    ptmu_w = stats.norm.ppf(x[2], loc=-4.6, scale=3)
 
     # min_pt_sigma = 0.19
     # max_pt_sigma = 0.21
@@ -197,7 +198,7 @@ if __name__ == "__main__":
     #    print(f"skipping {png_fp}")
     #    sys.exit(1)
     det_fluence, det_width, det_snr, noise_std = process_detection_results(real_det)
-    #if the width is very narrow use the low width flag
+    # if the width is very narrow use the low width flag
     low_width_flag = np.mean(det_width) < 4e-3
     low_width_flag = False
     (
@@ -227,7 +228,11 @@ if __name__ == "__main__":
     width_wide_thresh = 28e-3
     print("width_wide_thresh", width_wide_thresh)
     # filter the det_snr
-    mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_width < width_wide_thresh)
+    mask = (
+        (det_snr > snr_thresh)
+        & (det_width > width_thresh)
+        & (det_width < width_wide_thresh)
+    )
     det_snr = det_snr[mask]
     det_width = det_width[mask]
 
@@ -235,7 +240,7 @@ if __name__ == "__main__":
     # det_snr = det_snr[~remove_mask]
     # det_width = det_width[~remove_mask]
 
-    likelihood_calc.calculate_pdet(det_snr,det_width)
+    likelihood_calc.calculate_pdet(det_snr, det_width)
     print(f"number of detections {len(det_snr)}")
     plot_detection_results(det_width, det_fluence, det_snr)
 
