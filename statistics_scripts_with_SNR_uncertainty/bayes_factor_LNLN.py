@@ -19,7 +19,7 @@ import glob
 import yaml
 import cupy as cp
 import scipy.stats as stats
-
+from statistics import statistics_ln
 
 def read_config(filename):
     with open(filename, "r") as file:
@@ -232,7 +232,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     real_det = args.i
-    from statistics import statistics_ln
 
     #####preamble finished#####
     cuda_device = 0

@@ -443,7 +443,7 @@ print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
 from inject_stats import inject_obj
 from numpy.random import normal
 from statistics import statistics_ln
-
+input("WARNING WE USE A SINGLE SELECTION EFFECT SCHEME: THEREFORE IF THE LOW WIDTH FLAG IS SET THEN IT MIGHT BREAK THINGS")
 if __name__ == "__main__":
     # simulate pulses one at a time
     snr_cutoff = 2.0
