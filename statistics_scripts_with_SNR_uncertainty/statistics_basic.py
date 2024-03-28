@@ -57,7 +57,7 @@ class statistics_basic:
         interp_res[interp_res > 1] = 1
         return interp_res
 
-    def p_detect_cupy(self, points, fluence=False, plot=True):
+    def p_detect_cupy(self, points, fluence=False):
         if fluence:
             interp_res = self.cupy_detected_interp_fluence(points)
         else:
@@ -69,12 +69,12 @@ class statistics_basic:
     def convolve_p_detect(self, plot=True, low_width=False):
         # convolve the p_detect with the injected distribution
         # gaussian with sigma_amp_error
-        true_snr_bins = np.linspace(0, 100, 500)
+        true_snr_bins = np.linspace(-2, 20, 500)
         true_snr_bins = true_snr_bins[np.newaxis, np.newaxis, :]
-        true_width_bins = np.linspace(0, 60, 501) * 1e-3
+        true_width_bins = np.linspace(-2, 35, 501) * 1e-3
 
-        detected_snr_bins = np.linspace(0, 105, 502)
-        detected_width_bins = np.linspace(0, 65, 503) * 1e-3
+        detected_snr_bins = np.linspace(-5, 25, 502)
+        detected_width_bins = np.linspace(-5, 40, 503) * 1e-3
         detected_snr_bins = detected_snr_bins[:, np.newaxis, np.newaxis]
         detected_width_bins = detected_width_bins[np.newaxis, :, np.newaxis]
         points_det = (detected_snr_bins, detected_width_bins)
@@ -141,16 +141,18 @@ class statistics_basic:
                 true_snr_bins[0, 0, :], true_width_bins * 1e3, pdet_st_wt.T
             )
             mesh.set_clim(0, 1)
+            cbar = plt.colorbar(mesh, ax=ax[0])
             ax[0].set_xlabel("Injected SNR")
             ax[0].set_ylabel("Injected Width (ms)")
             ax[0].set_title("True by convolved with detected")
 
-            test_snr = np.linspace(0, 100, 1000)
-            test_width = np.linspace(0, 60, 1000) * 1e-3
+            test_snr = np.linspace(-5, 100, 1000)
+            test_width = np.linspace(-5, 60, 1000) * 1e-3
             points = (test_snr[:, np.newaxis], test_width[np.newaxis, :])
             test_pdet_st_wt = self.p_detect_cpu_true(points)
             mesh = ax[1].pcolormesh(test_snr, test_width * 1e3, test_pdet_st_wt.T)
             mesh.set_clim(0, 1)
+            cbar = plt.colorbar(mesh, ax=ax[1])
             ax[1].set_xlabel("Injected SNR")
             ax[1].set_ylabel("Injected Width (ms)")
             ax[1].set_title("True by convolved and then interpolated")
@@ -166,7 +168,9 @@ class statistics_basic:
             mesh = ax[2].pcolormesh(
                 true_snr_bins[:, 0], true_width_bins[0, :] * 1e3, interp_inj_mesh.T
             )
+
             mesh.set_clim(0, 1)
+            cbar = plt.colorbar(mesh, ax=ax[2])
             ax[2].set_xlabel("Injected SNR")
             ax[2].set_ylabel("Injected Width (ms)")
             ax[2].set_title("true injected interpolated")
@@ -213,8 +217,8 @@ class statistics_basic:
         )
         # do a stage of this interpolation process so that the interpolated cut-off is at the right place
         # this is only needed if the injected grid is not really fine
-        detected_snr_bins_stage1 = np.linspace(0, max(detected_snr_bins), 1000)
-        detected_width_bins_stage1 = np.linspace(0, 35e-3, 1000)
+        detected_snr_bins_stage1 = np.linspace(0, max(detected_snr_bins), 5000)
+        detected_width_bins_stage1 = np.linspace(0, 35e-3, 5000)
         detected_det_frac_snr_stage1 = self.p_detect_cpu(
             (
                 detected_snr_bins_stage1[:, np.newaxis],
@@ -313,9 +317,9 @@ class statistics_basic:
             fill_value=None,
         )
 
-        snr_arr = np.linspace(0, 100, 1000)
-        width_arr = np.linspace(1, 60, 1000) * 1e-3
-        fluence_arr = np.linspace(0, 1, 1000)
+        snr_arr = np.linspace(-10, 100, 500)
+        width_arr = np.linspace(-10, 60, 500) * 1e-3
+        fluence_arr = np.linspace(0, 1, 500)
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")
         points = (snr_grid, width_grid)
         interp_res_snr = self.p_detect_cpu(points, fluence=False)
@@ -373,6 +377,8 @@ class statistics_basic:
         self.detected_error_width_low_width = inj_stats.detect_error_width_low_width
 
         self.detected_error_fluence = inj_stats.detect_error_fluence
+        print(f"loaded detected error snr: {self.detected_error_snr}")
+        print(f"loaded detected error width: {self.detected_error_width}")
         return snr_cutoff, width_cutoff
 
     def logistic(self, x, k, x0):

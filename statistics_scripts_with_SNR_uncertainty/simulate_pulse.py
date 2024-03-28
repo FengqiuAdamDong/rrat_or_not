@@ -4,12 +4,13 @@ import matplotlib.pyplot as plt
 import os
 from scipy.stats import expon
 import statistics_basic
+import cupy as cp
 
 
 def n_detect(snr_emit, width_emit, sb, fluence=False):
     # snr emit is the snr that the emitted pulse has
-    points = (snr_emit, width_emit)
-    p = sb.p_detect_cpu(points, fluence=fluence)
+    points = (cp.array(snr_emit), cp.array(width_emit))
+    p = sb.p_detect_cupy(points).get()
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
@@ -21,14 +22,15 @@ def n_detect(snr_emit, width_emit, sb, fluence=False):
 
 def n_detect_true(snr_true, width_true, sb, fluence=False):
     # snr true is the snr that the trueted pulse has
-    points = (snr_true, width_true)
-    p = sb.p_detect_cpu_true(points, fluence=fluence)
+    points = (cp.array(snr_true), cp.array(width_true))
+    p = sb.p_detect_cpu_true_cupy(points).get()
     # simulate random numbers between 0 and 1
     rands = np.random.rand(len(p))
     # probability the random number is less than p gives you an idea of what will be detected
     detected_snr = snr_true[rands < p]
     detected_width = width_true[rands < p]
-    return detected_snr, detected_width
+    index = np.where(rands < p)
+    return detected_snr, detected_width, index
 
 
 # so in this script we need to simulate N pulses from a pulsar

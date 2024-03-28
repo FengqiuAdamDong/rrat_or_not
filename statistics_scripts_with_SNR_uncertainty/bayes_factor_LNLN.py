@@ -21,6 +21,7 @@ import cupy as cp
 import scipy.stats as stats
 from statistics import statistics_ln
 
+
 def read_config(filename):
     with open(filename, "r") as file:
         data = yaml.safe_load(file)

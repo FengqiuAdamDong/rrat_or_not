@@ -112,10 +112,11 @@ class statistics_ln(sb):
         upper_c=np.inf,
         amp_dist="ln",
         w_dist="ln",
+        resolution=1000,
     ):
         sigma_lim = 5
-        xlen_amp = 1000
-        xlen_width = 1001
+        xlen_amp = resolution
+        xlen_width = resolution + 1
 
         if amp_dist == "ln":
             true_upper = mu + (sigma_lim * std)
@@ -162,6 +163,60 @@ class statistics_ln(sb):
         loglike = cp.log(p_ndet) * (N - n)
         # print(p_ndet)
         return loglike, p_ndet
+
+    def second_cupy_plot(
+        self,
+        n,
+        mu,
+        std,
+        mu_w,
+        std_w,
+        N,
+        sigma_amp=0.4,
+        sigma_w=1e-3,
+        a=0,
+        lower_c=0,
+        upper_c=np.inf,
+        amp_dist="ln",
+        w_dist="ln",
+    ):
+        sigma_lim = 7
+        xlen_amp = 1000
+        xlen_width = 1001
+        if amp_dist == "ln":
+            true_upper = mu + (sigma_lim * std)
+            true_lower = mu - (sigma_lim * std)
+            true_amp_array = cp.linspace(true_lower, true_upper, xlen_amp)
+            true_dist_amp = gaussian_cupy(true_amp_array, mu, std)
+            points_amp = cp.exp(true_amp_array[:, cp.newaxis])
+
+        elif amp_dist == "exp":
+            true_lower = cp.log(1 / mu) - 6
+            true_upper = cp.log(1 / mu) + 2.5
+            true_amp_array = cp.linspace(true_lower, true_upper, xlen_amp)
+            true_dist_amp = exponential_dist_lnx(true_amp_array, mu)
+            points_amp = cp.exp(true_amp_array[:, cp.newaxis])
+
+        if w_dist == "ln":
+            true_upper = mu_w + (sigma_lim * std_w)
+            true_lower = mu_w - (sigma_lim * std_w)
+            true_width_array = cp.linspace(true_lower, true_upper, xlen_width)
+            true_dist_width = gaussian_cupy(true_width_array, mu_w, std_w)
+            points_width = cp.exp(true_width_array[cp.newaxis, :])
+        elif w_dist == "exp":
+            # in the exp case, mu_w is the rate parameter
+            true_lower = cp.log(1 / mu_w) - 6
+            true_upper = cp.log(1 / mu_w) + 2.5
+            true_width_array = cp.linspace(true_lower, true_upper, xlen_width)
+            true_dist_width = exponential_dist_lnx(true_width_array, mu_w)
+            points_width = cp.exp(true_width_array[cp.newaxis, :])
+
+        points = (points_amp, points_width)
+        pdet = self.p_detect_cpu_true_cupy(points)
+        p_ndet_st_wt = (
+            pdet * true_dist_amp[:, cp.newaxis] * true_dist_width[cp.newaxis, :]
+        )
+        return p_ndet_st_wt, true_amp_array, true_width_array
 
     def first_cupy(
         self,

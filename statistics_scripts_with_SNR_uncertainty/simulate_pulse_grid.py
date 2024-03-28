@@ -53,9 +53,9 @@ def simulate_and_process_data(
     sigma_snr = sb.detected_error_snr
     sigma_width = sb.detected_error_width
     sigma_fluence = sb.detected_error_fluence
-
+    print(f"sigma snr: {sigma_snr}, sigma width: {sigma_width}")
     while len(detected_pulses_snr) < detected_req:
-        # print(f"detected pulses: {len(detected_pulses_snr)}")
+        print(f"detected pulses: {len(detected_pulses_snr)} {len(true_pulses_snr)}")
         obs_t = int(detected_req)
         p = 1
         f = 1
@@ -68,7 +68,7 @@ def simulate_and_process_data(
             )
         elif mode == "Lognorm":
             pulses = simulate_pulses(
-                obs_t, p, f, mu_ln, std_ln, a, lower=lower, upper=upper, random=False
+                obs_t, p, f, mu_ln, std_ln, a, lower=0, upper=np.inf, random=False
             )
             pulses_width = simulate_pulses(
                 obs_t, p, f, w_mu_ln, w_std_ln, a, lower=0, upper=np.inf, random=False
@@ -81,6 +81,7 @@ def simulate_and_process_data(
 
         rv_snr = norm(loc=0, scale=sigma_snr).rvs(len(pulses))
         d_pulses = rv_snr + pulses
+
         rv_width = norm(loc=0, scale=sigma_width).rvs(len(pulses_width))
         d_pulses_width = rv_width + pulses_width
 
@@ -90,7 +91,7 @@ def simulate_and_process_data(
         d_pulses_fluence = rv_fluence + pulses_fluence
 
         d_snr, d_width, index = n_detect(d_pulses, d_pulses_width, sb)
-        t_snr, t_width = n_detect_true(pulses, pulses_width, sb)
+        t_snr, t_width, index_ = n_detect_true(pulses, pulses_width, sb)
         if len(d_snr) > 0:
             detected_pulses_snr.extend(d_snr)
             detected_pulses_width.extend(d_width)
@@ -111,6 +112,7 @@ def simulate_and_process_data(
     total_pulses_fluence = np.array(total_pulses_fluence).flatten()
     true_pulses_snr = np.array(true_pulses_snr).flatten()
     true_pulses_width = np.array(true_pulses_width).flatten()
+    print(len(detected_pulses_snr), len(true_pulses_snr))
     if plot:
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
         axes[0].hist(
@@ -165,8 +167,8 @@ def simulate_and_process_data(
 
     print("len detected", len(detected_pulses_snr))
     print("generated", len(total_pulses_snr))
-    print("mean", np.mean(total_pulses_snr), "variance", np.std(total_pulses_snr) ** 2)
-    print("mu", mu_ln, "mu_w", w_mu_ln)
+    # print("mean", np.mean(total_pulses_snr), "variance", np.std(total_pulses_snr) ** 2)
+    print("mu_1", mu_ln, "mu_w", w_mu_ln)
     print("detection error snr", sigma_snr)
     print("detection error width", sigma_width)
     print("detection error fluence", sigma_fluence)
@@ -261,6 +263,7 @@ def simulate_and_process_data(
         likelihood_norm = likelihood / np.trapz(
             np.trapz(likelihood, snr_array, axis=0), width_array
         )
+
         likelihood_norm = likelihood_norm.T
         # make a 2d histogram of the detections
         fig, axes = plt.subplots(1, 2, figsize=(15, 5))
@@ -283,7 +286,6 @@ def simulate_and_process_data(
         # apply axes[0] limits to axes[1]
         axes[1].set_xlim(axes[0].get_xlim())
         axes[1].set_ylim(axes[0].get_ylim())
-        plt.show()
         # plot the marginalised distributions
         marg_l_amp = np.trapz(likelihood_norm, width_array, axis=0)
         marg_l_w = np.trapz(likelihood_norm, snr_array, axis=1)
@@ -302,6 +304,93 @@ def simulate_and_process_data(
         axes[1].set_ylabel("density")
         axes[1].set_title("marginalised over width")
         axes[1].legend()
+
+        # plot the detected distribution
+        print(
+            f"inputting mu_ln: {mu_ln}, std_ln: {std_ln}, w_mu_ln: {w_mu_ln}, w_std_ln: {w_std_ln}"
+        )
+        p_det_st_wt, true_amp_array, true_width_array = sb.second_cupy_plot(
+            1,
+            mu_ln,
+            std_ln,
+            w_mu_ln,
+            w_std_ln,
+            1,
+            sigma_amp=sigma_snr,
+            sigma_w=sigma_width,
+            a=a,
+            lower_c=lower,
+            upper_c=upper,
+            amp_dist="ln",
+            w_dist="ln",
+        )
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        axes[0].hist2d(
+            np.log(detected_pulses_snr_true),
+            np.log(detected_pulses_width_true),
+            bins=50,
+            density=True,
+        )
+        axes[0].set_xlabel("log snr")
+        axes[0].set_ylabel("log width")
+
+        axes[1].hist2d(
+            np.log(true_pulses_snr), np.log(true_pulses_width), bins=50, density=True
+        )
+        axes[1].set_xlabel("log snr")
+        axes[1].set_ylabel("log width")
+        # colorbar
+        #
+        p_det_st_wt = p_det_st_wt / cp.trapz(
+            cp.trapz(p_det_st_wt, true_amp_array, axis=0), true_width_array
+        )
+        axes[2].pcolormesh(
+            true_amp_array.get(), true_width_array.get(), p_det_st_wt.get().T
+        )
+        # normalise
+        axes[2].set_xlabel("log snr")
+        axes[2].set_ylabel("log width")
+        axes[2].set_title("p_det_st_wt")
+
+        # plot the marginalised distribution
+        marg_p_det_amp = np.trapz(p_det_st_wt.get(), true_width_array.get(), axis=1)
+        marg_p_det_w = np.trapz(p_det_st_wt.get(), true_amp_array.get(), axis=0)
+        fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+        axes[0].hist(
+            np.log(true_pulses_snr), bins="auto", density=True, label="true", alpha=0.5
+        )
+        axes[0].hist(
+            np.log(detected_pulses_snr_true),
+            bins="auto",
+            density=True,
+            label="detected_true",
+            alpha=0.5,
+        )
+        axes[0].plot(true_amp_array.get(), marg_p_det_amp, label="p_det_st_wt")
+        axes[0].set_xlabel("log width")
+        axes[0].set_ylabel("log density")
+        axes[0].set_title("marginalised over amp")
+        axes[0].legend()
+        axes[1].hist(
+            np.log(true_pulses_width),
+            bins="auto",
+            density=True,
+            label="true",
+            alpha=0.5,
+        )
+        axes[1].hist(
+            np.log(detected_pulses_width_true),
+            bins="auto",
+            density=True,
+            label="detected_true",
+            alpha=0.5,
+        )
+        axes[1].plot(true_width_array.get(), marg_p_det_w, label="p_det_st_wt")
+        axes[1].set_xlabel("log snr")
+        axes[1].set_ylabel("log density")
+        axes[1].set_title("marginalised over width")
+        axes[1].legend()
+
         plt.show()
 
 
@@ -425,9 +514,9 @@ mode = args.mode
 # load the detection file
 # sb = statistics_basic.statistics_basic(inj_file,plot=True)
 if mode == "Lognorm":
-    mu_arr = np.linspace(0.5, 1, 10)
+    mu_arr = np.linspace(-0.5, 2, 10)
     std_arr = [args.s]
-    mu_w_arr = np.linspace(-4.3, -4.5, 10)
+    mu_w_arr = np.linspace(-6.3, -4.5, 10)
     std_w_arr = [0.3]
 
 elif mode == "Exp":
@@ -443,15 +532,16 @@ print("mu", mu_arr, "std", std_arr, "a", a, "detected_req", detected_req)
 from inject_stats import inject_obj
 from numpy.random import normal
 from statistics import statistics_ln
-input("WARNING WE USE A SINGLE SELECTION EFFECT SCHEME: THEREFORE IF THE LOW WIDTH FLAG IS SET THEN IT MIGHT BREAK THINGS")
+
+# input("WARNING WE USE A SINGLE SELECTION EFFECT SCHEME: THEREFORE IF THE LOW WIDTH FLAG IS SET THEN IT MIGHT BREAK THINGS")
 if __name__ == "__main__":
     # simulate pulses one at a time
     snr_cutoff = 2.0
     width_cutoff = 2e-3
     sb = statistics_ln(
-        inj_file, plot=True, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff
+        inj_file, plot=False, snr_cutoff=snr_cutoff, width_cutoff=width_cutoff
     )
-    sb.convolve_p_detect()
+    sb.convolve_p_detect(plot=True)
     for mu in mu_arr:
         for w_mu_ln in mu_w_arr:
             std = std_arr[0]

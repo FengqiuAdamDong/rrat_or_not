@@ -227,10 +227,10 @@ class dynesty_plot:
 
         for fn, centre, errors in zip(self.filename, self.means, self.stds):
             # get the mu and sigma from the filename
-            split = fn.split("_")
+            split = fn.split(".dill")
             # join all but the last element
-            yaml_file = "_".join(split[:-1]) + ".yaml"
-            # load the yaml file
+            yaml_file = split[0] + ".yaml"
+            # load the yaml file:
             with open(yaml_file) as f:
                 yaml_data = yaml.safe_load(f)
                 true_centres.append(
