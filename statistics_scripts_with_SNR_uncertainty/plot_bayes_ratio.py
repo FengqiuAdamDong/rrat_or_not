@@ -145,11 +145,10 @@ class post_process:
             det_width,
             det_snr,
             noise_std,
-            likelihood_calc,
             low_width_flag,
             logn_lower,
         ) = process_detection_results(
-            dill_file, snr_thresh, width_thresh, likelihood_calc
+            dill_file, snr_thresh, width_thresh
         )
 
         snr_array = np.linspace(0, 80, 1000)
