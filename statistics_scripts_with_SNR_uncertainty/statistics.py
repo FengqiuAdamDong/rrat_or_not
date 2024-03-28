@@ -112,7 +112,7 @@ class statistics_ln(sb):
         upper_c=np.inf,
         amp_dist="ln",
         w_dist="ln",
-        resolution=1000,
+        resolution=5000,
     ):
         sigma_lim = 5
         xlen_amp = resolution
@@ -233,8 +233,9 @@ class statistics_ln(sb):
         upper_c=np.inf,
         amp_dist="ln",
         w_dist="ln",
+        resolution=5000,
     ):
-        x_len = 1000
+        x_len = resolution
         # amp is the detected amps
         # width is the detected widths
         # make an array of lower and upper limits for the true_log amp array
@@ -276,7 +277,7 @@ class statistics_ln(sb):
         integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)
 
         # now do the same for width
-        x_len = 1001
+        x_len = resolution+1
         true_lower_w_gauss = width - sigma_lim * sigma_w
         true_upper_w_gauss = width + sigma_lim * sigma_w
         if w_dist == "ln":
