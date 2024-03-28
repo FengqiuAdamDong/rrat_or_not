@@ -114,7 +114,7 @@ class statistics_ln(sb):
         w_dist="ln",
         resolution=5000,
     ):
-        sigma_lim = 5
+        sigma_lim = 7
         xlen_amp = resolution
         xlen_width = resolution + 1
 
