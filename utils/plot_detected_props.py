@@ -38,21 +38,21 @@ if len(sys.argv) > 2:
         snr_thresh = float(config["snr_thresh"])
         width_thresh = float(config["width_thresh"])
 
-mask = (det_snr > snr_thresh) & (det_width > width_thresh)
-det_snr = det_snr[mask]
-det_fluence = det_fluence[mask]
-det_width = det_width[mask]
+    mask = (det_snr > snr_thresh) & (det_width > width_thresh)
+    det_snr = det_snr[mask]
+    det_fluence = det_fluence[mask]
+    det_width = det_width[mask]
 
 fig, ax = plt.subplots(1, 3, figsize=(15, 5))
-ax[0].hist(det_fluence, bins=100)
+ax[0].hist(det_fluence, bins="auto")
 ax[0].set_title(f"Detected Fluence, total: {len(det_fluence)}")
 ax[0].set_xlabel("Fluence")
 ax[0].set_ylabel("Counts")
-ax[1].hist(det_width, bins=100)
+ax[1].hist(det_width, bins="auto")
 ax[1].set_title(f"Detected Width, total: {len(det_width)}")
 ax[1].set_xlabel("Width")
 ax[1].set_ylabel("Counts")
-ax[2].hist(det_snr, bins=100)
+ax[2].hist(det_snr, bins="auto")
 ax[2].set_title(f"Detected SNR, total: {len(det_snr)}")
 ax[2].set_xlabel("SNR")
 ax[2].set_ylabel("Counts")
