@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import dill
+import yaml
 def process_detection_results(real_det):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
@@ -30,6 +31,18 @@ def process_detection_results(real_det):
 
 
 det_fluence, det_width, det_snr, noise_std = process_detection_results(sys.argv[1])
+if len(sys.argv) > 2:
+    #the second optional argument is the yaml file
+    with open(sys.argv[2], "r") as inf:
+        config = yaml.load(inf, Loader=yaml.FullLoader)
+        snr_thresh = float(config["snr_thresh"])
+        width_thresh = float(config["width_thresh"])
+
+mask = (det_snr > snr_thresh) & (det_width > width_thresh)
+det_snr = det_snr[mask]
+det_fluence = det_fluence[mask]
+det_width = det_width[mask]
+
 fig, ax = plt.subplots(1, 3, figsize=(15, 5))
 ax[0].hist(det_fluence, bins=100)
 ax[0].set_title(f"Detected Fluence, total: {len(det_fluence)}")
