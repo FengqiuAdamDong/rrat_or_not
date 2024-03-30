@@ -34,6 +34,7 @@ if __name__ == "__main__":
         # load the pulsar file
         foldername = f"{current_directory}/{p}/fdp/"
         os.chdir(foldername)
+        print(f"Current directory: {os.getcwd()}")
         if force_retry:
             #if we force retry then remove the tmp.dill file and the pulsar.dill file
             if os.path.exists("tmp.dill"):
