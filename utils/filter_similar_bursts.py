@@ -8,7 +8,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-csv_path" ,nargs='+' , help="path to folder containing the files")
 parser.add_argument("-dm", help="dm of the burst",type=float)
-parser.add_argument("-copy", help="copy",type=bool,action="store_true")
+parser.add_argument("-copy", help="copy",action="store_true")
 args = parser.parse_args()
 csv_path = args.csv_path
 copy = args.copy
