@@ -42,12 +42,13 @@ if __name__ == "__main__":
                 os.remove(f"{p}.dill")
             if os.path.exists("fit_plots"):
                 shutil.rmtree("fit_plots")
-
+            if os.path.exists("filtered.csv"):
+                os.remove("filtered.csv")
         # check if the file filtered.csv exists
         process_filter = True
         process_extract = True
         #check if filtered_edt.csv exists
-        if os.path.exists("filtered_edit.csv"):
+        if os.path.exists("filtered.csv"):
             process_filter = False
         extracted_path = f"{p}.dill"
         if os.path.exists(extracted_path):
@@ -58,13 +59,13 @@ if __name__ == "__main__":
             print(f"python {filter_script_path} -folder_path positive_bursts_1 -dm {dm}")
             print(f"python {create_positive_csv_edit_path} filtered.csv")
             try:
-                subprocess.run([f"python {filter_script_path} -folder_path positive_bursts_1 -dm {dm}"],check=True)
-                subprocess.run([f"python {create_positive_csv_edit_path} filtered.csv"],check=True)
+                subprocess.run([f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm} -copy"],check=True)
+                # subprocess.run([f"python {create_positive_csv_edit_path} filtered.csv"],check=True)
             except:
                 continue
         if process_extract:
             #print command
-            print(f"sbatch {batch_submit_job_path} {dm} {p} filtered_edit.csv {period}")
-            os.system(f"sbatch {batch_submit_job_path} {dm} {p} filtered_edit.csv {period}")
+            print(f"sbatch {batch_submit_job_path} {dm} {p} filtered.csv {period}")
+            os.system(f"sbatch {batch_submit_job_path} {dm} {p} filtered.csv {period}")
         #go back to the original directory
         os.chdir(current_directory)
