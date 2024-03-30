@@ -59,12 +59,9 @@ if __name__ == "__main__":
             #print command
             print(f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm} -copy")
             # print(f"python {create_positive_csv_edit_path} filtered.csv")
-            try:
-                subprocess.run([f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm} -copy"],check=True)
-                # subprocess.run([f"python {create_positive_csv_edit_path} filtered.csv"],check=True)
-            except Exception as e:
-                print(f"Error: {e}")
-                continue
+            # subprocess.run([f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm} -copy"],check=True)
+            subprocess.run([f"python {filter_script_path}"],check=True)
+            # subprocess.run([f"python {create_positive_csv_edit_path} filtered.csv"],check=True)
         if process_extract:
             #print command
             print(f"sbatch {batch_submit_job_path} {dm} {p} filtered.csv {period}")
