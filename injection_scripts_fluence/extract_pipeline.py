@@ -56,14 +56,13 @@ if __name__ == "__main__":
 
         if process_filter:
             #print command
-            print(f"python {filter_script_path} -folder_path positive_bursts_1 -dm {dm}")
+            print(f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm} -copy")
             # print(f"python {create_positive_csv_edit_path} filtered.csv")
             try:
                 subprocess.run([f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm} -copy"],check=True)
                 # subprocess.run([f"python {create_positive_csv_edit_path} filtered.csv"],check=True)
             except Exception as e:
                 print(f"Error: {e}")
-
                 continue
         if process_extract:
             #print command
