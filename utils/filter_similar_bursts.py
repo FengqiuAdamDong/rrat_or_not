@@ -76,7 +76,7 @@ for i,ufn in enumerate(unique_filenames):
     #include all the ones that are not in a cluster because there's no repeat there
 
     features = np.column_stack((ufn_dm, ufn_tcand))
-    errors = np.array([12, 0.05])
+    errors = np.array([12, 0.1])
     features = features / errors
     db = DBSCAN(eps=1, min_samples=2).fit(features)
 

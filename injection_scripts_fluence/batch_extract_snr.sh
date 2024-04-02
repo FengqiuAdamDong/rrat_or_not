@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=def-istairs
 #SBATCH --export=NONE
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=16GB
 #SBATCH --cpus-per-task=16
 #SBATCH --job-name=extract_snr

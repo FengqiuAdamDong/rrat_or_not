@@ -42,6 +42,7 @@ def read_config(filename):
         logn_mu_w_range = [0, 0]
         logn_std_w_range = [0, 0]
 
+    #logn_N_range[1] = 2*logn_N_range[1]
     snr_thresh = data["snr_thresh"]
     width_thresh = data["width_thresh"]
 
@@ -292,7 +293,6 @@ if __name__ == "__main__":
 
     if logn_N_range[0] == -1:
         logn_N_range[0] = logN_lower
-
     # remove_mask = (det_snr < 6)&(det_width < 6e-3)
     # det_snr = det_snr[~remove_mask]
     # det_width = det_width[~remove_mask]
