@@ -125,6 +125,9 @@ if __name__ == "__main__":
     # remove_mask = (det_snr < 6)&(det_width < 6e-3)
     # det_snr = det_snr[~remove_mask]
     # det_width = det_width[~remove_mask]
+    if logn_N_range[0] == -1:
+        logn_N_range[0] = logN_lower
+
 
     print(f"number of detections {len(det_snr)}")
     plot_detection_results(det_width, det_fluence, det_snr)
