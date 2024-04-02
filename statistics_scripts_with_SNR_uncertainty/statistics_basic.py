@@ -17,12 +17,16 @@ class statistics_basic:
         width_cutoff=5e-3,
         plot=True,
         low_width_flag=False,
+        snr_upper=50,
+        width_upper=28e-3,
     ):
         self.load_detection_fn(
             detection_curve,
             flux_cal=flux_cal,
             snr_cutoff=snr_cutoff,
             width_cutoff=width_cutoff,
+            snr_upper=snr_upper,
+            width_upper=width_upper,
             plot=plot,
             use_interp=low_width_flag,
         )
@@ -183,6 +187,8 @@ class statistics_basic:
         plot=True,
         snr_cutoff=2.0,
         width_cutoff=5e-3,
+        snr_upper=50,
+        width_upper=28e-3,
         flux_cal=1,
         use_interp=False,
     ):
@@ -231,9 +237,17 @@ class statistics_basic:
         detected_det_frac_snr_stage1[
             :, np.argwhere(detected_width_bins_stage1 < width_cutoff)
         ] = 0
+
+        snr_upper = min(snr_upper, 50)
+        width_upper = min(width_upper, 28e-3)
+
         detected_det_frac_snr_stage1[
-            :, np.argwhere(detected_width_bins_stage1 > 28e-3)
+            :, np.argwhere(detected_width_bins_stage1 > width_upper)
         ] = 0
+        detected_det_frac_snr_stage1[
+            np.argwhere(detected_snr_bins_stage1 > snr_upper), :
+        ] = 0
+
         # also remove the corner of width<5e-3 and snr<2.8
         # del_mask = (detected_snr_bins_stage1[:, np.newaxis] < 6) & (detected_width_bins_stage1[np.newaxis, :] < 6e-3)
         # detected_det_frac_snr_stage1[del_mask] = 0
@@ -246,7 +260,8 @@ class statistics_basic:
 
         detected_det_frac_snr[np.argwhere(detected_snr_bins < snr_cutoff), :] = 0
         detected_det_frac_snr[:, np.argwhere(detected_width_bins < width_cutoff)] = 0
-        detected_det_frac_snr[:, np.argwhere(detected_width_bins > 28e-3)] = 0
+        detected_det_frac_snr[:, np.argwhere(detected_width_bins > width_upper)] = 0
+        detected_det_frac_snr[np.argwhere(detected_snr_bins > snr_upper), :] = 0
 
         detected_fluence_bins = inj_stats.detected_bin_midpoints_fluence[0]
         detected_width_f_bins = inj_stats.detected_bin_midpoints_fluence[1]

@@ -22,10 +22,36 @@ class post_process:
             elif "lnexp" in fn:
                 self.lnexpfn = fn
         # load data
-        self.expexp_results = self.load_data(self.expexpfn)
-        self.lnln_results = self.load_data(self.lnlnfn)
-        self.expln_results = self.load_data(self.explnfn)
-        self.lnexp_results = self.load_data(self.lnexpfn)
+        #check if self.lnln exists
+        if hasattr(self, 'lnlnfn'):
+            self.base_name = self.lnlnfn.split(".")[0]
+        elif hasattr(self, 'expexpfn'):
+            self.base_name = self.expexpfn.split(".")[0]
+            print("no lnln"+self.base_name)
+        elif hasattr(self, 'explnfn'):
+            self.base_name = self.explnfn.split(".")[0]
+            print("no lnln"+self.base_name)
+        elif hasattr(self, 'lnexpfn'):
+            self.base_name = self.lnexpfn.split(".")[0]
+            print("no lnln"+self.base_name)
+
+
+        try:
+            self.expexp_results = self.load_data(self.expexpfn)
+        except:
+            pass
+        try:
+            self.lnln_results = self.load_data(self.lnlnfn)
+        except:
+            pass
+        try:
+            self.expln_results = self.load_data(self.explnfn)
+        except:
+            pass
+        try:
+            self.lnexp_results = self.load_data(self.lnexpfn)
+        except:
+            pass
 
     def load_data(self, fn):
         data = np.load(fn, allow_pickle=True)["results"].tolist()
@@ -35,22 +61,34 @@ class post_process:
     def plot_corner(
         self,
     ):
-        label_expexp = ["k1", "k2", "N"]
-        fig, axes = dyplot.cornerplot(self.expexp_results, labels=label_expexp)
-        plt.savefig("expexp_corner.png")
-        plt.close()
-        label_lnln = ["mu1", "std1", "mu2", "std2", "N"]
-        fig, axes = dyplot.cornerplot(self.lnln_results, labels=label_lnln)
-        plt.savefig("lnln_corner.png")
-        plt.close()
-        label_expln = ["k1", "mu2", "std2", "N"]
-        fig, axes = dyplot.cornerplot(self.expln_results, labels=label_expln)
-        plt.savefig("expln_corner.png")
-        plt.close()
-        label_lnexp = ["mu1", "std1", "k2", "N"]
-        fig, axes = dyplot.cornerplot(self.lnexp_results, labels=label_lnexp)
-        plt.savefig("lnexp_corner.png")
-        plt.close()
+        try:
+            label_expexp = ["k1", "k2", "N"]
+            fig, axes = dyplot.cornerplot(self.expexp_results, labels=label_expexp)
+            plt.savefig(self.base_name+"_expexp_corner.png")
+            plt.close()
+        except:
+            pass
+        try:
+            label_lnln = ["mu1", "std1", "mu2", "std2", "N"]
+            fig, axes = dyplot.cornerplot(self.lnln_results, labels=label_lnln)
+            plt.savefig(self.base_name+"_lnln_corner.png")
+            plt.close()
+        except:
+            pass
+        try:
+            label_expln = ["k1", "mu2", "std2", "N"]
+            fig, axes = dyplot.cornerplot(self.expln_results, labels=label_expln)
+            plt.savefig(self.base_name+"_expln_corner.png")
+            plt.close()
+        except:
+            pass
+        try:
+            label_lnexp = ["mu1", "std1", "k2", "N"]
+            fig, axes = dyplot.cornerplot(self.lnexp_results, labels=label_lnexp)
+            plt.savefig(self.base_name+"_lnexp_corner.png")
+            plt.close()
+        except:
+            pass
 
     def plot_bayes_ratio(
         self,
@@ -63,7 +101,7 @@ class post_process:
         evidence_expln_err = self.expln_results["logzerr"][-1]
         evidence_lnexp = self.lnexp_results["logz"][-1]
         evidence_lnexp_err = self.lnexp_results["logzerr"][-1]
-
+        plt.figure()
         plt.errorbar(
             [0, 1, 2, 3],
             [evidence_expexp, evidence_lnln, evidence_expln, evidence_lnexp],
@@ -77,7 +115,7 @@ class post_process:
         )
         plt.xticks([0, 1, 2, 3], ["expexp", "lnln", "expln", "lnexp"])
         plt.ylabel("log evidence")
-        plt.savefig("log_evidence.png")
+        plt.savefig(self.base_name+"_log_evidence.png")
         plt.close()
 
     def get_best_fit_values(self, dynesty_results):
@@ -99,24 +137,44 @@ class post_process:
     def get_best_fit_values_all(
         self,
     ):
-        (
-            self.expexp_quantiles,
-            self.expexp_mean,
-            self.expexp_cov,
-        ) = self.get_best_fit_values(self.expexp_results)
-        self.lnln_quantiles, self.lnln_mean, self.lnln_cov = self.get_best_fit_values(
-            self.lnln_results
-        )
-        (
-            self.expln_quantiles,
-            self.expln_mean,
-            self.expln_cov,
-        ) = self.get_best_fit_values(self.expln_results)
-        (
-            self.lnexp_quantiles,
-            self.lnexp_mean,
-            self.lnexp_cov,
-        ) = self.get_best_fit_values(self.lnexp_results)
+        try:
+            (
+                self.expexp_quantiles,
+                self.expexp_mean,
+                self.expexp_cov,
+            ) = self.get_best_fit_values(self.expexp_results)
+        except:
+            self.expexp_quantiles = None
+            self.expexp_mean = None
+            self.expexp_cov = None
+        try:
+            self.lnln_quantiles, self.lnln_mean, self.lnln_cov = self.get_best_fit_values(
+                self.lnln_results
+            )
+        except:
+            self.lnln_quantiles = None
+            self.lnln_mean = None
+            self.lnln_cov = None
+        try:
+            (
+                self.expln_quantiles,
+                self.expln_mean,
+                self.expln_cov,
+            ) = self.get_best_fit_values(self.expln_results)
+        except:
+            self.expln_quantiles = None
+            self.expln_mean = None
+            self.expln_cov = None
+        try:
+            (
+                self.lnexp_quantiles,
+                self.lnexp_mean,
+                self.lnexp_cov,
+            ) = self.get_best_fit_values(self.lnexp_results)
+        except:
+            self.lnexp_quantiles = None
+            self.lnexp_mean = None
+            self.lnexp_cov = None
 
     def plot_fit(self, yaml_file):
         # load yaml file
@@ -133,13 +191,7 @@ class post_process:
         width_thresh = yaml_data["width_thresh"]
         detection_curve = yaml_data["detection_curve"]
         flux_cal = 1
-        likelihood_calc = statistics_ln(
-            detection_curve,
-            plot=True,
-            flux_cal=flux_cal,
-            snr_cutoff=snr_thresh,
-            width_cutoff=width_thresh,
-        )
+
         (
             det_fluence,
             det_width,
@@ -150,15 +202,22 @@ class post_process:
         ) = process_detection_results(
             dill_file, snr_thresh, width_thresh
         )
-
+        likelihood_calc = statistics_ln(
+            detection_curve,
+            plot=False,
+            flux_cal=flux_cal,
+            snr_cutoff=snr_thresh,
+            width_cutoff=width_thresh,
+            low_width_flag=low_width_flag,
+        )
         snr_array = np.linspace(0, 80, 1000)
         width_array = np.linspace(0, 30, 1001) * 1e-3
         # fits to plot
         best_fit_arr = [
-            self.expexp_quantiles,
-            self.lnln_quantiles,
-            self.expln_quantiles,
-            self.lnexp_quantiles,
+            self.expexp_mean,
+            self.lnln_mean,
+            self.expln_mean,
+            self.lnexp_mean,
         ]
         fit_type_arr = [["exp", "exp"], ["ln", "ln"], ["exp", "ln"], ["ln", "exp"]]
 
@@ -166,52 +225,54 @@ class post_process:
         sigma_width = likelihood_calc.detected_error_width
         for best_fit_vals, fit_type in zip(best_fit_arr, fit_type_arr):
             likelihood = np.zeros((len(snr_array), len(width_array)))
-            for i, snr in enumerate(snr_array):
-                snr_array_temp = np.ones_like(width_array) * snr
-                width_array_temp = width_array
-                snr_array_temp = cp.asarray(snr_array_temp)
-                width_array_temp = cp.asarray(width_array_temp)
-                likelihood_calc.calculate_pdet(
-                    snr_array_temp, width_array_temp, filter=False
-                )
+            try:
+                for i, snr in enumerate(snr_array):
+                    snr_array_temp = np.ones_like(width_array) * snr
+                    width_array_temp = width_array
+                    snr_array_temp = cp.asarray(snr_array_temp)
+                    width_array_temp = cp.asarray(width_array_temp)
+                    likelihood_calc.calculate_pdet(
+                        snr_array_temp, width_array_temp, filter=False
+                    )
+                    if (fit_type[0] == "exp") & (fit_type[1] == "exp"):
+                        mu_ln = best_fit_vals[0]
+                        std_ln = 0
+                        w_mu_ln = best_fit_vals[1]
+                        w_std_ln = 0
+                    if (fit_type[0] == "ln") & (fit_type[1] == "ln"):
+                        mu_ln = best_fit_vals[0]
+                        std_ln = best_fit_vals[1]
+                        w_mu_ln = best_fit_vals[2]
+                        w_std_ln = best_fit_vals[3]
+                    if (fit_type[0] == "exp") & (fit_type[1] == "ln"):
+                        mu_ln = best_fit_vals[0]
+                        std_ln = 0
+                        w_mu_ln = best_fit_vals[1]
+                        w_std_ln = best_fit_vals[2]
+                    if (fit_type[0] == "ln") & (fit_type[1] == "exp"):
+                        mu_ln = best_fit_vals[0]
+                        std_ln = best_fit_vals[1]
+                        w_mu_ln = best_fit_vals[2]
+                        w_std_ln = 0
 
-                if (fit_type[0] == "exp") & (fit_type[1] == "exp"):
-                    mu_ln = best_fit_vals[0][1]
-                    std_ln = 0
-                    w_mu_ln = best_fit_vals[1][1]
-                    w_std_ln = 0
-                if (fit_type[0] == "ln") & (fit_type[1] == "ln"):
-                    mu_ln = best_fit_vals[0][1]
-                    std_ln = best_fit_vals[1][1]
-                    w_mu_ln = best_fit_vals[2][1]
-                    w_std_ln = best_fit_vals[3][1]
-                if (fit_type[0] == "exp") & (fit_type[1] == "ln"):
-                    mu_ln = best_fit_vals[0][1]
-                    std_ln = 0
-                    w_mu_ln = best_fit_vals[1][1]
-                    w_std_ln = best_fit_vals[2][1]
-                if (fit_type[0] == "ln") & (fit_type[1] == "exp"):
-                    mu_ln = best_fit_vals[0][1]
-                    std_ln = best_fit_vals[1][1]
-                    w_mu_ln = best_fit_vals[2][1]
-                    w_std_ln = 0
-
-                loglike_sum, loglike_all = likelihood_calc.first_cupy_plot(
-                    snr_array_temp,
-                    width_array_temp,
-                    mu_ln,
-                    std_ln,
-                    w_mu_ln,
-                    w_std_ln,
-                    sigma_amp=sigma_snr,
-                    sigma_w=sigma_width,
-                    a=0,
-                    lower_c=0,
-                    upper_c=cp.inf,
-                    amp_dist=fit_type[0],
-                    w_dist=fit_type[1],
-                )
-                likelihood[i, :] = np.exp(loglike_all.get())
+                    loglike_sum, loglike_all = likelihood_calc.first_cupy_plot(
+                        snr_array_temp,
+                        width_array_temp,
+                        mu_ln,
+                        std_ln,
+                        w_mu_ln,
+                        w_std_ln,
+                        sigma_amp=sigma_snr,
+                        sigma_w=sigma_width,
+                        a=0,
+                        lower_c=0,
+                        upper_c=cp.inf,
+                        amp_dist=fit_type[0],
+                        w_dist=fit_type[1],
+                    )
+                    likelihood[i, :] = np.exp(loglike_all.get())
+            except:
+                continue
             likelihood_norm = likelihood / np.trapz(
                 np.trapz(likelihood, snr_array, axis=0), width_array
             )
@@ -226,7 +287,7 @@ class post_process:
             # set the same limits as ax[0]
             ax[1].set_xlim(ax[0].get_xlim())
             ax[1].set_ylim(ax[0].get_ylim())
-            plt.savefig(f"likelihood_{fit_type[0]}_{fit_type[1]}.png")
+            plt.savefig(self.base_name+f"_likelihood_{fit_type[0]}_{fit_type[1]}.png")
 
             # marginalise over the dimensions
             marg_snr = np.trapz(likelihood_norm, width_array, axis=0)
@@ -242,8 +303,9 @@ class post_process:
             ax[1].set_xlabel("Width (ms)")
             ax[1].set_ylabel("Probability")
             ax[1].set_xlim(0, max(det_width * 1e3))
-            plt.savefig(f"marginal_{fit_type[0]}_{fit_type[1]}.png")
-            plt.show()
+            plt.savefig(self.base_name+f"_marginal_{fit_type[0]}_{fit_type[1]}.png")
+            plt.close("all")
+            # plt.show()
 
 
 if __name__ == "__main__":
@@ -266,4 +328,7 @@ if __name__ == "__main__":
     if yaml_file != "":
         pp.plot_fit(yaml_file)
     pp.plot_corner()
-    pp.plot_bayes_ratio()
+    try:
+        pp.plot_bayes_ratio()
+    except:
+        pass

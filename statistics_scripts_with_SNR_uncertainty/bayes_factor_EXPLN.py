@@ -86,7 +86,6 @@ if __name__ == "__main__":
     cuda_device = 0
 
     config_det = real_det.replace(".dill", ".yaml")
-
     # if the width is very narrow use the low width flag
     (
         detection_curve,
@@ -98,6 +97,8 @@ if __name__ == "__main__":
         snr_thresh,
         width_thresh,
         flux_cal,
+        snr_upper,
+        width_upper,
     ) = read_config(config_det)
 
     (
@@ -107,16 +108,17 @@ if __name__ == "__main__":
         noise_std,
         low_width_flag,
         logN_lower,
-    ) = process_detection_results(real_det, snr_thresh, width_thresh)
+    ) = process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper)
 
     likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,
-        snr_thresh,
-        width_thresh,
-        flux_cal,
-        det_snr,
-        det_width,
-        low_width_flag,
+        snr_thresh=snr_thresh,
+        width_thresh=width_thresh,
+        det_snr=det_snr,
+        det_width=det_width,
+        low_width_flag=low_width_flag,
+        snr_upper=snr_upper,
+        width_upper=width_upper,
     )
 
     if logn_N_range[0] == -1:

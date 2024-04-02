@@ -44,6 +44,14 @@ def read_config(filename):
 
     snr_thresh = data["snr_thresh"]
     width_thresh = data["width_thresh"]
+
+    #try add an upper limit for snr and width
+    try:
+        snr_upper = data["snr_upper"]
+        width_upper = data["width_upper"]
+    except:
+        snr_upper = np.inf
+        width_upper = np.inf
     try:
         flux_cal = data["flux_cal"]
     except:
@@ -58,10 +66,12 @@ def read_config(filename):
         snr_thresh,
         width_thresh,
         flux_cal,
+        snr_upper,
+        width_upper,
     )
 
 
-def process_detection_results(real_det, snr_thresh, width_thresh):
+def process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
 
@@ -83,13 +93,16 @@ def process_detection_results(real_det, snr_thresh, width_thresh):
     logn_lower = len(det_snr) + 1
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
-    width_wide_thresh = 28e-3
-    print("width_wide_thresh", width_wide_thresh)
+    snr_upper_cutoff = np.min([snr_upper, 50])
+    width_upper_cutoff = np.min([width_upper, 28e-3])
+    print("width_wide_thresh", width_upper_cutoff)
+    print("snr_upper", snr_upper_cutoff)
     # filter the det_snr
     mask = (
         (det_snr > snr_thresh)
         & (det_width > width_thresh)
-        & (det_width < width_wide_thresh)
+        & (det_width < width_upper_cutoff)
+        & (det_snr < snr_upper_cutoff)
     )
     det_snr = det_snr[mask]
     det_width = det_width[mask]
@@ -102,12 +115,14 @@ def process_detection_results(real_det, snr_thresh, width_thresh):
 
 def load_selection_effects(
     detection_curve,
-    snr_thresh,
-    width_thresh,
-    flux_cal,
-    det_snr,
-    det_width,
-    low_width_flag,
+    snr_thresh=2,
+    width_thresh=0.005,
+    flux_cal=1,
+    det_snr=None,
+    det_width=None,
+    low_width_flag=False,
+    snr_upper=50,
+    width_upper=28e-3,
 ):
     # load the selection effects
     likelihood_calc = statistics_ln(
@@ -117,6 +132,8 @@ def load_selection_effects(
         snr_cutoff=snr_thresh,
         width_cutoff=width_thresh,
         low_width_flag=low_width_flag,
+        snr_upper=snr_upper,
+        width_upper=width_upper,
     )
     likelihood_calc.convolve_p_detect(low_width=low_width_flag)
     likelihood_calc.calculate_pdet(det_snr, det_width)
@@ -249,6 +266,8 @@ if __name__ == "__main__":
         snr_thresh,
         width_thresh,
         flux_cal,
+        snr_upper,
+        width_upper,
     ) = read_config(config_det)
 
     (
@@ -258,16 +277,17 @@ if __name__ == "__main__":
         noise_std,
         low_width_flag,
         logN_lower,
-    ) = process_detection_results(real_det, snr_thresh, width_thresh)
+    ) = process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper)
 
     likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,
-        snr_thresh,
-        width_thresh,
-        flux_cal,
-        det_snr,
-        det_width,
-        low_width_flag,
+        snr_thresh=snr_thresh,
+        width_thresh=width_thresh,
+        det_snr=det_snr,
+        det_width=det_width,
+        low_width_flag=low_width_flag,
+        snr_upper=snr_upper,
+        width_upper=width_upper,
     )
 
     if logn_N_range[0] == -1:
