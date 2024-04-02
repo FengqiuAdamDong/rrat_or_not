@@ -73,12 +73,12 @@ class statistics_basic:
     def convolve_p_detect(self, plot=True, low_width=False):
         # convolve the p_detect with the injected distribution
         # gaussian with sigma_amp_error
-        true_snr_bins = np.linspace(-2, 20, 500)
+        true_snr_bins = np.linspace(-2, 55, 1000)
         true_snr_bins = true_snr_bins[np.newaxis, np.newaxis, :]
-        true_width_bins = np.linspace(-2, 35, 501) * 1e-3
+        true_width_bins = np.linspace(-2, 35, 1001) * 1e-3
 
-        detected_snr_bins = np.linspace(-5, 25, 502)
-        detected_width_bins = np.linspace(-5, 40, 503) * 1e-3
+        detected_snr_bins = np.linspace(-5, 60, 1002)
+        detected_width_bins = np.linspace(-5, 40, 1003) * 1e-3
         detected_snr_bins = detected_snr_bins[:, np.newaxis, np.newaxis]
         detected_width_bins = detected_width_bins[np.newaxis, :, np.newaxis]
         points_det = (detected_snr_bins, detected_width_bins)
@@ -223,7 +223,7 @@ class statistics_basic:
         )
         # do a stage of this interpolation process so that the interpolated cut-off is at the right place
         # this is only needed if the injected grid is not really fine
-        detected_snr_bins_stage1 = np.linspace(0, max(detected_snr_bins), 5000)
+        detected_snr_bins_stage1 = np.linspace(0, 52, 5000)
         detected_width_bins_stage1 = np.linspace(0, 35e-3, 5000)
         detected_det_frac_snr_stage1 = self.p_detect_cpu(
             (
