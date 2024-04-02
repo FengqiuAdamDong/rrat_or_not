@@ -3,6 +3,7 @@ import os
 import sys
 from csv import writer
 from csv import reader
+from matplotlib import pyplot as plt
 #arguments
 import argparse
 parser = argparse.ArgumentParser()
@@ -74,16 +75,21 @@ for i,ufn in enumerate(unique_filenames):
     ufn_path = path_arr[mask]
     ufn_filename = filename_arr[mask]
     #include all the ones that are not in a cluster because there's no repeat there
-
-    features = np.column_stack((ufn_dm, ufn_tcand))
-    errors = np.array([12, 0.05])
+    #correct each ufn_tcand to dm infinity
+    ufn_tcand_corrected = []
+    for u_dm,u_tcand in zip(ufn_dm,ufn_tcand):
+        t_correction = 4.15e3 * (1/800**2)*u_dm #ms
+        u_tcand = u_tcand - t_correction/1000 #s
+        ufn_tcand_corrected.append(u_tcand)
+    ufn_tcand_corrected = np.array(ufn_tcand_corrected)
+    features = ufn_tcand_corrected.reshape(-1,1)
+    errors = np.array(0.1)
     features = features / errors
     db = DBSCAN(eps=1, min_samples=2).fit(features)
 
     labels = db.labels_
 
     unique_labels = set(labels)
-
     unique_fn = ufn_filename[labels == -1]
     unique_path = ufn_path[labels == -1]
     for l in unique_labels:
