@@ -77,20 +77,23 @@ for pulsar in pulsar_name:
     det_snr_masked = det_snr[mask]
     det_fluence_masked = det_fluence[mask]
     det_width_masked = det_width[mask]
-
+    standard_mask = (det_snr > 1) & (det_width > 1e-3) & (det_snr < 50) & (det_width < 28e-3)
+    det_snr_standard = det_snr[standard_mask]
+    det_fluence_standard = det_fluence[standard_mask]
+    det_width_standard = det_width[standard_mask]
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
     try:
         bins = "auto"
-        ax[0].hist(det_fluence, bins=bins)
-        ax[0].set_title(f"Detected Fluence, total: {len(det_fluence)}")
+        ax[0].hist(det_fluence_standard, bins=bins)
+        ax[0].set_title(f"Detected Fluence, total: {len(det_fluence_standard)}")
         ax[0].set_xlabel("Fluence")
         ax[0].set_ylabel("Counts")
-        ax[1].hist(det_width, bins=bins)
-        ax[1].set_title(f"Detected Width, total: {len(det_width)}")
+        ax[1].hist(det_width_standard, bins=bins)
+        ax[1].set_title(f"Detected Width, total: {len(det_width_standard)}")
         ax[1].set_xlabel("Width")
         ax[1].set_ylabel("Counts")
-        ax[2].hist(det_snr, bins=bins)
-        ax[2].set_title(f"Detected SNR, total: {len(det_snr)}")
+        ax[2].hist(det_snr_standard, bins=bins)
+        ax[2].set_title(f"Detected SNR, total: {len(det_snr_standard)}")
         ax[2].set_xlabel("SNR")
         ax[2].set_ylabel("Counts")
         plt.tight_layout()
