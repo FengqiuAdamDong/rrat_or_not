@@ -37,4 +37,5 @@ for pulsar in pulsar_name:
     root_dir = os.path.dirname(os.path.realpath(__file__))
     dill_file = f"{pulsar}.dill"
     command = f"{root_dir}/batch_submit_fit.sh {dill_file}"
+    print(command)
     os.system(command)
