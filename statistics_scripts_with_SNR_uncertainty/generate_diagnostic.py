@@ -116,5 +116,5 @@ for pulsar in pulsar_name:
         print(f"plot saved to {pulsar}/fdp/{pulsar}_detected.png")
         plt.show()
     except:
-        print(f"plots not made for {pulsar}"
+        print(f"plots not made for {pulsar}")
         continue
