@@ -79,8 +79,8 @@ for pulsar in pulsar_name:
     det_width_masked = det_width[mask]
 
     fig, ax = plt.subplots(1, 3, figsize=(15, 5))
-    bins = "auto"
     try:
+        bins = "auto"
         ax[0].hist(det_fluence, bins=bins)
         ax[0].set_title(f"Detected Fluence, total: {len(det_fluence)}")
         ax[0].set_xlabel("Fluence")
