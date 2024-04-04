@@ -74,6 +74,9 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
             yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
             snr_thresh = yaml_dict["snr_thresh"]
             width_thresh = yaml_dict["width_thresh"]
+            orig_N = yaml_dict["logn_N_range"][1]
+            print(f"Original N: {orig_N}")
+            print(f"New N: {N}")
             try:
                 snr_upper = yaml_dict["snr_upper"]
             except KeyError:
@@ -84,12 +87,12 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
                 width_upper = float(28e-3)
     yaml_dict = {
         "detection_curve": "inj_stats_combine_fitted.dill",
-        "logn_N_range": [-1, float(N)],
+        "logn_N_range": [-1, int(N)],
         "snr_thresh": snr_thresh,
         "width_thresh": width_thresh,
         "snr_upper": snr_upper,
         "width_upper": width_upper,
     }
-    with open(yaml_file, "w") as f:
-        yaml.dump(yaml_dict, f)
+    # with open(yaml_file, "w") as f:
+        # yaml.dump(yaml_dict, f)
     print(f"Created {yaml_file}")
