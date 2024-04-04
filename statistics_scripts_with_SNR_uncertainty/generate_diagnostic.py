@@ -61,9 +61,6 @@ for pulsar in pulsar_name:
             yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
             snr_thresh = yaml_dict["snr_thresh"]
             width_thresh = yaml_dict["width_thresh"]
-            orig_N = yaml_dict["logn_N_range"][1]
-            print(f"Original N: {orig_N}")
-            print(f"New N: {N}")
             try:
                 snr_upper = yaml_dict["snr_upper"]
             except KeyError:
