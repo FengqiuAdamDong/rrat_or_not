@@ -51,13 +51,6 @@ with open(csv_file, "r") as f:
         pulsar_name.append(row[0])
         pulsar_period.append(float(row[2]))
 
-    # only use the middle 80% of the data
-    obs_time = obs_time * 0.8
-    N = obs_time / period
-    if period < 0.5:
-        width_thresh = 0.003
-    else:
-        width_thresh = 0.005
     # create the yaml file
     yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
     #check if yaml file already exists
@@ -116,4 +109,5 @@ with open(csv_file, "r") as f:
     ax[2].set_ylabel("Counts")
     plt.tight_layout()
     plt.savefig(f"{pulsar}/fdp/{pulsar}_detected_masked.png")
+    print(f"plot saved to {pulsar}/fdp/{pulsar}_detected.png")
     plt.show()
