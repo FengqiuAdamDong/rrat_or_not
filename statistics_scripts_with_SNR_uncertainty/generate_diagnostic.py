@@ -8,6 +8,7 @@ from sigpyproc import readers as r
 import os
 import glob
 import dill
+import matplotlib.pyplot as plt
 # creates the yaml file for pulsar
 def process_detection_results(real_det):
     with open(real_det, "rb") as inf:
