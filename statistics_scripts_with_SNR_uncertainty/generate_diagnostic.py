@@ -51,6 +51,7 @@ with open(csv_file, "r") as f:
         pulsar_name.append(row[0])
         pulsar_period.append(float(row[2]))
 
+for pulsar in pulsar_name:
     # create the yaml file
     yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
     #check if yaml file already exists
