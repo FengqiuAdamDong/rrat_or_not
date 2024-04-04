@@ -39,3 +39,4 @@ for pulsar in pulsar_name:
     command = f"{root_dir}/batch_submit_fit.sh {dill_file}"
     print(command)
     os.system(command)
+    os.chdir("../../")
