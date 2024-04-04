@@ -93,6 +93,6 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
         "snr_upper": snr_upper,
         "width_upper": width_upper,
     }
-    # with open(yaml_file, "w") as f:
-        # yaml.dump(yaml_dict, f)
+    with open(yaml_file, "w") as f:
+        yaml.dump(yaml_dict, f)
     print(f"Created {yaml_file}")
