@@ -8,7 +8,7 @@ import glob
 
 
 def get_obs_time(fn, maskfn):
-    print("getting filterbank data")
+    # print("getting filterbank data")
     filf = r.FilReader(fn)
     hdr = filf.header
     total_time = hdr.nsamples * hdr.tsamp
@@ -17,7 +17,7 @@ def get_obs_time(fn, maskfn):
     rfimask = rfifind.rfifind(maskfn)
     total_ints = rfimask.nint
     good_ints = len(rfimask.goodints)
-    print(good_ints / total_ints)
+    # print(good_ints / total_ints)
     good_time = total_time * good_ints / total_ints
     return good_time
 
@@ -45,6 +45,7 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
         continue
     fil_files = glob.glob(f"{pulsar}/fdp/*fdp.fil")
     obs_time = 0
+    print(f"Processing {pulsar}")
     for fil_file in fil_files:
         mask_file = fil_file.replace(".fil", "_rfifind.mask")
         try:
