@@ -66,13 +66,30 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
     else:
         width_thresh = 0.005
     # create the yaml file
+    yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
+    #check if yaml file already exists
+    if os.path.exists(yaml_file):
+        #load the yaml file
+        with open(yaml_file, "r") as f:
+            yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
+            snr_thresh = yaml_dict["snr_thresh"]
+            width_thresh = yaml_dict["width_thresh"]
+            try:
+                snr_upper = yaml_dict["snr_upper"]
+            except KeyError:
+                snr_upper = 50
+            try:
+                width_upper = yaml_dict["width_upper"]
+            except KeyError:
+                width_upper = float(28e-3)
     yaml_dict = {
         "detection_curve": "inj_stats_combine_fitted.dill",
         "logn_N_range": [-1, float(N)],
-        "snr_thresh": 2.0,
+        "snr_thresh": snr_thresh,
         "width_thresh": width_thresh,
+        "snr_upper": snr_upper,
+        "width_upper": width_upper,
     }
-    yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
     with open(yaml_file, "w") as f:
         yaml.dump(yaml_dict, f)
     print(f"Created {yaml_file}")
