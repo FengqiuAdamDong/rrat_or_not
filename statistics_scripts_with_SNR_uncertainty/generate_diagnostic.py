@@ -72,7 +72,11 @@ for pulsar in pulsar_name:
                 width_upper = float(28e-3)
     dill_file = f"{pulsar}/fdp/{pulsar}.dill"
 
-    det_fluence, det_width, det_snr, noise_std = process_detection_results(dill_file)
+    try:
+        det_fluence, det_width, det_snr, noise_std = process_detection_results(dill_file)
+    except:
+        print(f"Error in processing {pulsar}")
+        continue
     mask = (det_snr > snr_thresh) & (det_width > width_thresh) & (det_snr < snr_upper) & (det_width < width_upper)
     det_snr_masked = det_snr[mask]
     det_fluence_masked = det_fluence[mask]
