@@ -8,7 +8,7 @@ if __name__ == "__main__":
     # load the pulsars.csv file
     #
     #
-    force_retry = True
+    force_retry = False
     if force_retry:
         print("WARNING: Force retry is enabled, this will delete all the .dill and tmp.dill files in the pulsar folders.")
         input("Press Enter to continue...")
