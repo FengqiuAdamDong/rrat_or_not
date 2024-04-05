@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=def-istairs
 #SBATCH --export=NONE
-#SBATCH --time=3:00:00
+#SBATCH --time=6:00:00
 #SBATCH --mem=16GB
 #SBATCH --cpus-per-task=1
 #SBATCH --job-name=bayes_factor_LNEXP
@@ -10,6 +10,6 @@
 #SBATCH --gres=gpu:v100l:1
 #
 source ~/util/load_presto.sh
-source ~/rrat_or_not_width/bin/activate
+source ~/lunfit_env/bin/activate
 python ~/rrat_or_not_with_width/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_LNEXP.py -i $1
 # python bayes_factor_NS_LN_no_a_single.py -i $1

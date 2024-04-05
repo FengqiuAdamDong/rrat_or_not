@@ -10,5 +10,5 @@
 #SBATCH --gres=gpu:v100l:1
 #
 source ~/util/load_presto.sh
-source ~/rrat_or_not_width/bin/activate
+source ~/lunfit_env/bin/activate
 python ~/rrat_or_not_with_width/rrat_or_not/statistics_scripts_with_SNR_uncertainty/bayes_factor_EXPLN.py -i $1

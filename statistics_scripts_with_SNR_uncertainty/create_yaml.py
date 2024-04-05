@@ -8,7 +8,7 @@ import glob
 
 
 def get_obs_time(fn, maskfn):
-    print("getting filterbank data")
+    # print("getting filterbank data")
     filf = r.FilReader(fn)
     hdr = filf.header
     total_time = hdr.nsamples * hdr.tsamp
@@ -17,7 +17,7 @@ def get_obs_time(fn, maskfn):
     rfimask = rfifind.rfifind(maskfn)
     total_ints = rfimask.nint
     good_ints = len(rfimask.goodints)
-    print(good_ints / total_ints)
+    # print(good_ints / total_ints)
     good_time = total_time * good_ints / total_ints
     return good_time
 
@@ -45,6 +45,7 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
         continue
     fil_files = glob.glob(f"{pulsar}/fdp/*fdp.fil")
     obs_time = 0
+    print(f"Processing {pulsar}")
     for fil_file in fil_files:
         mask_file = fil_file.replace(".fil", "_rfifind.mask")
         try:
@@ -66,13 +67,33 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
     else:
         width_thresh = 0.005
     # create the yaml file
+    yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
+    #check if yaml file already exists
+    if os.path.exists(yaml_file):
+        #load the yaml file
+        with open(yaml_file, "r") as f:
+            yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
+            snr_thresh = yaml_dict["snr_thresh"]
+            width_thresh = yaml_dict["width_thresh"]
+            orig_N = yaml_dict["logn_N_range"][1]
+            print(f"Original N: {orig_N}")
+            print(f"New N: {N}")
+            try:
+                snr_upper = yaml_dict["snr_upper"]
+            except KeyError:
+                snr_upper = 50
+            try:
+                width_upper = yaml_dict["width_upper"]
+            except KeyError:
+                width_upper = float(28e-3)
     yaml_dict = {
         "detection_curve": "inj_stats_combine_fitted.dill",
-        "logn_N_range": [-1, float(N)],
-        "snr_thresh": 2.0,
+        "logn_N_range": [-1, int(N)],
+        "snr_thresh": snr_thresh,
         "width_thresh": width_thresh,
+        "snr_upper": snr_upper,
+        "width_upper": width_upper,
     }
-    yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
     with open(yaml_file, "w") as f:
         yaml.dump(yaml_dict, f)
     print(f"Created {yaml_file}")
