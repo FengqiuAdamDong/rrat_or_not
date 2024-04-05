@@ -13,8 +13,8 @@ def run_prepfold(X):
     filterbank_file, dm, period = X
     #get the rfi mask file
     r = FilReader(filterbank_file)
-    tsamp = r.header['tsamp']
-    nsamp = r.header['nsamp']
+    tsamp = r.header.tsamp
+    nsamp = r.header.nsamp
     total_time = tsamp * nsamp
     #number of folds is npart
     folds = int(total_time / period)
@@ -54,5 +54,6 @@ if __name__ == "__main__":
             X.append((filterbank_file, d, p))
         for x in X:
             run_prepfold(x)
+        os.chdir("../../")
         # with mp.Pool(4) as pool:
             # pool.map(run_prepfold, X)
