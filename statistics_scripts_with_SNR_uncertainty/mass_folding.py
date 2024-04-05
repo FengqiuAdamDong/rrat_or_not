@@ -14,7 +14,7 @@ def run_prepfold(X):
     #get the rfi mask file
     r = FilReader(filterbank_file)
     tsamp = r.header.tsamp
-    nsamp = r.header.nsamp
+    nsamp = r.header.nsamples
     total_time = tsamp * nsamp
     #number of folds is npart
     folds = int(total_time / period)
