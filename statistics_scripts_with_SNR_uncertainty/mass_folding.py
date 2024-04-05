@@ -45,7 +45,7 @@ if __name__ == "__main__":
             period.append(row[2])
 
     for pulsar, d, p in zip(pulsar_name, dm, period):
-        path = '{pulsar}/fdp/'
+        path = f"{pulsar}/fdp/"
         os.chdir(path)
         #get all the filterbank files
         filterbank_files = glob.glob('*.fil')
