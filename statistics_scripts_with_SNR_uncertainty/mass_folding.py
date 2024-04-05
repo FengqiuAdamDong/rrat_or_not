@@ -42,7 +42,7 @@ if __name__ == "__main__":
                 continue
             pulsar_name.append(row[0])
             dm.append(row[1])
-            period.append(row[2])
+            period.append(float(row[2]))
 
     for pulsar, d, p in zip(pulsar_name, dm, period):
         path = f"{pulsar}/fdp/"
