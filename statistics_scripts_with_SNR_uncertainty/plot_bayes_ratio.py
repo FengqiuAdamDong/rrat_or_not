@@ -189,6 +189,15 @@ class post_process:
         dill_file = yaml_file.replace("yaml", "dill")
         snr_thresh = yaml_data["snr_thresh"]
         width_thresh = yaml_data["width_thresh"]
+        try:
+            snr_upper = yaml_data["snr_upper"]
+        except:
+            snr_upper = 50
+        try:
+            width_upper = yaml_data["width_upper"]
+        except:
+            width_upper = 28e-3
+
         detection_curve = yaml_data["detection_curve"]
         flux_cal = 1
 
@@ -200,7 +209,7 @@ class post_process:
             low_width_flag,
             logn_lower,
         ) = process_detection_results(
-            dill_file, snr_thresh, width_thresh
+            dill_file, snr_thresh, width_thresh, snr_upper, width_upper
         )
         likelihood_calc = statistics_ln(
             detection_curve,
@@ -209,6 +218,8 @@ class post_process:
             snr_cutoff=snr_thresh,
             width_cutoff=width_thresh,
             low_width_flag=low_width_flag,
+            snr_upper=snr_upper,
+            width_upper=width_upper,
         )
         snr_array = np.linspace(0, 80, 1000)
         width_array = np.linspace(0, 30, 1001) * 1e-3
@@ -297,12 +308,12 @@ class post_process:
             ax[0].hist(det_snr, bins="auto", density=True)
             ax[0].set_xlabel("SNR")
             ax[0].set_ylabel("Probability")
-            ax[0].set_xlim(0, max(det_snr))
+            ax[0].set_xlim(0, max(det_snr)+5)
             ax[1].plot(width_array * 1e3, marg_width / 1e3)
             ax[1].hist(det_width * 1e3, bins="auto", density=True)
             ax[1].set_xlabel("Width (ms)")
             ax[1].set_ylabel("Probability")
-            ax[1].set_xlim(0, max(det_width * 1e3))
+            ax[1].set_xlim(0, max(det_width * 1e3)+5)
             plt.savefig(self.base_name+f"_marginal_{fit_type[0]}_{fit_type[1]}.png")
             plt.close("all")
             # plt.show()
