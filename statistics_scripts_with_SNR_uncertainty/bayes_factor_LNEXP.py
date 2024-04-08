@@ -126,7 +126,10 @@ if __name__ == "__main__":
     # det_snr = det_snr[~remove_mask]
     # det_width = det_width[~remove_mask]
     if logn_N_range[0] == -1:
+        if logN_lower > logn_N_range[1]:
+            logN_lower = logn_N_range[1] - 1
         logn_N_range[0] = logN_lower
+
 
 
     print(f"number of detections {len(det_snr)}")

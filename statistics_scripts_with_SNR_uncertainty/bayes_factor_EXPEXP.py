@@ -121,6 +121,8 @@ if __name__ == "__main__":
     )
 
     if logn_N_range[0] == -1:
+        if logN_lower > logn_N_range[1]:
+            logN_lower = logn_N_range[1] - 1
         logn_N_range[0] = logN_lower
 
     # remove_mask = (det_snr < 6)&(det_width < 6e-3)

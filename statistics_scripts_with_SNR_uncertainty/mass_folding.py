@@ -8,7 +8,8 @@ import shutil
 import glob
 import subprocess
 from sigpyproc.readers import FilReader
-
+from matplotlib import pyplot as plt
+import psrchive
 def run_prepfold(X):
     filterbank_file, dm, period = X
     #get the rfi mask file
@@ -25,6 +26,9 @@ def run_prepfold(X):
     base_name = filterbank_file.replace('.fil', '')
     command = f"prepfold -noxwin -nosearch -nodmsearch -dm {dm} -p {period} -ignorechan {ignored_channels} -mask {rfi_mask} -o {base_name} -npart {npart} {filterbank_file}"
     subprocess.run(command, shell=True)
+    #get the pfd generated
+    pfd_file = glob.glob(f"{base_name}*.pfd")[0]
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="folding all filterbank files given a csv file of pulsars")
