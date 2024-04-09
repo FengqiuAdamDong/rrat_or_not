@@ -8,7 +8,7 @@ def get_observation_center(filename):
     tstart = header.tstart
     tsamp = header.tsamp
     nsamples = header.nsamples
-    observation_center = tstart + (nsamples/2)*tsamp
+    observation_center = tstart + ((nsamples/2)*tsamp/86400)
     return observation_center
 
 if __name__ == "__main__":
