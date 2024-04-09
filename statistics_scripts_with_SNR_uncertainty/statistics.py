@@ -451,6 +451,7 @@ class statistics_ln(sb):
             if X["mu_w"] < 0:
                 return -np.inf
         # print("starting loglike")
+        no_dets = len(snr_arr)==0
         with cp.cuda.Device(cuda_device):
             start = time.time()
             snr_arr = cp.array(snr_arr)
@@ -488,28 +489,30 @@ class statistics_ln(sb):
             else:
                 sigma_snr = self.detected_error_snr
                 sigma_width = self.detected_error_width
-
-            n = len(snr_arr)
-            f, _ = self.first_cupy(
-                snr_arr,
-                width_arr,
-                mu,
-                std,
-                mu_w,
-                std_w,
-                sigma_amp=sigma_snr,
-                sigma_w=sigma_width,
-                a=a,
-                lower_c=lower_c,
-                upper_c=upper_c,
-                amp_dist=amp_dist,
-                w_dist=w_dist,
-            )
-            first_time = time.time()
-            # print("finished f")
-            if cp.isnan(f):
-                print("f is nan")
-                return -np.inf
+            if ~no_dets:
+                n = len(snr_arr)
+                f, _ = self.first_cupy(
+                    snr_arr,
+                    width_arr,
+                    mu,
+                    std,
+                    mu_w,
+                    std_w,
+                    sigma_amp=sigma_snr,
+                    sigma_w=sigma_width,
+                    a=a,
+                    lower_c=lower_c,
+                    upper_c=upper_c,
+                    amp_dist=amp_dist,
+                    w_dist=w_dist,
+                )
+                first_time = time.time()
+                # print("finished f")
+                if cp.isnan(f):
+                    print("f is nan")
+                    return -np.inf
+            else:
+                f = 0
             # s = second(len(snr_arr), mu, std, N, sigma_snr=sigma_snr)
             s, _ = self.second_cupy(
                 n,
@@ -531,9 +534,12 @@ class statistics_ln(sb):
             if cp.isnan(s):
                 print("s is nan")
                 return -np.inf
-            log_NCn = (
-                cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
-            )
+            if ~no_dets:
+                log_NCn = (
+                    cupy_gammaln(N + 1) - cupy_gammaln(n + 1) - cupy_gammaln(N - n + 1)
+                )
+            else:
+                log_NCn = 0
             # print("finished log_NCn")
             loglike = f + s + log_NCn
             # loglike = np.array(loglike.get())
