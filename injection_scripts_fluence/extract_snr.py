@@ -100,6 +100,7 @@ class det_stats:
                     dill.dump(inject_stats, of)
             #flatten the array
             self.sorted_pulses = [item for sublist in self.sorted_pulses_arr for item in sublist]
+            import pdb; pdb.set_trace()
             # with mp.Pool(16) as p:
                 # self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
         else:
