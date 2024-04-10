@@ -76,7 +76,7 @@ class det_stats:
             # self.sorted_pulses = self.sorted_pulses[0:10]
             # with ProcessPool(nodes=2) as p:
             # sort the self.sorted_pulses into groups of 1000 each
-            checkpoint_freq = 32
+            checkpoint_freq = 10
             self.sorted_pulses_arr = []
             for i in range(0, len(self.sorted_pulses), checkpoint_freq):
                 self.sorted_pulses_arr.append(self.sorted_pulses[i:i+checkpoint_freq])
@@ -92,7 +92,7 @@ class det_stats:
                 if processed:
                     print("already processed, skipping")
                     continue
-                with mp.Pool(16) as p:
+                with mp.Pool(4) as p:
                     self.sorted_pulses_arr[i] = p.map(run_calc, copy.deepcopy(s))
                 # checkpoint
                 with open(f"tmp.dill", "wb") as of:
