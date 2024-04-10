@@ -73,7 +73,7 @@ class det_stats:
                 return copy.deepcopy(s)
 
             # for faster debugging
-            # self.sorted_pulses = self.sorted_pulses[0:10]
+            self.sorted_pulses = self.sorted_pulses[0:50]
             # with ProcessPool(nodes=2) as p:
             # sort the self.sorted_pulses into groups of 1000 each
             checkpoint_freq = 10
@@ -82,7 +82,7 @@ class det_stats:
             if not hasattr(self, "sorted_pulses_arr"):
                 for i in range(0, len(self.sorted_pulses), checkpoint_freq):
                     self.sorted_pulses_arr.append(self.sorted_pulses[i:i+checkpoint_freq])
-
+            import pdb; pdb.set_trace()
             for i, s in enumerate(self.sorted_pulses_arr):
                 print(f"running batch {i} out of {len(self.sorted_pulses_arr)}")
                 #check if the pulses have been processed already
