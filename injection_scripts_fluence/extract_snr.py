@@ -73,10 +73,10 @@ class det_stats:
                 return copy.deepcopy(s)
 
             # for faster debugging
-            self.sorted_pulses = self.sorted_pulses[0:50]
+            # self.sorted_pulses = self.sorted_pulses[0:50]
             # with ProcessPool(nodes=2) as p:
             # sort the self.sorted_pulses into groups of 1000 each
-            checkpoint_freq = 10
+            checkpoint_freq = 1000
             #check if self.sorted_pulses_arr is already created
             if not hasattr(self, "sorted_pulses_arr"):
                 self.sorted_pulses_arr = []
@@ -93,14 +93,13 @@ class det_stats:
                 if processed:
                     print("already processed, skipping")
                     continue
-                with mp.Pool(4) as p:
+                with mp.Pool(16) as p:
                     self.sorted_pulses_arr[i] = p.map(run_calc, copy.deepcopy(s))
                 # checkpoint
                 with open(f"tmp.dill", "wb") as of:
                     dill.dump(inject_stats, of)
             #flatten the array
             self.sorted_pulses = [item for sublist in self.sorted_pulses_arr for item in sublist]
-            import pdb; pdb.set_trace()
             # with mp.Pool(16) as p:
                 # self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
         else:
