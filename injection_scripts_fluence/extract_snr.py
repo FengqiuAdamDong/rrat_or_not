@@ -78,8 +78,10 @@ class det_stats:
             # sort the self.sorted_pulses into groups of 1000 each
             checkpoint_freq = 10
             self.sorted_pulses_arr = []
-            for i in range(0, len(self.sorted_pulses), checkpoint_freq):
-                self.sorted_pulses_arr.append(self.sorted_pulses[i:i+checkpoint_freq])
+            #check if self.sorted_pulses_arr is already created
+            if not hasattr(self, "sorted_pulses_arr"):
+                for i in range(0, len(self.sorted_pulses), checkpoint_freq):
+                    self.sorted_pulses_arr.append(self.sorted_pulses[i:i+checkpoint_freq])
 
             for i, s in enumerate(self.sorted_pulses_arr):
                 print(f"running batch {i} out of {len(self.sorted_pulses_arr)}")
