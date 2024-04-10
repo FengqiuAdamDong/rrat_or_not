@@ -7,6 +7,7 @@ from astropy.time import Time
 import csv
 from fluxcal_fit import fluxcal_fit
 import glob
+import shutil
 def calculate_transit_time(rajd, decjd):
     """Calculate the CHIME transit time for a known source.
     Parameters
@@ -103,6 +104,13 @@ if __name__ == '__main__':
         except:
             print(f"Error in fitting {pulsar}")
             pass
+        #copy {pulsar}.yaml to a name with the calibrator
+        try:
+            shutil.copyfile(f"{pulsar}.yaml", f"{pulsar}_{cal_name}_calibrated.yaml")
+        except:
+            print(f"Error in copying {pulsar}.yaml")
+            pass
+
 
 # transit_time = calculate_transit_time(290.436729, 21.883958)
 #convert transit time to MJD

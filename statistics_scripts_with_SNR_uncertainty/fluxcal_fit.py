@@ -5,6 +5,7 @@ import glob
 from chimepsr_fluxcal.utils.sefd import SEFD
 from dynesty.utils import quantile
 import smplotlib
+from dynesty.utils import mean_and_cov
     # sefd = SEFD()
     # sefd.set_pointing(ra_deg, dec_deg, mjd= hdr.tstart+(total_time/2/86400))
     # sefd.compute_sefd()
@@ -44,7 +45,8 @@ def calibrate_snr(bayes_fit, sefd):
             quantile(samples[:, i], [0.159, 0.5, 0.841], weights=importance_weights)
         )
     quantiles = np.array(quantiles)
-    return calibrated_samples, quantiles
+    mean, cov = mean_and_cov(calibrated_samples, weights=importance_weights)
+    return calibrated_samples, quantiles, mean, cov
 
 def fluxcal_fit(bayes_fit_npz, calibrator_name, ra, dec, transit_time):
     #find all the calibrator npz files
@@ -70,11 +72,12 @@ def fluxcal_fit(bayes_fit_npz, calibrator_name, ra, dec, transit_time):
     ax1.set_xlabel('Frequency (MHz)')
     ax1.set_ylabel('Temperature (K) or SEFD (Jy)')
     ax2.set_ylabel('Gain (K/Jy)')
-    plt.savefig(f'{calibrator_name}_{bayes_fit_npz.split("/")[-1].split(".")[0]}.png')
+    plt.savefig(f'{bayes_fit_npz.split("/")[-1].split(".")[0]}_{calibrator_name}.png')
     #load the bayes fit npz file
     bayes_fit = np.load(bayes_fit_npz, allow_pickle=True)['results'].tolist()
 
-    calibrated_samples, quantiles = calibrate_snr(bayes_fit, sefd)
+    calibrated_samples, quantiles, mean, cov = calibrate_snr(bayes_fit, sefd)
+    print(mean)
     print(quantiles)
     np.savez(f'{bayes_fit_npz.split("/")[-1].split(".")[0]}_{calibrator_name}_calibrated.npz', results=bayes_fit, quantiles=quantiles, calibrated_samples=calibrated_samples)
     #assuming only the log normal distribution

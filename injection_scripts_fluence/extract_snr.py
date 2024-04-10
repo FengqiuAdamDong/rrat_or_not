@@ -75,8 +75,33 @@ class det_stats:
             # for faster debugging
             # self.sorted_pulses = self.sorted_pulses[0:10]
             # with ProcessPool(nodes=2) as p:
-            with mp.Pool(16) as p:
-                self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
+            # sort the self.sorted_pulses into groups of 1000 each
+            checkpoint_freq = 32
+            self.sorted_pulses_arr = []
+            for i in range(0, len(self.sorted_pulses), checkpoint_freq):
+                self.sorted_pulses_arr.append(self.sorted_pulses[i:i+checkpoint_freq])
+            self.sorted_pulses_arr = np.array(self.sorted_pulses_arr)
+
+            for i, s in enumerate(self.sorted_pulses_arr):
+                print(f"running batch {i} out of {len(self.sorted_pulses_arr)}")
+                #check if the pulses have been processed already
+                processed = True
+                for s in self.sorted_pulses_arr[i]:
+                    if not s.processed:
+                        processed = False
+                        break
+                if processed:
+                    print("already processed, skipping")
+                    continue
+                with mp.Pool(16) as p:
+                    self.sorted_pulses_arr[i] = p.map(run_calc, copy.deepcopy(s))
+                # checkpoint
+                with open(f"tmp.dill", "wb") as of:
+                    dill.dump(inject_stats, of)
+            #flatten the array
+            self.sorted_pulses = self.sorted_pulses_arr.flatten()
+            # with mp.Pool(16) as p:
+                # self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
         else:
             for i,s in enumerate(self.sorted_pulses):
                 plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"

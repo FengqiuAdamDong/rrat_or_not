@@ -3,15 +3,18 @@ import matplotlib.pyplot as plt
 import argparse
 import smplotlib
 from bayes_factor_LNLN import read_config
-def get_best_fit_values(dynesty_results):
+def get_best_fit_values(dynesty_results,calibrated_samples):
     from dynesty.utils import quantile
-
-    samples = dynesty_results.samples
+    if calibrated_samples is not None:
+        samples = calibrated_samples
+        print('Using calibrated samples')
+    else:
+        samples = dynesty_results.samples
     importance_weights = dynesty_results.importance_weights()
     quantiles = []
     for i in range(samples.shape[1]):
         quantiles.append(
-            quantile(samples[:, i], [0.159, 0.5, 0.841], weights=importance_weights)
+            quantile(samples[:, i], [0.16, 0.5, 0.84], weights=importance_weights)
         )
     quantiles = np.array(quantiles)
     from dynesty.utils import mean_and_cov
@@ -20,9 +23,13 @@ def get_best_fit_values(dynesty_results):
 
 
 def load_data(fn):
-    data = np.load(fn, allow_pickle=True)["results"].tolist()
-
-    return data
+    data = np.load(fn, allow_pickle=True)
+    if "calibrated_samples" in data.keys():
+        calibrated_samples = data["calibrated_samples"]
+    else:
+        calibrated_samples = None
+    data = data['results'].tolist()
+    return data, calibrated_samples
 
 
 def process_npz(npz_files,yaml_files):
@@ -32,8 +39,9 @@ def process_npz(npz_files,yaml_files):
     N_cap = []
     for npz_file,yaml_file in zip(npz_files,yaml_files):
         print(npz_file,yaml_file)
-        data = load_data(npz_file)
-        quantile, mean, cov = get_best_fit_values(data)
+        data, calibrated_samples = load_data(npz_file)
+        quantile, mean, cov = get_best_fit_values(data,calibrated_samples)
+        print(mean)
         means.append(mean)
         covs.append(np.diag(cov))
         quantiles.append(quantile)
@@ -87,8 +95,11 @@ def process_npz(npz_files,yaml_files):
     plt.tight_layout()
     plt.savefig('hists.png')
     fig, ax = plt.subplots(1,2,figsize=(10,10))
+    print(N)
     null_all = 1-(N/N_cap[:,np.newaxis])
-    null_error = np.array([(n[2],n[0]) for n in null_all]).T
+    # import pdb; pdb.set_trace()
+    null_error = np.array([(np.abs(n[2]-n[1]),np.abs(n[0]-n[1])) for n in null_all]).T
+    print(null_error)
     null = np.array([n[1] for n in null_all])
     h = ax[0].hist2d(null,mu_snr,bins=5)
     #color bar
@@ -137,4 +148,5 @@ if __name__=="__main__":
 
     npz_base = [name.split('.')[0] for name in npzs]
     yamls = [name + '.yaml' for name in npz_base]
+
     process_npz(npzs,yamls)
