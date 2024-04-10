@@ -94,6 +94,7 @@ class det_stats:
                     print("already processed, skipping")
                     continue
                 with mp.Pool(16) as p:
+                    import pdb; pdb.set_trace()
                     self.sorted_pulses_arr[i] = p.map(run_calc, copy.deepcopy(s))
                 # checkpoint
                 with open(f"tmp.dill", "wb") as of:

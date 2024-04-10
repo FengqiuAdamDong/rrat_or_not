@@ -60,6 +60,12 @@ def process_npz(npz_files,yaml_files):
     mu_w_err = [cov[2] for cov in covs]
     std_w = [mean[3] for mean in means]
     std_w_err = [cov[3] for cov in covs]
+
+    mu_snr_quantiles = [quantile[0] for quantile in quantiles]
+    std_snr_quantiles = [quantile[1] for quantile in quantiles]
+    mu_w_quantiles = [quantile[2] for quantile in quantiles]
+    std_w_quantiles = [quantile[3] for quantile in quantiles]
+
     N = [quantile[4] for quantile in quantiles]
     mu_snr = np.array(mu_snr)
     mu_snr_err = np.array(mu_snr_err)
@@ -70,6 +76,25 @@ def process_npz(npz_files,yaml_files):
     std_w = np.array(std_w)
     std_w_err = np.array(std_w_err)
     N = np.array(N)
+    mu_snr_quantiles = np.array(mu_snr_quantiles)
+    std_snr_quantiles = np.array(std_snr_quantiles)
+    mu_w_quantiles = np.array(mu_w_quantiles)
+    std_w_quantiles = np.array(std_w_quantiles)
+
+    mu_snr_q_val = mu_snr_quantiles[:,1]
+    std_snr_q_val = std_snr_quantiles[:,1]
+    mu_w_q_val = mu_w_quantiles[:,1]
+    std_w_q_val = std_w_quantiles[:,1]
+
+    mu_snr_q_low = np.abs(mu_snr_quantiles[:,0]-mu_snr_q_val)
+    std_snr_q_low = np.abs(std_snr_quantiles[:,0]-std_snr_q_val)
+    mu_w_q_low = np.abs(mu_w_quantiles[:,0]-mu_w_q_val)
+    std_w_q_low = np.abs(std_w_quantiles[:,0]-std_w_q_val)
+
+    mu_snr_q_high = np.abs(mu_snr_quantiles[:,2]-mu_snr_q_val)
+    std_snr_q_high = np.abs(std_snr_quantiles[:,2]-std_snr_q_val)
+    mu_w_q_high = np.abs(mu_w_quantiles[:,2]-mu_w_q_val)
+    std_w_q_high = np.abs(std_w_quantiles[:,2]-std_w_q_val)
 
 
 
@@ -136,6 +161,27 @@ def process_npz(npz_files,yaml_files):
     plt.figure()
     plt.hist(null,bins="auto")
     plt.xlabel('Nulling fraction')
+
+    fig, ax = plt.subplots(2,2,figsize=(10,10))
+    fig.suptitle('Quantiles')
+    ax[0,0].errorbar(null,mu_snr_q_val,yerr=[mu_snr_q_low,mu_snr_q_high],xerr=null_error,fmt='o')
+    ax[0,0].set_xlabel('nulling fraction')
+    ax[0,0].set_ylabel(r'$\mu_{\rm S} (ln(Jy))$')
+    ax[0,0].set_xlim(0,1)
+    ax[0,1].errorbar(null,mu_w_q_val,yerr=[mu_w_q_low,mu_w_q_high],xerr=null_error,fmt='o')
+    ax[0,1].set_xlabel('nulling fraction')
+    ax[0,1].set_ylabel(r'$\mu_{\rm W} (ln(s))$')
+    ax[0,1].set_xlim(0,1)
+    ax[1,0].errorbar(null,std_snr_q_val,yerr=[std_snr_q_low,std_snr_q_high],xerr=null_error,fmt='o')
+    ax[1,0].set_xlabel('nulling fraction')
+    ax[1,0].set_ylabel(r'$\sigma_{\rm S}$')
+    ax[1,0].set_xlim(0,1)
+    ax[1,1].errorbar(null,std_w_q_val,yerr=[std_w_q_low,std_w_q_high],xerr=null_error,fmt='o')
+    ax[1,1].set_xlabel('nulling fraction')
+    ax[1,1].set_ylabel(r'$\sigma_{\rm W}$')
+    ax[1,1].set_xlim(0,1)
+    plt.tight_layout()
+    plt.savefig('median_errorbars.png')
 
 
     plt.show()
