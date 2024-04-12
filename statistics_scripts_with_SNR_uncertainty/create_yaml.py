@@ -69,6 +69,7 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
     # create the yaml file
     yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
     #check if yaml file already exists
+    write_new_yaml = False
     if os.path.exists(yaml_file):
         #load the yaml file
         with open(yaml_file, "r") as f:
@@ -94,6 +95,11 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
         "snr_upper": snr_upper,
         "width_upper": width_upper,
     }
-    with open(yaml_file, "w") as f:
-        yaml.dump(yaml_dict, f)
+    if write_new_yaml:
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_dict, f)
+
+    #record the total number of observation hours, N max and the pulsar period
+    with open("pulsar_obs_time.txt", "a") as f:
+        f.write(f"{pulsar},{obs_time},{N},{period}\n")
     print(f"Created {yaml_file}")

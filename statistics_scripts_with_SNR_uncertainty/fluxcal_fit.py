@@ -6,6 +6,7 @@ from chimepsr_fluxcal.utils.sefd import SEFD
 from dynesty.utils import quantile
 import smplotlib
 from dynesty.utils import mean_and_cov
+import csv
     # sefd = SEFD()
     # sefd.set_pointing(ra_deg, dec_deg, mjd= hdr.tstart+(total_time/2/86400))
     # sefd.compute_sefd()
