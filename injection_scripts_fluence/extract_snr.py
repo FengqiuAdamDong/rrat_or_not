@@ -93,7 +93,7 @@ class det_stats:
                 if processed:
                     print("already processed, skipping")
                     continue
-                with mp.Pool(4) as p:
+                with mp.Pool(32) as p:
                     self.sorted_pulses_arr[i] = p.map(run_calc, s)
                 # checkpoint
                 with open(f"tmp.dill", "wb") as of:
