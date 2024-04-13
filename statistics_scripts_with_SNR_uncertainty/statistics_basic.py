@@ -348,22 +348,25 @@ class statistics_basic:
         if plot:
             fig, ax = plt.subplots(1, 2, figsize=(10, 5))
             mesh = ax[0].pcolormesh(width_grid * 1e3, snr_arr, interp_res_snr)
-            ax[0].set_xlabel("width")
-            ax[0].set_ylabel("snr")
-            ax[0].set_title("Interped det frac")
-            cbar = plt.colorbar(mesh, ax=ax[0])
-            cbar.set_label("detection fraction")
+            ax[0].set_xlabel("Width (ms)")
+            ax[0].set_ylabel("S/N")
+            ax[0].set_title("Interpolated detected selection effects")
+            # cbar = plt.colorbar(mesh, ax=ax[0])
+            # cbar.set_label("detection fraction")
             # set log axis
+            ax[0].set_xlim(0, 40)
+            ax[0].set_ylim(0, 20)
 
             mesh = ax[1].pcolormesh(
                 detected_width_bins * 1e3, detected_snr_bins, detected_det_frac_snr
             )
-            ax[1].set_xlabel("width")
-            ax[1].set_ylabel("snr")
-            ax[1].set_title("detected det frac")
+            ax[1].set_xlabel("Width (ms)")
+            ax[1].set_title("detected selection effects")
             cbar = plt.colorbar(mesh, ax=ax[1])
             cbar.set_label("detection fraction")
-
+            plt.tight_layout()
+            plt.savefig("selection_effects.pdf")
+            plt.savefig("selection_effects.png")
             # fig, ax = plt.subplots(1, 2, figsize=(10, 5))
             # mesh = ax[0].pcolormesh(width_grid * 1e3, fluence_arr, interp_res_fluence)
             # ax[0].set_xlabel("width")

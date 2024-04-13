@@ -213,7 +213,7 @@ class post_process:
         )
         likelihood_calc = statistics_ln(
             detection_curve,
-            plot=False,
+            plot=True,
             flux_cal=flux_cal,
             snr_cutoff=snr_thresh,
             width_cutoff=width_thresh,

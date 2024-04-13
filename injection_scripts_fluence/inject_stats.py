@@ -190,10 +190,10 @@ def grab_spectra_manual(
     try:
         spec = g.read_block(ssamps, nsamps)
     except Exception as e:
-        print(e)
-        import pdb
-
-        pdb.set_trace()
+        print("error reading block")
+        # print(e)
+        # import pdb
+        # pdb.set_trace()
 
     # load mask
     if mask:

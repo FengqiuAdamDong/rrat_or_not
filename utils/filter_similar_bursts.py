@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-csv_path" ,nargs='+' , help="path to folder containing the files")
 parser.add_argument("-dm", help="dm of the burst",type=float)
 parser.add_argument("-copy", help="copy",action="store_true")
+parser.add_argument("-period", help="period of the pulsar",type=float)
 args = parser.parse_args()
 csv_path = args.csv_path
 copy = args.copy
@@ -67,6 +68,10 @@ tstart_arr = np.array(tstart_arr)
 unique_filenames = set(filename_arr)
 copy_counter = 0
 print(f"unique_filenames: {unique_filenames}")
+
+diff_timespacing = []
+diff_timespacing_after_dbscan = []
+
 for i,ufn in enumerate(unique_filenames):
     mask = (filename_arr == ufn)
     ufn_dm = dm_arr[mask]
@@ -83,8 +88,12 @@ for i,ufn in enumerate(unique_filenames):
         ufn_tcand_corrected.append(u_tcand)
     ufn_tcand_corrected = np.array(ufn_tcand_corrected)
     features = ufn_tcand_corrected.reshape(-1,1)
-    errors = np.array(0.1)
+    errors = np.array(args.period/4)
     features = features / errors
+
+    sorted_ufn_tcand_corrected = np.sort(ufn_tcand_corrected)
+    diff_timespacing.append(np.diff(sorted_ufn_tcand_corrected))
+
     db = DBSCAN(eps=1, min_samples=2).fit(features)
 
     labels = db.labels_
@@ -92,6 +101,7 @@ for i,ufn in enumerate(unique_filenames):
     unique_labels = set(labels)
     unique_fn = ufn_filename[labels == -1]
     unique_path = ufn_path[labels == -1]
+    unique_tcand = ufn_tcand[labels == -1]
     for l in unique_labels:
         # print(f"l: {l}")
         if l == -1:
@@ -100,6 +110,7 @@ for i,ufn in enumerate(unique_filenames):
         #figure out which file has closest dm to args.dm
         cluster_dm = ufn_dm[indices]
         cluster_tstart = ufn_tstart[indices]
+        cluster_tcand = ufn_tcand[indices]
         diff_dm = np.abs(cluster_dm - args.dm)
         min_index = np.argmin(diff_dm)
 
@@ -113,6 +124,10 @@ for i,ufn in enumerate(unique_filenames):
         # print(f"cluster_dm: {cluster_dm}")
         unique_fn = np.append(unique_fn,ufn_filename[indices][min_index])
         unique_path = np.append(unique_path,ufn_path[indices][min_index])
+        unique_tcand = np.append(unique_tcand,ufn_tcand[indices][min_index])
+
+    sorted_unique_tcand = np.sort(unique_tcand)
+    diff_timespacing_after_dbscan.append(np.diff(sorted_unique_tcand))
 
     #move the files to a new folder
     # if not os.path.exists("filtered"):
@@ -145,3 +160,23 @@ for i,ufn in enumerate(unique_filenames):
         for fn in unique_path:
             f.write(f"{fn},1,1\n")
 print(f"copy_counter: {copy_counter}")
+#period
+diff_timespacing = np.concatenate(diff_timespacing)
+diff_timespacing_after_dbscan = np.concatenate(diff_timespacing_after_dbscan)
+#filter out everything above 1.6
+diff_timespacing = diff_timespacing[diff_timespacing < args.period+0.5]
+diff_timespacing_after_dbscan = diff_timespacing_after_dbscan[diff_timespacing_after_dbscan < args.period+0.5]
+import matplotlib.pyplot as plt
+import smplotlib
+fig,ax = plt.subplots(1,2,figsize=(10,5))
+ax[0].hist(diff_timespacing,bins="auto")
+ax[0].set_title("Before DBSCAN filtering")
+ax[0].set_xlabel("Time spacing between candidates (s)")
+ax[0].set_ylabel("Frequency")
+ax[1].hist(diff_timespacing_after_dbscan,bins="auto")
+ax[1].set_title("After DBSCAN filtering")
+ax[1].set_xlabel("Time spacing between candidates (s)")
+ax[1].set_ylabel("Frequency")
+plt.tight_layout()
+plt.savefig("time_spacing.pdf")
+plt.show()
