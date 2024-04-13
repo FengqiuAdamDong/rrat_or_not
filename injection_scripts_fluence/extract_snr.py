@@ -217,64 +217,65 @@ if __name__ == "__main__":
     fil1 = []
     dm1 = []
     toa1 = []
-    from read_positive_burst import read_positive_burst
-    from sigpyproc import readers as r
-    for p in positive_fl:
-        dm_temp, toa_temp, boxcar_det_snr, MJD, fil_temp = read_positive_burst(p)
-        length_temp = []
-        #go through each fil_temp and figure out the observation lengths
-        for filfn in fil_temp:
-            fil_block = r.FilReader(filfn)
-            nsamples = fil_block.header.nsamples
-            tsamp = fil_block.header.tsamp
-            length = nsamples*tsamp
-            length_temp.append(length)
-        dm_temp = np.array(dm_temp)
-        toa_temp = np.array(toa_temp)
-        boxcar_det_snr = np.array(boxcar_det_snr)
-        MJD = np.array(MJD)
-        fil_temp = np.array(fil_temp)
-        length_temp = np.array(length_temp)
-        cutoff_start = ((1-cutout)/2)*length_temp
-        cutoff_end = ((1+cutout)/2)*length_temp
-
-        mask = (toa_temp > cutoff_start) & (toa_temp < cutoff_end)
-        dm_temp = dm_temp[mask]
-        toa_temp = toa_temp[mask]
-        boxcar_det_snr = boxcar_det_snr[mask]
-        MJD = MJD[mask]
-        fil_temp = fil_temp[mask]
-        print(f"total dets before centre fil {len(mask)}")
-        print(f"after {sum(mask)}")
-        # fil_temp,dm_temp,toa_temp = read_positive_file(p)
-        if len(fil1) == 0:
-            fil1, dm1, toa1 = (fil_temp, dm_temp, toa_temp)
-        else:
-            fil1, dm1, toa1 = combine_positives(
-                fil1, fil_temp, dm1, dm_temp, toa1, toa_temp
-            )
-        print(len(fil1), len(dm1), len(toa1))
-    if dm != 0:
-        dm1 = np.array(dm1)
-        dm1[:] = dm
-    for f in fil1:
-        if ".fil" in f:
-            filfiles.append(f)
-            maskedfn = f.strip(".fil") + "_rfifind.mask"
-            maskfiles.append(maskedfn)
-    init_obj = {
-        "filfiles": fil1,
-        "dms": dm1,
-        "toas": toa1,
-        "mask_fn": maskfiles,
-        "downsamp": downsamp,
-        "period": period,
-    }
-    inject_stats = det_stats(**init_obj)
-    #check if tmp.dill exists, if so, load it and continue
     if os.path.exists(args.checkpoint):
         with open(args.checkpoint,"rb") as of:
             inject_stats = dill.load(of)
+    else:
+        from read_positive_burst import read_positive_burst
+        from sigpyproc import readers as r
+        for p in positive_fl:
+            dm_temp, toa_temp, boxcar_det_snr, MJD, fil_temp = read_positive_burst(p)
+            length_temp = []
+            #go through each fil_temp and figure out the observation lengths
+            for filfn in fil_temp:
+                fil_block = r.FilReader(filfn)
+                nsamples = fil_block.header.nsamples
+                tsamp = fil_block.header.tsamp
+                length = nsamples*tsamp
+                length_temp.append(length)
+            dm_temp = np.array(dm_temp)
+            toa_temp = np.array(toa_temp)
+            boxcar_det_snr = np.array(boxcar_det_snr)
+            MJD = np.array(MJD)
+            fil_temp = np.array(fil_temp)
+            length_temp = np.array(length_temp)
+            cutoff_start = ((1-cutout)/2)*length_temp
+            cutoff_end = ((1+cutout)/2)*length_temp
+
+            mask = (toa_temp > cutoff_start) & (toa_temp < cutoff_end)
+            dm_temp = dm_temp[mask]
+            toa_temp = toa_temp[mask]
+            boxcar_det_snr = boxcar_det_snr[mask]
+            MJD = MJD[mask]
+            fil_temp = fil_temp[mask]
+            print(f"total dets before centre fil {len(mask)}")
+            print(f"after {sum(mask)}")
+            # fil_temp,dm_temp,toa_temp = read_positive_file(p)
+            if len(fil1) == 0:
+                fil1, dm1, toa1 = (fil_temp, dm_temp, toa_temp)
+            else:
+                fil1, dm1, toa1 = combine_positives(
+                    fil1, fil_temp, dm1, dm_temp, toa1, toa_temp
+                )
+            print(len(fil1), len(dm1), len(toa1))
+        if dm != 0:
+            dm1 = np.array(dm1)
+            dm1[:] = dm
+        for f in fil1:
+            if ".fil" in f:
+                filfiles.append(f)
+                maskedfn = f.strip(".fil") + "_rfifind.mask"
+                maskfiles.append(maskedfn)
+        init_obj = {
+            "filfiles": fil1,
+            "dms": dm1,
+            "toas": toa1,
+            "mask_fn": maskfiles,
+            "downsamp": downsamp,
+            "period": period,
+        }
+        inject_stats = det_stats(**init_obj)
+    #check if tmp.dill exists, if so, load it and continue
     if args.manual:
         inject_stats.get_bad_bursts()
         inject_stats.calculate_snr_refit(save_freq=args.save_freq)
