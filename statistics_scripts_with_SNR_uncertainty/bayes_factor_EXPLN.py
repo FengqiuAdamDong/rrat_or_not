@@ -108,7 +108,9 @@ if __name__ == "__main__":
         noise_std,
         low_width_flag,
         logN_lower,
-    ) = process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper)
+    ) = process_detection_results(
+        real_det, snr_thresh, width_thresh, snr_upper, width_upper
+    )
 
     likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,

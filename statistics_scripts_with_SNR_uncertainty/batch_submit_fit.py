@@ -11,6 +11,7 @@ import os
 import glob
 import dill
 import matplotlib.pyplot as plt
+
 # creates the yaml file for pulsar
 
 parser = argparse.ArgumentParser(description="Create yaml file for pulsar")
@@ -32,8 +33,8 @@ for pulsar in pulsar_name:
     os.chdir(f"{pulsar}/fdp/")
     # create the yaml file
     yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
-    #check if yaml file already exists
-    #get the root dir of current python script
+    # check if yaml file already exists
+    # get the root dir of current python script
     root_dir = os.path.dirname(os.path.realpath(__file__))
     dill_file = f"{pulsar}.dill"
     command = f"{root_dir}/batch_submit_fit.sh {dill_file}"

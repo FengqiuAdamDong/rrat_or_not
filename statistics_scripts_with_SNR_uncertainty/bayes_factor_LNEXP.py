@@ -86,7 +86,6 @@ if __name__ == "__main__":
 
     config_det = real_det.replace(".dill", ".yaml")
 
-
     # if the width is very narrow use the low width flag
     (
         detection_curve,
@@ -109,7 +108,9 @@ if __name__ == "__main__":
         noise_std,
         low_width_flag,
         logN_lower,
-    ) = process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper)
+    ) = process_detection_results(
+        real_det, snr_thresh, width_thresh, snr_upper, width_upper
+    )
 
     likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,
@@ -129,8 +130,6 @@ if __name__ == "__main__":
         if logN_lower > logn_N_range[1]:
             logN_lower = logn_N_range[1] - 1
         logn_N_range[0] = logN_lower
-
-
 
     print(f"number of detections {len(det_snr)}")
     plot_detection_results(det_width, det_fluence, det_snr)

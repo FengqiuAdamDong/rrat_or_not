@@ -68,10 +68,10 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
         width_thresh = 0.005
     # create the yaml file
     yaml_file = f"{pulsar}/fdp/{pulsar}.yaml"
-    #check if yaml file already exists
+    # check if yaml file already exists
     write_new_yaml = False
     if os.path.exists(yaml_file):
-        #load the yaml file
+        # load the yaml file
         with open(yaml_file, "r") as f:
             yaml_dict = yaml.load(f, Loader=yaml.FullLoader)
             snr_thresh = yaml_dict["snr_thresh"]
@@ -98,8 +98,16 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
     if write_new_yaml:
         with open(yaml_file, "w") as f:
             yaml.dump(yaml_dict, f)
+    #read how many lines in the filtered.csv file
+    #check if the filtered.csv file exists
+    if not os.path.exists(f"{pulsar}/fdp/filtered.csv"):
+        with open(f"{pulsar}/fdp/filtered.csv", "r") as f:
+            lines = f.readlines()
+            N_pulses = len(lines)
+    else:
+        N_pulses = 0
 
-    #record the total number of observation hours, N max and the pulsar period
+    # record the total number of observation hours, N max and the pulsar period
     with open("pulsar_obs_time.txt", "a") as f:
-        f.write(f"{pulsar},{obs_time},{N},{period}\n")
+        f.write(f"{pulsar},{obs_time},{N},{period},{N_pulses}\n")
     print(f"Created {yaml_file}")

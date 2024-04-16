@@ -22,19 +22,18 @@ class post_process:
             elif "lnexp" in fn:
                 self.lnexpfn = fn
         # load data
-        #check if self.lnln exists
-        if hasattr(self, 'lnlnfn'):
+        # check if self.lnln exists
+        if hasattr(self, "lnlnfn"):
             self.base_name = self.lnlnfn.split(".")[0]
-        elif hasattr(self, 'expexpfn'):
+        elif hasattr(self, "expexpfn"):
             self.base_name = self.expexpfn.split(".")[0]
-            print("no lnln"+self.base_name)
-        elif hasattr(self, 'explnfn'):
+            print("no lnln" + self.base_name)
+        elif hasattr(self, "explnfn"):
             self.base_name = self.explnfn.split(".")[0]
-            print("no lnln"+self.base_name)
-        elif hasattr(self, 'lnexpfn'):
+            print("no lnln" + self.base_name)
+        elif hasattr(self, "lnexpfn"):
             self.base_name = self.lnexpfn.split(".")[0]
-            print("no lnln"+self.base_name)
-
+            print("no lnln" + self.base_name)
 
         try:
             self.expexp_results = self.load_data(self.expexpfn)
@@ -64,28 +63,28 @@ class post_process:
         try:
             label_expexp = ["k1", "k2", "N"]
             fig, axes = dyplot.cornerplot(self.expexp_results, labels=label_expexp)
-            plt.savefig(self.base_name+"_expexp_corner.png")
+            plt.savefig(self.base_name + "_expexp_corner.png")
             plt.close()
         except:
             pass
         try:
             label_lnln = ["mu1", "std1", "mu2", "std2", "N"]
             fig, axes = dyplot.cornerplot(self.lnln_results, labels=label_lnln)
-            plt.savefig(self.base_name+"_lnln_corner.png")
+            plt.savefig(self.base_name + "_lnln_corner.png")
             plt.close()
         except:
             pass
         try:
             label_expln = ["k1", "mu2", "std2", "N"]
             fig, axes = dyplot.cornerplot(self.expln_results, labels=label_expln)
-            plt.savefig(self.base_name+"_expln_corner.png")
+            plt.savefig(self.base_name + "_expln_corner.png")
             plt.close()
         except:
             pass
         try:
             label_lnexp = ["mu1", "std1", "k2", "N"]
             fig, axes = dyplot.cornerplot(self.lnexp_results, labels=label_lnexp)
-            plt.savefig(self.base_name+"_lnexp_corner.png")
+            plt.savefig(self.base_name + "_lnexp_corner.png")
             plt.close()
         except:
             pass
@@ -115,7 +114,7 @@ class post_process:
         )
         plt.xticks([0, 1, 2, 3], ["expexp", "lnln", "expln", "lnexp"])
         plt.ylabel("log evidence")
-        plt.savefig(self.base_name+"_log_evidence.png")
+        plt.savefig(self.base_name + "_log_evidence.png")
         plt.close()
 
     def get_best_fit_values(self, dynesty_results):
@@ -148,9 +147,11 @@ class post_process:
             self.expexp_mean = None
             self.expexp_cov = None
         try:
-            self.lnln_quantiles, self.lnln_mean, self.lnln_cov = self.get_best_fit_values(
-                self.lnln_results
-            )
+            (
+                self.lnln_quantiles,
+                self.lnln_mean,
+                self.lnln_cov,
+            ) = self.get_best_fit_values(self.lnln_results)
         except:
             self.lnln_quantiles = None
             self.lnln_mean = None
@@ -298,7 +299,7 @@ class post_process:
             # set the same limits as ax[0]
             ax[1].set_xlim(ax[0].get_xlim())
             ax[1].set_ylim(ax[0].get_ylim())
-            plt.savefig(self.base_name+f"_likelihood_{fit_type[0]}_{fit_type[1]}.png")
+            plt.savefig(self.base_name + f"_likelihood_{fit_type[0]}_{fit_type[1]}.png")
 
             # marginalise over the dimensions
             marg_snr = np.trapz(likelihood_norm, width_array, axis=0)
@@ -308,13 +309,13 @@ class post_process:
             ax[0].hist(det_snr, bins="auto", density=True)
             ax[0].set_xlabel("SNR")
             ax[0].set_ylabel("Probability")
-            ax[0].set_xlim(0, max(det_snr)+5)
+            ax[0].set_xlim(0, max(det_snr) + 5)
             ax[1].plot(width_array * 1e3, marg_width / 1e3)
             ax[1].hist(det_width * 1e3, bins="auto", density=True)
             ax[1].set_xlabel("Width (ms)")
             ax[1].set_ylabel("Probability")
-            ax[1].set_xlim(0, max(det_width * 1e3)+5)
-            plt.savefig(self.base_name+f"_marginal_{fit_type[0]}_{fit_type[1]}.png")
+            ax[1].set_xlim(0, max(det_width * 1e3) + 5)
+            plt.savefig(self.base_name + f"_marginal_{fit_type[0]}_{fit_type[1]}.png")
             plt.close("all")
             # plt.show()
 

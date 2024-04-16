@@ -277,7 +277,7 @@ class statistics_ln(sb):
         integral_amp = cp.trapz(mult_amp, true_amp_mesh, axis=1)
 
         # now do the same for width
-        x_len = resolution+1
+        x_len = resolution + 1
         true_lower_w_gauss = width - sigma_lim * sigma_w
         true_upper_w_gauss = width + sigma_lim * sigma_w
         if w_dist == "ln":
@@ -451,7 +451,7 @@ class statistics_ln(sb):
             if X["mu_w"] < 0:
                 return -np.inf
         # print("starting loglike")
-        no_dets = len(snr_arr)==0
+        no_dets = len(snr_arr) == 0
         with cp.cuda.Device(cuda_device):
             start = time.time()
             snr_arr = cp.array(snr_arr)

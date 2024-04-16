@@ -42,11 +42,11 @@ def read_config(filename):
         logn_mu_w_range = [0, 0]
         logn_std_w_range = [0, 0]
 
-    #logn_N_range[1] = 2*logn_N_range[1]
+    # logn_N_range[1] = 2*logn_N_range[1]
     snr_thresh = data["snr_thresh"]
     width_thresh = data["width_thresh"]
 
-    #try add an upper limit for snr and width
+    # try add an upper limit for snr and width
     try:
         snr_upper = data["snr_upper"]
         width_upper = data["width_upper"]
@@ -72,7 +72,9 @@ def read_config(filename):
     )
 
 
-def process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper):
+def process_detection_results(
+    real_det, snr_thresh, width_thresh, snr_upper, width_upper
+):
     with open(real_det, "rb") as inf:
         det_class = dill.load(inf)
 
@@ -278,7 +280,9 @@ if __name__ == "__main__":
         noise_std,
         low_width_flag,
         logN_lower,
-    ) = process_detection_results(real_det, snr_thresh, width_thresh, snr_upper, width_upper)
+    ) = process_detection_results(
+        real_det, snr_thresh, width_thresh, snr_upper, width_upper
+    )
 
     likelihood_calc, det_snr, det_width = load_selection_effects(
         detection_curve,
@@ -295,7 +299,6 @@ if __name__ == "__main__":
         if logN_lower > logn_N_range[1]:
             logN_lower = logn_N_range[1] - 1
         logn_N_range[0] = logN_lower
-
 
     # remove_mask = (det_snr < 6)&(det_width < 6e-3)
     # det_snr = det_snr[~remove_mask]

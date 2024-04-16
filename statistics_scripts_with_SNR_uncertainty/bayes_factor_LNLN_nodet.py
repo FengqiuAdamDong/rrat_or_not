@@ -76,7 +76,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simulate some pulses")
     # add an argument for config file
     parser.add_argument(
-        "-y", default="yaml file", help="yaml file with the detection curve and other parameters"
+        "-y",
+        default="yaml file",
+        help="yaml file with the detection curve and other parameters",
     )
     args = parser.parse_args()
 
