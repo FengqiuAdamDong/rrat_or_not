@@ -100,7 +100,7 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
             yaml.dump(yaml_dict, f)
     #read how many lines in the filtered.csv file
     #check if the filtered.csv file exists
-    if not os.path.exists(f"{pulsar}/fdp/filtered.csv"):
+    if os.path.exists(f"{pulsar}/fdp/filtered.csv"):
         with open(f"{pulsar}/fdp/filtered.csv", "r") as f:
             lines = f.readlines()
             N_pulses = len(lines)
