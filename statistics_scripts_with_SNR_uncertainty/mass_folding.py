@@ -28,7 +28,7 @@ def run_prepfold(X):
     command = f"prepfold -noxwin -nosearch -nodmsearch -dm {dm} -p {period} -ignorechan {ignored_channels} -mask {rfi_mask} -o {base_name} -npart 64 {filterbank_file}"
     subprocess.run(command, shell=True)
     # get the pfd generated
-    pfd_file = glob.glob(f"{base_name}*.pfd")[0]
+    # pfd_file = glob.glob(f"{base_name}*.pfd")[0]
 
 
 if __name__ == "__main__":
@@ -56,9 +56,13 @@ if __name__ == "__main__":
         os.chdir(path)
         # get all the filterbank files
         filterbank_files = glob.glob("*.fil")
+        if len(filterbank_files) > 4:
+            filterbank_files = filterbank_files[:4]
+        elif len(filterbank_files) == 0:
+            continue
+
         X = []
         #fold 4 filterbank files per pulsar
-        filterbank_files = filterbank_files[:4]
         for filterbank_file in filterbank_files:
             X.append((filterbank_file, d, p))
         # for x in X:
