@@ -110,4 +110,4 @@ for pulsar, period in zip(pulsar_name, pulsar_period):
     # record the total number of observation hours, N max and the pulsar period
     with open("pulsar_obs_time.txt", "a") as f:
         f.write(f"{pulsar},{obs_time},{N},{period},{N_pulses}\n")
-    print(f"Created {yaml_file}")
+        print(f"Created {yaml_file}")

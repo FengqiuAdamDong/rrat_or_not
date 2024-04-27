@@ -68,7 +68,7 @@ class post_process:
         except:
             pass
         try:
-            label_lnln = ["mu1", "std1", "mu2", "std2", "N"]
+            label_lnln = [r"$\mu_S$", r"$\sigma_S$", r"$\mu_W$", "$\sigma_W$", "N"]
             fig, axes = dyplot.cornerplot(self.lnln_results, labels=label_lnln)
             plt.savefig(self.base_name + "_lnln_corner.png")
             plt.close()
@@ -214,7 +214,7 @@ class post_process:
         )
         likelihood_calc = statistics_ln(
             detection_curve,
-            plot=True,
+            plot=False,
             flux_cal=flux_cal,
             snr_cutoff=snr_thresh,
             width_cutoff=width_thresh,
@@ -289,12 +289,12 @@ class post_process:
                 np.trapz(likelihood, snr_array, axis=0), width_array
             )
             likelihood_norm = likelihood_norm.T
-            fig, ax = plt.subplots(1, 2, figsize=(15, 7))
+            fig, ax = plt.subplots(1, 2, figsize=(10, 10))
             ax[0].hist2d(det_snr, det_width * 1e3, bins=50, density=True)
-            ax[0].set_xlabel("SNR")
+            ax[0].set_xlabel("S/N")
             ax[0].set_ylabel("Width (ms)")
             ax[1].pcolormesh(snr_array, width_array * 1e3, likelihood_norm)
-            ax[1].set_xlabel("SNR")
+            ax[1].set_xlabel("S/N")
             ax[1].set_ylabel("Width (ms)")
             # set the same limits as ax[0]
             ax[1].set_xlim(ax[0].get_xlim())
@@ -304,10 +304,10 @@ class post_process:
             # marginalise over the dimensions
             marg_snr = np.trapz(likelihood_norm, width_array, axis=0)
             marg_width = np.trapz(likelihood_norm, snr_array, axis=1)
-            fig, ax = plt.subplots(1, 2, figsize=(15, 7))
+            fig, ax = plt.subplots(1, 2, figsize=(10, 10))
             ax[0].plot(snr_array, marg_snr)
             ax[0].hist(det_snr, bins="auto", density=True)
-            ax[0].set_xlabel("SNR")
+            ax[0].set_xlabel("S/N")
             ax[0].set_ylabel("Probability")
             ax[0].set_xlim(0, max(det_snr) + 5)
             ax[1].plot(width_array * 1e3, marg_width / 1e3)

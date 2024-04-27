@@ -58,10 +58,12 @@ if __name__ == "__main__":
         # get all the filterbank files
         filterbank_files = glob.glob("*.fil")
         X = []
+        #fold 4 filterbank files per pulsar
+        filterbank_files = filterbank_files[:4]
         for filterbank_file in filterbank_files:
             X.append((filterbank_file, d, p))
-        for x in X:
-            run_prepfold(x)
+        # for x in X:
+            # run_prepfold(x)
+        with mp.Pool(4) as pool:
+            pool.map(run_prepfold, X)
         os.chdir("../../")
-        # with mp.Pool(4) as pool:
-        # pool.map(run_prepfold, X)
