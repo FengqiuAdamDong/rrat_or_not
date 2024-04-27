@@ -88,7 +88,7 @@ def convert_dm_to_distance(dm_arr, ra_arr, dec_arr):
     return distance_arr
 
 
-def write_table(quantiles, quantiles_lower, quantiles_upper, names):
+def write_table(quantiles, quantiles_lower, quantiles_upper, null_all, names, associated_RA, calibrators):
     with open("fit_results_table.csv", mode="w") as f:
         writer = csv.writer(f)
         writer.writerow(
@@ -99,6 +99,9 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, names):
                 "$\mu_W$",
                 "$\sigma_W$",
                 "N",
+                "Null",
+                "Calibrator",
+                "RA",
             ]
         )
         writer.writerow(
@@ -108,11 +111,14 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, names):
                 "",
                 "lm(s)",
                 "",
-                ""
+                "",
+                "",
+                "",
+                "deg"
             ]
         )
-        for q, q_lower, q_upper, name in zip(
-            quantiles, quantiles_lower, quantiles_upper, names
+        for q, q_lower, q_upper, nulling_frac ,name, ra, calibrator in zip(
+                quantiles, quantiles_lower, quantiles_upper, null_all, names, associated_RA, calibrators
         ):
             mu_snr = q[0][1]
             mu_snr_stats_lower_err = q_lower[0][0] - mu_snr
@@ -140,6 +146,9 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, names):
             mu_snr_flux_lower_err = mu_snr_flux_lower - mu_snr
             mu_snr_flux_upper_err = mu_snr_flux_upper - mu_snr
 
+            nulling_frac_val = nulling_frac[1]
+            nulling_frac_stats_lower_err = nulling_frac[2] - nulling_frac_val
+            nulling_frac_stats_upper_err = nulling_frac[0] - nulling_frac_val
             mu_snr_str = (
                 "$"
                 + str(round(mu_snr, 3))
@@ -195,6 +204,19 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, names):
                 + str(N_stats_lower_err)
                 + "}$"
             )
+            nulling_frac_str = (
+                "$"
+                + str(round(nulling_frac_val, 3))
+                + "^{+"
+                + str(round(nulling_frac_stats_upper_err, 3))
+                + "}"
+                + "_{-"
+                + str(round(nulling_frac_stats_lower_err, 3))
+                + "}$"
+            )
+            ra_str = (
+                str(ra)
+            )
 
             writer.writerow(
                 [
@@ -204,6 +226,9 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, names):
                     mu_w_str,
                     std_w_str,
                     N_str,
+                    nulling_frac_str,
+                    calibrator,
+                    ra_str,
                 ]
             )
 
@@ -219,9 +244,11 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
     associated_RA = []
     associated_DEC = []
     pulsar_names_list = []
+    calibrator_arr = []
     for npz_file, yaml_file in zip(npz_files, yaml_files):
         print(npz_file, yaml_file)
-
+        calibrator = npz_file.split("/")[-1].split("_")[1]
+        calibrator_arr.append(calibrator)
         (
             data,
             calibrated_samples,
@@ -286,7 +313,6 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
 
     mu_snr_quantiles_lower = [quantile[0] for quantile in quantiles_lower]
     mu_snr_quantiles_upper = [quantile[0] for quantile in quantiles_upper]
-    write_table(quantiles, quantiles_lower, quantiles_upper, pulsar_names_list)
     N = [quantile[4] for quantile in quantiles]
 
     N = np.array(N)
@@ -337,6 +363,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
     ).T
     null = np.array([n[1] for n in null_all])
 
+    write_table(quantiles, quantiles_lower, quantiles_upper, null_all, pulsar_names_list, associated_RA, calibrator_arr)
     # fig, ax = plt.subplots(1, 2, figsize=(10, 10))
     # h = ax[0].hist2d(null, mu_snr_q_val, bins=5)
     # # color bar
