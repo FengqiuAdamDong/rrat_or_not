@@ -9,7 +9,6 @@ import glob
 import subprocess
 from sigpyproc.readers import FilReader
 from matplotlib import pyplot as plt
-import psrchive
 
 
 def run_prepfold(X):
