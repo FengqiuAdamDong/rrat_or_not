@@ -10,6 +10,11 @@ from scipy.interpolate import RegularGridInterpolator
 import yaml
 import smplotlib
 import os
+import matplotlib
+font = {'family' : 'normal',
+        'size'   : 22}
+
+matplotlib.rc('font', **font)
 
 
 def Ntonull(N):
