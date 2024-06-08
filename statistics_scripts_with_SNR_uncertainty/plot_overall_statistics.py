@@ -109,7 +109,7 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, null_all, names, as
                 "",
                 "ln(Jy)",
                 "",
-                "lm(s)",
+                "ln(s)",
                 "",
                 "",
                 "",
@@ -123,32 +123,63 @@ def write_table(quantiles, quantiles_lower, quantiles_upper, null_all, names, as
             mu_snr = q[0][1]
             mu_snr_stats_lower_err = q_lower[0][0] - mu_snr
             mu_snr_stats_upper_err = q_upper[0][2] - mu_snr
+            #round mu_snr to 1 dp
+            mu_snr = round(mu_snr, 1)
+            mu_snr_stats_lower_err = round(mu_snr_stats_lower_err, 1)
+            mu_snr_stats_upper_err = round(mu_snr_stats_upper_err, 1)
+
 
             std_snr = q[1][1]
             std_snr_stats_lower_err = q_lower[1][0] - std_snr
             std_snr_stats_upper_err = q_upper[1][2] - std_snr
+            #round std_snr to most significant figure of snr_snr_stats_lower_err
+            std_snr = round(std_snr, -int(np.floor(np.log10(abs(std_snr_stats_lower_err)))))
+            std_snr_stats_lower_err = round(std_snr_stats_lower_err, -int(np.floor(np.log10(abs(std_snr_stats_lower_err)))))
+            std_snr_stats_upper_err = round(std_snr_stats_upper_err, -int(np.floor(np.log10(abs(std_snr_stats_upper_err)))))
 
+            
             mu_w = q[2][1]
             mu_w_stats_lower_err = q_lower[2][0] - mu_w
             mu_w_stats_upper_err = q_upper[2][2] - mu_w
+            #round mu_w to most significant figure of mu_w_stats_lower_err
+            mu_w = round(mu_w, -int(np.floor(np.log10(abs(mu_w_stats_lower_err)))))
+            mu_w_stats_lower_err = round(mu_w_stats_lower_err, -int(np.floor(np.log10(abs(mu_w_stats_lower_err)))))
+            mu_w_stats_upper_err = round(mu_w_stats_upper_err, -int(np.floor(np.log10(abs(mu_w_stats_upper_err)))))
 
             std_w = q[3][1]
             std_w_stats_lower_err = q_lower[3][0] - std_w
             std_w_stats_upper_err = q_upper[3][2] - std_w
+            #round std_w to most significant figure of std_w_stats_lower_err
+            std_w = round(std_w, -int(np.floor(np.log10(abs(std_w_stats_lower_err)))))
+            std_w_stats_lower_err = round(std_w_stats_lower_err, -int(np.floor(np.log10(abs(std_w_stats_lower_err)))))
+            std_w_stats_upper_err = round(std_w_stats_upper_err, -int(np.floor(np.log10(abs(std_w_stats_upper_err)))))
 
             N = int(q[4][1])
             N_stats_lower_err = int(q_lower[4][0]) - N
             N_stats_upper_err = int(q_upper[4][2]) - N
+            #round N to most significant figure of N_stats_lower_err
+            if N_stats_lower_err != 0:
+                N = round(N, -int(np.floor(np.log10(abs(N_stats_lower_err)))))
+                N_stats_lower_err = round(N_stats_lower_err, -int(np.floor(np.log10(abs(N_stats_lower_err)))))
+                N_stats_upper_err = round(N_stats_upper_err, -int(np.floor(np.log10(abs(N_stats_upper_err)))))
 
             mu_snr_flux_lower = q_lower[0][1]
             mu_snr_flux_upper = q_upper[0][1]
 
             mu_snr_flux_lower_err = mu_snr_flux_lower - mu_snr
             mu_snr_flux_upper_err = mu_snr_flux_upper - mu_snr
+            #round mu_snr_flux to 1 dp
+            mu_snr_flux_lower_err = round(mu_snr_flux_lower_err, 1)
+            mu_snr_flux_upper_err = round(mu_snr_flux_upper_err, 1)
 
             nulling_frac_val = nulling_frac[1]
             nulling_frac_stats_lower_err = nulling_frac[2] - nulling_frac_val
             nulling_frac_stats_upper_err = nulling_frac[0] - nulling_frac_val
+            #round nulling fraction to most significant figure of nulling_frac_stats_lower_err
+            if nulling_frac_stats_lower_err != 0:
+                nulling_frac_val = round(nulling_frac_val, -int(np.floor(np.log10(abs(nulling_frac_stats_lower_err)))))
+                nulling_frac_stats_lower_err = round(nulling_frac_stats_lower_err, -int(np.floor(np.log10(abs(nulling_frac_stats_lower_err)))))
+                nulling_frac_stats_upper_err = round(nulling_frac_stats_upper_err, -int(np.floor(np.log10(abs(nulling_frac_stats_upper_err)))))
             mu_snr_str = (
                 "$"
                 + str(round(mu_snr, 3))
@@ -338,7 +369,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
 
     luminosity_distance = []
     for mu_s, d in zip(mu_snr_quantiles, associated_distance):
-        luminosity_distance.append(np.array(mu_s) + np.log(d.value**2))  # Jy pc^2
+        luminosity_distance.append(np.array(mu_s) + np.log(d.value**2)) # Jy kpc^2
     luminosity_distance = np.array(luminosity_distance)
     mu_lum_dist_q_val = luminosity_distance[:, 1]
     mu_lum_dist_q_low = np.abs(luminosity_distance[:, 0] - mu_lum_dist_q_val)
@@ -351,7 +382,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
     ax[0, 1].hist(std_snr_q_val, bins="auto")
     ax[0, 1].set_xlabel(r"$\sigma_S$")
     ax[1, 0].hist(mu_w_q_val, bins="auto")
-    ax[1, 0].set_xlabel(r"$\mu_w$ (ln(s))")
+    ax[1, 0].set_xlabel(r"$\mu_w$")
     ax[1, 1].hist(std_w_q_val, bins="auto")
     ax[1, 1].set_xlabel(r"$\sigma_w$")
     plt.tight_layout()
@@ -388,13 +419,13 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         null, mu_snr_q_val, yerr=[mu_snr_q_low, mu_snr_q_high], xerr=null_error, fmt="o"
     )
     ax[0, 0].set_xlabel("Nulling Fraction")
-    ax[0, 0].set_ylabel(r"$\mu_{\rm S} (ln(Jy))$")
+    ax[0, 0].set_ylabel(r"$\mu_{\rm S}$")
     ax[0, 0].set_xlim(0, 1)
     ax[0, 1].errorbar(
         null, mu_w_q_val, yerr=[mu_w_q_low, mu_w_q_high], xerr=null_error, fmt="o"
     )
     ax[0, 1].set_xlabel("Nulling Fraction")
-    ax[0, 1].set_ylabel(r"$\mu_{\rm W} (ln(s))$")
+    ax[0, 1].set_ylabel(r"$\mu_{\rm W}$")
     ax[0, 1].set_xlim(0, 1)
     ax[1, 0].errorbar(
         null,
@@ -424,7 +455,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_snr_q_low, mu_snr_q_high],
         fmt="o",
     )
-    ax[0, 0].set_xlabel(r"$\mu_{\rm S} (ln(Jy))$")
+    ax[0, 0].set_xlabel(r"$\mu_{\rm S}$")
     ax[0, 0].set_ylabel(r"$\sigma_{\rm S}$")
     ax[0, 1].errorbar(
         mu_w_q_val,
@@ -433,7 +464,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_w_q_low, mu_w_q_high],
         fmt="o",
     )
-    ax[0, 1].set_xlabel(r"$\mu_{\rm W} (ln(s))$")
+    ax[0, 1].set_xlabel(r"$\mu_{\rm W}$")
     ax[0, 1].set_ylabel(r"$\sigma_{\rm W}$")
     ax[1, 0].errorbar(
         mu_snr_q_val,
@@ -442,7 +473,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_snr_q_low, mu_snr_q_high],
         fmt="o",
     )
-    ax[1, 0].set_xlabel(r"$\mu_{\rm S} (ln(Jy))$")
+    ax[1, 0].set_xlabel(r"$\mu_{\rm S}$")
     ax[1, 0].set_ylabel(r"$\sigma_{\rm W}$")
     ax[1, 1].errorbar(
         mu_w_q_val,
@@ -451,7 +482,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_w_q_low, mu_w_q_high],
         fmt="o",
     )
-    ax[1, 1].set_xlabel(r"$\mu_{\rm W} (ln(s))$")
+    ax[1, 1].set_xlabel(r"$\mu_{\rm W}$")
     ax[1, 1].set_ylabel(r"$\sigma_{\rm S}$")
     ax[0, 2].errorbar(
         mu_snr_q_val,
@@ -460,8 +491,8 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_snr_q_low, mu_snr_q_high],
         fmt="o",
     )
-    ax[0, 2].set_xlabel(r"$\mu_{\rm S} (ln(Jy))$")
-    ax[0, 2].set_ylabel(r"$\mu_{\rm W} (ln(s))$")
+    ax[0, 2].set_xlabel(r"$\mu_{\rm S}$")
+    ax[0, 2].set_ylabel(r"$\mu_{\rm W}$")
     ax[1, 2].errorbar(
         std_snr_q_val,
         std_w_q_val,
@@ -471,6 +502,11 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
     )
     ax[1, 2].set_xlabel(r"$\sigma_{\rm S}$")
     ax[1, 2].set_ylabel(r"$\sigma_{\rm W}$")
+    #do a pearsonr test
+    from scipy.stats import pearsonr
+    print(pearsonr(std_snr_q_val, std_w_q_val))
+
+
 
     plt.tight_layout()
     plt.savefig("mu_vs_std.png")
@@ -484,7 +520,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_lum_dist_q_low, mu_lum_dist_q_high],
         fmt="o",
     )
-    ax[0, 0].set_xlabel(r"$\mu_{\rm L} (ln(Jy kpc^2))$")
+    ax[0, 0].set_xlabel(r"$\mu_{\rm L}$")
     ax[0, 0].set_ylabel(r"$\sigma_{\rm L}$")
     ax[0, 1].errorbar(
         mu_lum_dist_q_val,
@@ -493,7 +529,7 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_lum_dist_q_low, mu_lum_dist_q_high],
         fmt="o",
     )
-    ax[0, 1].set_xlabel(r"$\mu_{\rm L} (ln(Jy kpc^2))$")
+    ax[0, 1].set_xlabel(r"$\mu_{\rm L}$")
     ax[0, 1].set_ylabel(r"$\sigma_{\rm W}$")
     ax[1, 0].errorbar(
         mu_lum_dist_q_val,
@@ -502,8 +538,14 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
         xerr=[mu_lum_dist_q_low, mu_lum_dist_q_high],
         fmt="o",
     )
-    ax[1, 0].set_xlabel(r"$\mu_{\rm L} (ln(Jy kpc^2))$")
-    ax[1, 0].set_ylabel(r"$\mu_{\rm W} (ln(s))$")
+    ax[1, 0].set_xlabel(r"$\mu_{\rm L}$")
+    ax[1, 0].set_ylabel(r"$\mu_{\rm W}$")
+    #histogram the luminosity distance
+    ax[1, 1].hist(mu_lum_dist_q_val, bins="auto")
+    ax[1, 1].set_xlabel(r"$\mu_{\rm L}$")
+    ax[1, 1].set_ylabel("Count")
+    plt.tight_layout()
+    plt.savefig("mu_vs_std_lum_dist.png")
 
     plt.show()
 

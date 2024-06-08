@@ -212,6 +212,7 @@ class post_process:
         ) = process_detection_results(
             dill_file, snr_thresh, width_thresh, snr_upper, width_upper
         )
+        low_width_flag = False
         likelihood_calc = statistics_ln(
             detection_curve,
             plot=True,
