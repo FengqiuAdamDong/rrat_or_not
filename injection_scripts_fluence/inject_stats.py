@@ -415,7 +415,7 @@ def autofit_pulse(
         axs[0, 2].set_title("OG time series")
         cmap = plt.get_cmap("YlGnBu")
         axs[1, 1].imshow(
-            ds_data, aspect="auto", extent=[0, max(x), 800, 400], cmap=cmap
+            ds_data, aspect="auto", extent=[0, max(x), 400, 800], cmap=cmap
         )
         axs[1, 1].set_xlabel("Time (s)")
         axs[1, 1].set_ylabel("Frequency (MHz)")
