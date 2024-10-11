@@ -169,11 +169,12 @@ diff_timespacing_after_dbscan = diff_timespacing_after_dbscan[diff_timespacing_a
 import matplotlib.pyplot as plt
 import smplotlib
 fig,ax = plt.subplots(1,2,figsize=(10,5))
-ax[0].hist(diff_timespacing,bins="auto")
+#make the bin spacing the same between the two
+ax[0].hist(diff_timespacing,bins=500)
 ax[0].set_title("Before DBSCAN filtering")
 ax[0].set_xlabel("Time spacing between candidates (s)")
 ax[0].set_ylabel("Frequency")
-ax[1].hist(diff_timespacing_after_dbscan,bins="auto")
+ax[1].hist(diff_timespacing_after_dbscan,bins=1000)
 ax[1].set_title("After DBSCAN filtering")
 ax[1].set_xlabel("Time spacing between candidates (s)")
 ax[1].set_ylabel("Frequency")

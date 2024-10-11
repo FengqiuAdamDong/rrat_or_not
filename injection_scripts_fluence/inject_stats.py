@@ -397,8 +397,8 @@ def autofit_pulse(
     SNR = Amplitude / std
     # once we have calculated the location
     if plot:
-        print(f"Making plot {plot_name}_autofit.png")
-        fig, axs = plt.subplots(2, 3)
+        print(f"Making plot {plot_name}_autofit.pdf")
+        fig, axs = plt.subplots(2, 3, figsize=(15, 10))
         axs[0, 0].plot(x_std, ts_std)
         axs[0, 0].plot(x, poly(x))
         axs[0, 0].set_title("burst removed")
@@ -420,7 +420,7 @@ def autofit_pulse(
         axs[1, 1].set_xlabel("Time (s)")
         axs[1, 1].set_ylabel("Frequency (MHz)")
         plt.tight_layout()
-        plt.savefig(f"{plot_name}_autofit.png")
+        plt.savefig(f"{plot_name}_autofit.pdf")
         plt.close()
     # after the mean is subtracted calculate fluence ***this fluence is not normalised, ie. we haven't divided by the std
     fluence = np.trapz(ts_sub, x)

@@ -547,6 +547,9 @@ def process_npz(npz_files, yaml_files, pulsar_names, dm, ra, dec):
     plt.tight_layout()
     plt.savefig("mu_vs_std_lum_dist.png")
 
+    plt.figure()
+    #plot lum distances vs nulling
+    plt.errorbar(mu_lum_dist_q_val, null, xerr=[mu_lum_dist_q_low, mu_lum_dist_q_high], yerr=null_error, fmt="o")
     plt.show()
 
 
