@@ -420,6 +420,7 @@ def autofit_pulse(
         axs[1, 1].set_xlabel("Time (s)")
         axs[1, 1].set_ylabel("Frequency (MHz)")
         plt.tight_layout()
+        plt.savefig(f"{plot_name}_autofit.png")
         plt.savefig(f"{plot_name}_autofit.pdf")
         plt.close()
     # after the mean is subtracted calculate fluence ***this fluence is not normalised, ie. we haven't divided by the std
