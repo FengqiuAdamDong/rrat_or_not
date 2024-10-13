@@ -398,7 +398,7 @@ def autofit_pulse(
     # once we have calculated the location
     if plot:
         print(f"Making plot {plot_name}_autofit.pdf")
-        fig, axs = plt.subplots(2, 3, figsize=(15, 10))
+        fig, axs = plt.subplots(2, 2)
         axs[0, 0].plot(x_std, ts_std)
         axs[0, 0].plot(x, poly(x))
         axs[0, 0].set_title("burst removed")
@@ -411,8 +411,8 @@ def autofit_pulse(
         axs[1, 0].set_title("baseline subtracted")
         axs[1, 0].set_xlabel("Time (s)")
         axs[1, 0].set_ylabel("Amplitude (arb)")
-        axs[0, 2].plot(x, ts)
-        axs[0, 2].set_title("OG time series")
+        # axs[0, 2].plot(x, ts)
+        # axs[0, 2].set_title("OG time series")
         cmap = plt.get_cmap("YlGnBu")
         axs[1, 1].imshow(
             ds_data, aspect="auto", extent=[0, max(x), 400, 800], cmap=cmap
