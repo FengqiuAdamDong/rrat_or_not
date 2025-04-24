@@ -56,9 +56,7 @@ if __name__ == "__main__":
     import sys
 
     dm, time, boxcar_det_snr, MJD, filterbankfn = read_positive_burst(sys.argv[1])
-    dm, time, boxcar_det_snr, inj_snr, MJD = read_positive_burst_inj(
-        sys.argv[1]
-    )
+    dm, time, boxcar_det_snr, inj_snr, MJD = read_positive_burst_inj(sys.argv[1])
     import pdb
 
     pdb.set_trace()

@@ -8,14 +8,25 @@ import sys
 import csv
 import os
 import multiprocessing as mp
+
 dill.Pickler.dumps, dill.Pickler.loads = dill.dumps, dill.loads
 mp.reduction.ForkingPickler = dill.Pickler
 mp.reduction.dump = dill.dump
-#mp.queues._ForkingPickler = dill.Pickler
+
+
+# mp.queues._ForkingPickler = dill.Pickler
 class det_obj(inject_obj):
     # det obj is inherited from injection object....
     def __init__(
-            self, snr=1, width=1, toas=1, dm=1, downsamp=8, filfile="", mask="", pulse_number=0
+        self,
+        snr=1,
+        width=1,
+        toas=1,
+        dm=1,
+        downsamp=8,
+        filfile="",
+        mask="",
+        pulse_number=0,
     ):
         self.snr = snr
         self.width = width
@@ -52,15 +63,24 @@ class det_stats:
 
     def create_burst(self):
         temp = []
-        for i,(f, m, t, d) in enumerate(zip(self.filfiles, self.mask_fn, self.toas, self.dms)):
+        for i, (f, m, t, d) in enumerate(
+            zip(self.filfiles, self.mask_fn, self.toas, self.dms)
+        ):
             t = det_obj(
-                snr=1, toas=t, dm=d, downsamp=self.downsamp, filfile=f, mask=m, pulse_number=i
+                snr=1,
+                toas=t,
+                dm=d,
+                downsamp=self.downsamp,
+                filfile=f,
+                mask=m,
+                pulse_number=i,
             )
             temp.append(t)
         self.sorted_pulses = temp
 
-    def calculate_snr(self, multiprocessing=False,manual=True,save_freq=100):
+    def calculate_snr(self, multiprocessing=False, manual=True, save_freq=100):
         import copy
+
         plot_folder = "fit_plots"
         if not os.path.exists(plot_folder):
             os.makedirs(plot_folder)
@@ -69,7 +89,9 @@ class det_stats:
 
             def run_calc(s):
                 plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
-                s.calculate_fluence_single(period=self.period, manual=manual,plot_name=plot_name)
+                s.calculate_fluence_single(
+                    period=self.period, manual=manual, plot_name=plot_name
+                )
                 return copy.deepcopy(s)
 
             # for faster debugging
@@ -77,14 +99,16 @@ class det_stats:
             # with ProcessPool(nodes=2) as p:
             # sort the self.sorted_pulses into groups of 1000 each
             checkpoint_freq = 1000
-            #check if self.sorted_pulses_arr is already created
+            # check if self.sorted_pulses_arr is already created
             if not hasattr(self, "sorted_pulses_arr"):
                 self.sorted_pulses_arr = []
                 for i in range(0, len(self.sorted_pulses), checkpoint_freq):
-                    self.sorted_pulses_arr.append(self.sorted_pulses[i:i+checkpoint_freq])
+                    self.sorted_pulses_arr.append(
+                        self.sorted_pulses[i : i + checkpoint_freq]
+                    )
             for i, s in enumerate(self.sorted_pulses_arr):
                 print(f"running batch {i} out of {len(self.sorted_pulses_arr)}")
-                #check if the pulses have been processed already
+                # check if the pulses have been processed already
                 processed = True
                 for obj in self.sorted_pulses_arr[i]:
                     if not obj.processed:
@@ -98,25 +122,29 @@ class det_stats:
                 # checkpoint
                 with open(f"tmp.dill", "wb") as of:
                     dill.dump(inject_stats, of)
-            #flatten the array
-            self.sorted_pulses = [item for sublist in self.sorted_pulses_arr for item in sublist]
+            # flatten the array
+            self.sorted_pulses = [
+                item for sublist in self.sorted_pulses_arr for item in sublist
+            ]
             # with mp.Pool(16) as p:
-                # self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
+            # self.sorted_pulses = p.map(run_calc, copy.deepcopy(self.sorted_pulses))
         else:
-            for i,s in enumerate(self.sorted_pulses):
+            for i, s in enumerate(self.sorted_pulses):
                 plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
                 if s.processed:
                     print("already processed, skipping")
                     continue
-                print(i,"out of ",len(self.sorted_pulses))
-                s.calculate_fluence_single(period = self.period,manual=manual,plot_name=plot_name)
-                #dump every 30 pulses
-                if i%100 == 0:
+                print(i, "out of ", len(self.sorted_pulses))
+                s.calculate_fluence_single(
+                    period=self.period, manual=manual, plot_name=plot_name
+                )
+                # dump every 30 pulses
+                if i % 100 == 0:
                     with open(f"tmp.dill", "wb") as of:
                         dill.dump(inject_stats, of)
 
-    def get_bad_bursts(self,refit="refit"):
-        #get all png files in the refit directory
+    def get_bad_bursts(self, refit="refit"):
+        # get all png files in the refit directory
         listdir = os.listdir(refit)
         pngs = [f for f in listdir if f.endswith(".png")]
         pulse_numbers = [f.split("_")[0] for f in pngs]
@@ -131,30 +159,36 @@ class det_stats:
                     s.det_fluence = -1
                     s.fluence_amp = -1
 
-    def calculate_snr_refit(self,save_freq=100):
+    def calculate_snr_refit(self, save_freq=100):
         plot_folder = "good_refits"
         if not os.path.exists(plot_folder):
             os.makedirs(plot_folder)
 
-        for i,s in enumerate(self.sorted_pulses):
+        for i, s in enumerate(self.sorted_pulses):
             plot_name = f"{plot_folder}/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}"
-            if i%int(save_freq) == 0:
+            if i % int(save_freq) == 0:
                 with open(f"tmp.dill", "wb") as of:
                     dill.dump(inject_stats, of)
             if s.processed:
                 print("already processed, skipping")
                 continue
-            print(i,"out of ",len(self.sorted_pulses))
+            print(i, "out of ", len(self.sorted_pulses))
             try:
-                s.calculate_fluence_single(period = self.period,manual=True,plot_name=plot_name)
+                s.calculate_fluence_single(
+                    period=self.period, manual=True, plot_name=plot_name
+                )
             except Exception as e:
-                #print the full traceback
+                # print the full traceback
                 import traceback
+
                 traceback.print_exc()
                 continue
-            #move the refitted png to the original fit_plots folder
-            os.system(f"mv refit/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}_autofit.png {plot_name}.png")
-            #every 20 pulses, save the file
+            # move the refitted png to the original fit_plots folder
+            os.system(
+                f"mv refit/{s.pulse_number}_{s.filfile.split('/')[-1].split('.')[0]}_{s.toas}_autofit.png {plot_name}.png"
+            )
+            # every 20 pulses, save the file
+
 
 def combine_positives(fil1_, fil2_, dm1_, dm2_, toa1_, toa2_):
     # this function combines two sets (from positive_bursts_1 and positive_bursts_short eg)
@@ -198,12 +232,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "-ds", type=int, help="The downsample when getting det_snr", required=True
     )
-    parser.add_argument("-period", type=float, help="The period of the pulsar", default=2.0)
-    parser.add_argument("-manual", action="store_true", help="Use manual SNR calculation")
-    parser.add_argument("-multiprocessing", action="store_true", help="Use multiprocessing")
-    parser.add_argument("-checkpoint", default="tmp.dill", help="checkpoint file or file to refit")
+    parser.add_argument(
+        "-period", type=float, help="The period of the pulsar", default=2.0
+    )
+    parser.add_argument(
+        "-manual", action="store_true", help="Use manual SNR calculation"
+    )
+    parser.add_argument(
+        "-multiprocessing", action="store_true", help="Use multiprocessing"
+    )
+    parser.add_argument(
+        "-checkpoint", default="tmp.dill", help="checkpoint file or file to refit"
+    )
     parser.add_argument("-save_freq", default=100, help="save every x pulses")
-    parser.add_argument("-cutout", type=float, help='cutout length as a percentage of file', default=0.8)
+    parser.add_argument(
+        "-cutout", type=float, help="cutout length as a percentage of file", default=0.8
+    )
     args = parser.parse_args()
 
     dm = float(args.dm)
@@ -218,20 +262,21 @@ if __name__ == "__main__":
     dm1 = []
     toa1 = []
     if os.path.exists(args.checkpoint):
-        with open(args.checkpoint,"rb") as of:
+        with open(args.checkpoint, "rb") as of:
             inject_stats = dill.load(of)
     else:
         from read_positive_burst import read_positive_burst
         from sigpyproc import readers as r
+
         for p in positive_fl:
             dm_temp, toa_temp, boxcar_det_snr, MJD, fil_temp = read_positive_burst(p)
             length_temp = []
-            #go through each fil_temp and figure out the observation lengths
+            # go through each fil_temp and figure out the observation lengths
             for filfn in fil_temp:
                 fil_block = r.FilReader(filfn)
                 nsamples = fil_block.header.nsamples
                 tsamp = fil_block.header.tsamp
-                length = nsamples*tsamp
+                length = nsamples * tsamp
                 length_temp.append(length)
             dm_temp = np.array(dm_temp)
             toa_temp = np.array(toa_temp)
@@ -239,8 +284,8 @@ if __name__ == "__main__":
             MJD = np.array(MJD)
             fil_temp = np.array(fil_temp)
             length_temp = np.array(length_temp)
-            cutoff_start = ((1-cutout)/2)*length_temp
-            cutoff_end = ((1+cutout)/2)*length_temp
+            cutoff_start = ((1 - cutout) / 2) * length_temp
+            cutoff_end = ((1 + cutout) / 2) * length_temp
 
             mask = (toa_temp > cutoff_start) & (toa_temp < cutoff_end)
             dm_temp = dm_temp[mask]
@@ -275,18 +320,20 @@ if __name__ == "__main__":
             "period": period,
         }
         inject_stats = det_stats(**init_obj)
-    #check if tmp.dill exists, if so, load it and continue
+    # check if tmp.dill exists, if so, load it and continue
     if args.manual:
         inject_stats.get_bad_bursts()
         inject_stats.calculate_snr_refit(save_freq=args.save_freq)
     else:
-        inject_stats.calculate_snr(manual=args.manual,multiprocessing=args.multiprocessing)
+        inject_stats.calculate_snr(
+            manual=args.manual, multiprocessing=args.multiprocessing
+        )
 
     with open(f"{args.o}.dill", "wb") as of:
         dill.dump(inject_stats, of)
-    #remove tmp.dill
+    # remove tmp.dill
     # if os.path.exists("tmp.dill"):
     #     os.remove("tmp.dill")
-    #make a refit folder if it doesn't exist
+    # make a refit folder if it doesn't exist
     if not os.path.exists("refit"):
         os.mkdir("refit")

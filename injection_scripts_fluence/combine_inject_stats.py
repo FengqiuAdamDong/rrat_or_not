@@ -10,6 +10,7 @@ from scipy.signal import deconvolve
 from scipy.signal import convolve
 from scipy.stats import norm
 import scipy.fft as fft
+
 # import smplotlib
 from inject_stats import create_matrix
 import glob
@@ -31,6 +32,7 @@ class inject_stats_collection(inject_stats):
         self.detect_error_fluence_arr = []
         self.detect_error_snr_low_width_arr = []
         self.detect_error_width_low_width_arr = []
+
     def calculate_detection_curve(self, csvs="1"):
         # build statistics
         snrs = []
@@ -50,14 +52,18 @@ class inject_stats_collection(inject_stats):
                 if inst.detect_error_width > 2.5e-3:
                     print(f"skipping {f} because of detect_error_width")
                     continue
-                #strip f of only the folder name
+                # strip f of only the folder name
 
-                inst.compare([csv], title=plot_name+"_det_curve")
+                inst.compare([csv], title=plot_name + "_det_curve")
                 self.detect_error_snr_arr.append(inst.detect_error_snr)
                 self.detect_error_width_arr.append(inst.detect_error_width)
                 self.detect_error_fluence_arr.append(inst.detect_error_fluence)
-                self.detect_error_snr_low_width_arr.append(inst.detect_error_snr_low_width)
-                self.detect_error_width_low_width_arr.append(inst.detect_error_width_low_width)
+                self.detect_error_snr_low_width_arr.append(
+                    inst.detect_error_snr_low_width
+                )
+                self.detect_error_width_low_width_arr.append(
+                    inst.detect_error_width_low_width
+                )
 
                 plt.close("all")
                 for si in inst.sorted_inject:
@@ -69,10 +75,10 @@ class inject_stats_collection(inject_stats):
                     self.det_snr.append(si.det_snr)
                     self.det_width.append(si.det_std)
                     if -1 in si.det_snr:
-                        #Something obviously went wrong, lets figure out why
-                        import pdb; pdb.set_trace()
+                        # Something obviously went wrong, lets figure out why
+                        import pdb
 
-
+                        pdb.set_trace()
 
                     self.det_fluence.append(si.det_fluence)
         self.detected_pulses = np.array(self.detected_pulses).flatten()
@@ -84,22 +90,41 @@ class inject_stats_collection(inject_stats):
         self.inj_width = np.array(self.inj_width).flatten()
 
         self.det_fluence = np.array(self.det_fluence).flatten()
-        self.inj_fluence = self.inj_snr * self.inj_width/0.3989
+        self.inj_fluence = self.inj_snr * self.inj_width / 0.3989
 
         self.detect_error_snr_arr = np.array(self.detect_error_snr_arr)
         self.detect_error_width_arr = np.array(self.detect_error_width_arr)
         self.detect_error_fluence_arr = np.array(self.detect_error_fluence_arr)
-        self.detect_error_snr_low_width_arr = np.array(self.detect_error_snr_low_width_arr)
-        self.detect_error_width_low_width_arr = np.array(self.detect_error_width_low_width_arr)
-        #filter out the outliers of detect_error_snr_arr
+        self.detect_error_snr_low_width_arr = np.array(
+            self.detect_error_snr_low_width_arr
+        )
+        self.detect_error_width_low_width_arr = np.array(
+            self.detect_error_width_low_width_arr
+        )
+        # filter out the outliers of detect_error_snr_arr
         # print("filtering out # of outliers: ", np.sum(self.detect_error_snr_arr > 0.5))
-        self.detect_error_snr = np.sqrt(np.mean((self.detect_error_snr_arr[self.detect_error_snr_arr < 0.5])**2))
-        self.detect_error_width = np.sqrt(np.mean((self.detect_error_width_arr[self.detect_error_snr_arr < 0.5])**2))
-        self.detect_error_fluence = np.sqrt(np.mean(self.detect_error_fluence_arr[self.detect_error_snr_arr < 0.5]**2))
-        self.detect_error_snr_low_width = np.sqrt(np.mean(self.detect_error_snr_low_width_arr[self.detect_error_snr_arr < 1]**2))
-        self.detect_error_width_low_width = np.sqrt(np.mean(self.detect_error_width_low_width_arr[self.detect_error_snr_arr < 1]**2))
+        self.detect_error_snr = np.sqrt(
+            np.mean((self.detect_error_snr_arr[self.detect_error_snr_arr < 0.5]) ** 2)
+        )
+        self.detect_error_width = np.sqrt(
+            np.mean((self.detect_error_width_arr[self.detect_error_snr_arr < 0.5]) ** 2)
+        )
+        self.detect_error_fluence = np.sqrt(
+            np.mean(self.detect_error_fluence_arr[self.detect_error_snr_arr < 0.5] ** 2)
+        )
+        self.detect_error_snr_low_width = np.sqrt(
+            np.mean(
+                self.detect_error_snr_low_width_arr[self.detect_error_snr_arr < 1] ** 2
+            )
+        )
+        self.detect_error_width_low_width = np.sqrt(
+            np.mean(
+                self.detect_error_width_low_width_arr[self.detect_error_snr_arr < 1]
+                ** 2
+            )
+        )
 
-        #create a matrix of the detection fraction
+        # create a matrix of the detection fraction
         unique_snr = np.unique(self.inj_snr)
         unique_width = np.unique(self.inj_width)
         self.det_frac_matrix_snr = np.zeros((len(unique_snr), len(unique_width)))
@@ -107,16 +132,32 @@ class inject_stats_collection(inject_stats):
         for i, snr in enumerate(unique_snr):
             for j, width in enumerate(unique_width):
                 mask = (self.inj_snr == snr) & (self.inj_width == width)
-                self.det_frac_matrix_snr[i, j] = np.sum(self.detected_pulses[mask]) / np.sum(mask)
+                self.det_frac_matrix_snr[i, j] = np.sum(
+                    self.detected_pulses[mask]
+                ) / np.sum(mask)
 
         detected_det_vals = self.det_snr[self.detected_pulses]
         detected_width_vals = self.det_width[self.detected_pulses]
         detected_fluence_vals = self.det_fluence[self.detected_pulses]
         nbins = 30
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_width, detected_width_vals, num_bins=nbins,fluence=False)
-        self.bin_detections_2d(self.det_snr, detected_det_vals, self.det_fluence, detected_fluence_vals, num_bins=nbins,fluence=True)
+        self.bin_detections_2d(
+            self.det_snr,
+            detected_det_vals,
+            self.det_width,
+            detected_width_vals,
+            num_bins=nbins,
+            fluence=False,
+        )
+        self.bin_detections_2d(
+            self.det_snr,
+            detected_det_vals,
+            self.det_fluence,
+            detected_fluence_vals,
+            num_bins=nbins,
+            fluence=True,
+        )
 
-        #define the same values as the inj_stats.compare function
+        # define the same values as the inj_stats.compare function
         self.unique_snrs = unique_snr
         self.unique_widths = unique_width
         self.detected_widths = detected_width_vals
@@ -126,10 +167,10 @@ class inject_stats_collection(inject_stats):
         self.all_det_widths = self.det_width
         self.all_det_amplitudes_fluence = self.det_fluence
 
-
-
         fig, axes = plt.subplots(1, 2, figsize=(10, 10))
-        mesh = axes[0].pcolormesh(unique_width*1000, unique_snr, self.det_frac_matrix_snr, cmap="viridis")
+        mesh = axes[0].pcolormesh(
+            unique_width * 1000, unique_snr, self.det_frac_matrix_snr, cmap="viridis"
+        )
         mesh.set_clim(0, 1)
         cbar = plt.colorbar(mesh)
         cbar.set_label("Detection Fraction")
@@ -137,8 +178,12 @@ class inject_stats_collection(inject_stats):
         axes[0].set_ylabel("Injected SNR")
         axes[0].set_title("Detection Fraction inj")
 
-        mesh = axes[1].pcolormesh(self.detected_bin_midpoints_snr[1]*1000,self.detected_bin_midpoints_snr[0],
-                                  self.detected_det_frac_snr, cmap="viridis")
+        mesh = axes[1].pcolormesh(
+            self.detected_bin_midpoints_snr[1] * 1000,
+            self.detected_bin_midpoints_snr[0],
+            self.detected_det_frac_snr,
+            cmap="viridis",
+        )
         mesh.set_clim(0, 1)
         cbar = plt.colorbar(mesh)
         cbar.set_label("Detection Fraction")
@@ -150,24 +195,25 @@ class inject_stats_collection(inject_stats):
         plt.show()
 
 
-
-
-
-
 # All inputs are
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="combines injections from multiple files into one file")
-    parser.add_argument("path", type=str, help="path to the folder containing the .fil files")
+
+    parser = argparse.ArgumentParser(
+        description="combines injections from multiple files into one file"
+    )
+    parser.add_argument(
+        "path", type=str, help="path to the folder containing the .fil files"
+    )
     args = parser.parse_args()
     path = args.path
 
     inj_collection = inject_stats_collection()
-    #recursively glob all files with inj_stats.dill fn
+    # recursively glob all files with inj_stats.dill fn
     inj_stats_dir = glob.glob(f"{path}/**/inj_stats.dill", recursive=True)
 
     for i, f in enumerate(inj_stats_dir):
-        #get the folder name
+        # get the folder name
         folder_name = "/".join(f.split("/")[:-1])
         try:
             with open(folder_name + "/inj_stats.dill", "rb") as inf:
@@ -186,6 +232,7 @@ if __name__ == "__main__":
     inj_collection.forward_model_det()
     inj_collection.generate_forward_model_grid()
     import dill
+
     with open("inj_stats_combine_fitted.dill", "wb") as of:
         dill.dump(inj_collection, of)
 

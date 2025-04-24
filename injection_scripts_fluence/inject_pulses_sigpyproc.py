@@ -16,15 +16,16 @@ import sigpyproc
 from sigpyproc import utils as u
 import sys
 from inject_stats import autofit_pulse
+
 # define the random number generator
 
 # total S/N of pulse
-TRIAL_SNR = np.logspace(0.17,1.3,20)
+TRIAL_SNR = np.logspace(0.17, 1.3, 20)
 # TRIAL_SNR = np.linspace(1, 10, 20)
 
-pulse_width = np.logspace(0.3,1.477,40)*1e-3 #use log spacing between 2ms to 30ms
-#pulse_width = np.logspace(0.3,1.477,20)*1e-3 #use log spacing between 2ms to 30ms
-#pulse_width = np.linspace(1,40,40)*1e-3
+pulse_width = np.logspace(0.3, 1.477, 40) * 1e-3  # use log spacing between 2ms to 30ms
+# pulse_width = np.logspace(0.3,1.477,20)*1e-3 #use log spacing between 2ms to 30ms
+# pulse_width = np.linspace(1,40,40)*1e-3
 
 TRIAL_DMS = [
     100,
@@ -41,6 +42,7 @@ def dm_delay(dm, f1, f2):
 def time_to_bin(t, sample_rate):
     """Return time as a bin number provided a sampling time"""
     return np.round(t / sample_rate).astype(int)
+
 
 def create_pulse_attributes(npulses=1, duration=200, min_sep=2, filename="", maskfn=""):
     """
@@ -105,7 +107,17 @@ def adjusted_peak(desired_a, tsamp, sigma, ds):
     new_amplitude = desired_a / new_peak
     return new_amplitude
 
-def add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top):
+
+def add_pulse_to_data(
+    data,
+    p_toa,
+    nbins_to_sim,
+    per_chan_toa_bins,
+    width_bins,
+    total_inj_pow,
+    tsamp,
+    toa_bin_top,
+):
     """
     Add a simulated pulse to a given data array at the specified time of arrival.
 
@@ -160,8 +172,16 @@ def add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, 
     true_start_bin = time_to_bin(p_toa, tsamp) - toa_bin_top
     true_end_bin = true_start_bin + pulse_wf.shape[1]
     # print(f"start bin = {true_start_bin}  end bin = {true_end_bin}")
-    data[:, true_start_bin:true_end_bin] += pulse_wf
+    if true_end_bin > data.shape[1]:
+        true_end_bin = data.shape[1]
+        nbinsextra = true_end_bin - true_start_bin
+        pulse_wf = pulse_wf[:, :nbinsextra]
+    try:
+        data[:, true_start_bin:true_end_bin] += pulse_wf
+    except:
+        import pdb; pdb.set_trace()
     return data
+
 
 def inject_pulses(
     data, masked_chans, header, freqs, pulse_attrs, downsamp, stats_window, plot=False
@@ -221,26 +241,37 @@ def inject_pulses(
         if p_toa < stats_window:
             stats_window = p_toa
         print("calculating stats prior to injection")
-        SNR,amp, stats_std,loc,sigma_width = calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
-        #scale stats std by the sqrt of number of masked channel and the number of channels
+        SNR, amp, stats_std, loc, sigma_width = calculate_SNR_wrapper(
+            p, stats_window, tsamp, downsamp, data, masked_chans, plot
+        )
+        # scale stats std by the sqrt of number of masked channel and the number of channels
         print(f"stats std: {stats_std}")
 
         width_bins = time_to_bin(p_width, tsamp)
         total_inj_pow = p_SNR * stats_std
         print(f"total power:{total_inj_pow}")
-        data = add_pulse_to_data(data, p_toa, nbins_to_sim, per_chan_toa_bins, width_bins, total_inj_pow, tsamp, toa_bin_top)
+        data = add_pulse_to_data(
+            data,
+            p_toa,
+            nbins_to_sim,
+            per_chan_toa_bins,
+            width_bins,
+            total_inj_pow,
+            tsamp,
+            toa_bin_top,
+        )
         # SNR,amp, stats_std,loc,sigma_width =  calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot)
         # print(f"fitted SNR: {SNR}, stats std: {stats_std}")
 
     # data = data.astype("uint8")
     # np.savez('data',data = data,header=data.header,masked_chans = masked_chans,pulse_attrs=pulse_attrs,stats_window=stats_window,tsamp=tsamp,downsamp=downsamp)
     # for i, p in enumerate(pulse_attrs):
-        # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
+    # statistics.append(calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,copy.deepcopy(data),masked_chans,plot=True))
 
     return data, statistics
 
 
-def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
+def calculate_SNR_wrapper(p, stats_window, tsamp, downsamp, data, masked_chans, plot):
     """
     Calculates the signal-to-noise ratio (SNR) of a given pulsar signal using the provided parameters.
 
@@ -269,33 +300,45 @@ def calculate_SNR_wrapper(p,stats_window,tsamp,downsamp,data,masked_chans,plot):
         time_to_bin(p_toa - stats_window, tsamp),
         time_to_bin(p_toa + stats_window, tsamp),
     )
-    #add 10 seconds extra time to the stats window
-    extra_time_bins = time_to_bin(5,tsamp)
+    # add 10 seconds extra time to the stats window
+    extra_time_bins = time_to_bin(5, tsamp)
     stats_start -= extra_time_bins
     stats_end += extra_time_bins
-    #adjust so it's a multiple of downsamp
+    # adjust so it's a multiple of downsamp
     stats_len = stats_end - stats_start
-    stats_len = stats_len - stats_len%downsamp
+    stats_len = stats_len - stats_len % downsamp
     stats_end = stats_start + stats_len
 
-    stats_data = copy.deepcopy(data[:,stats_start:stats_end])
-    #dedisperse stats data
+    stats_data = copy.deepcopy(data[:, stats_start:stats_end])
+    # dedisperse stats data
     stats_data = stats_data.dedisperse(p_dm)
-    #downsample stats_data to the downsample that I will use for detection
+    # downsample stats_data to the downsample that I will use for detection
     print(f"downmsampling with {downsamp}")
     stats_data = stats_data.downsample(tfactor=downsamp)
-    stats_data = stats_data[~masked_chans,:]
-    #get the window
-    focused_stats_start = time_to_bin(5,tsamp*downsamp)
-    focused_stats_end = time_to_bin(5+2*stats_window,tsamp*downsamp)
+    stats_data = stats_data[~masked_chans, :]
+    # get the window
+    focused_stats_start = time_to_bin(5, tsamp * downsamp)
+    focused_stats_end = time_to_bin(5 + 2 * stats_window, tsamp * downsamp)
     stats_data = stats_data[:, focused_stats_start:focused_stats_end]
-    #fit a polynomial to the window
-    #get the mean of the window
+    # fit a polynomial to the window
+    # get the mean of the window
     stats_mean = np.mean(stats_data, axis=0)
-    amp,std,loc,sigma_width,fluence =  autofit_pulse(stats_mean,tsamp*downsamp,p_width*6,int(stats_window/tsamp/downsamp),data,downsamp,plot=plot, fit_width_guess = p_width, niter=1)
-    std = std * np.sqrt(sum(~masked_chans)/len(masked_chans))
-    SNR = amp/std
-    print(f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width} inj amp: {p_SNR*std} fluence: {fluence}")
+    amp, std, loc, sigma_width, fluence = autofit_pulse(
+        stats_mean,
+        tsamp * downsamp,
+        p_width * 6,
+        int(stats_window / tsamp / downsamp),
+        data,
+        downsamp,
+        plot=plot,
+        fit_width_guess=p_width,
+        niter=1,
+    )
+    std = std * np.sqrt(sum(~masked_chans) / len(masked_chans))
+    SNR = amp / std
+    print(
+        f"Inj SNR:{p_SNR} Det SNR: {SNR} std: {std} amp: {amp} loc: {loc} width: {sigma_width} inj amp: {p_SNR*std} fluence: {fluence}"
+    )
     return SNR, amp, std, loc, sigma_width
 
 
@@ -366,32 +409,32 @@ def get_filterbank_data_window(fn, maskfn, duration=20):
     """
     from sigpyproc import readers as r
     from sigpyproc.block import FilterbankBlock as fbb
-    #find the archive filename
-    #load the weights
+
+    # find the archive filename
+    # load the weights
     print("getting filterbank data")
     filf = r.FilReader(fn)
     hdr = filf.header
     tsamp = hdr.tsamp
     fil_dur = hdr.nsamples * tsamp
-    #start in the middle of the data
+    # start in the middle of the data
     start = fil_dur / 2 - duration / 2
     stop = start + duration
-    print("start stop bins",start,stop)
+    print("start stop bins", start, stop)
     start_bin = int(np.round(start / tsamp))
     stop_bin = int(np.round(stop / tsamp))
-    nsamp = stop_bin-start_bin
+    nsamp = stop_bin - start_bin
     # get the data
-    _ = filf.read_block(start_bin,nsamp)
+    _ = filf.read_block(start_bin, nsamp).data
     masked_data, masked_chans = maskfile(maskfn, copy.deepcopy(_), start_bin, nsamp)
-
     # update the header so that it represents the windowed data
     presto_header = FilterbankFile(fn).header
     hdr.tstart += (start_bin * tsamp) / 86400.0  # add in MJD
     hdr.nsamples = masked_data.shape[1]  # total number of data samples (nchan * nspec)
-    hdr.nsamples_files = [masked_data.shape[1]]
-    hdr.tstart_files = [hdr.tstart]
+    # hdr.nsamples_files = [masked_data.shape[1]]
+    # hdr.tstart_files = [hdr.tstart]
     data = fbb(masked_data, hdr)
-    #don't bother updating the presto header
+    # don't bother updating the presto header
     return data, masked_chans, presto_header
 
 
@@ -464,12 +507,21 @@ def process(pool_arr):
     freqs = np.array(range(header.nchans)) * header.foff + header.fch1
     plot = False
     injdata, statistics = inject_pulses(
-        rawdata, masked_chans, header, freqs, pulses_to_add, downsamp, stats_window, plot=plot
+        rawdata,
+        masked_chans,
+        header,
+        freqs,
+        pulses_to_add,
+        downsamp,
+        stats_window,
+        plot=plot,
     )
     s = np.array(statistics)
     SNR_4 = str(np.around(SNR, 4)).zfill(6)
     width_5 = str(np.around(width, 5)).zfill(7)
-    ofn = os.path.basename(ifn).replace(".fil", f"_inj_dm{dm}_SNR{SNR_4}_width{width_5}.fil")
+    ofn = os.path.basename(ifn).replace(
+        ".fil", f"_inj_dm{dm}_SNR{SNR_4}_width{width_5}.fil"
+    )
     print(f"creating output file: {ofn}")
     presto_header["nbits"] = 8
     create_filterbank_file(
@@ -479,6 +531,7 @@ def process(pool_arr):
     # NOTE: the filterbank spectra need to be provided with shape (nspec x nchan),
     # so we have to transpose the injected array at write time.
     # injdata.to_file(ofn)
+
 
 def sbatch_submit(arr):
     (
@@ -496,8 +549,9 @@ def sbatch_submit(arr):
     script_directory = os.path.dirname(os.path.abspath(sys.argv[0]))
     sbatch_command = f"sbatch {script_directory}/inject_individual_snr_width.sh {s} {w} {dm} {script_directory}"
     print(sbatch_command)
-    #run the sbatch command
+    # run the sbatch command
     os.system(sbatch_command)
+
 
 if __name__ == "__main__":
 
@@ -549,7 +603,9 @@ if __name__ == "__main__":
             ndm,
             downsamp,
             stats_window,
-        ) = create_pulse_attributes(npulses=args.n, duration=duration, filename=ifn, maskfn=maskfn)
+        ) = create_pulse_attributes(
+            npulses=args.n, duration=duration, filename=ifn, maskfn=maskfn
+        )
     print(f"total number of injections: {len(injection_sample)}")
 
     print(f"number of injection DMs: {ndm}")
@@ -587,7 +643,8 @@ if __name__ == "__main__":
                     p.map(multiprocess, pool_arr)
     else:
         rawdata, masked_chans, presto_header = get_filterbank_data_window(
-            ifn, duration=duration, maskfn=maskfn)
+            ifn, duration=duration, maskfn=maskfn
+        )
         for dm in TRIAL_DMS:
             pool_arr = []
             for s in TRIAL_SNR:

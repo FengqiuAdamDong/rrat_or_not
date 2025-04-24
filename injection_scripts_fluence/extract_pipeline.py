@@ -4,17 +4,20 @@ import os
 import sys
 import subprocess
 import shutil
+
 if __name__ == "__main__":
     # load the pulsars.csv file
     #
     #
     force_retry = False
     if force_retry:
-        print("WARNING: Force retry is enabled, this will delete all the .dill and tmp.dill files in the pulsar folders.")
+        print(
+            "WARNING: Force retry is enabled, this will delete all the .dill and tmp.dill files in the pulsar folders."
+        )
         input("Press Enter to continue...")
     csv_file = sys.argv[1]
-    with open(csv_file, 'r') as read_obj:
-        csv_reader = reader(read_obj, delimiter=',')
+    with open(csv_file, "r") as read_obj:
+        csv_reader = reader(read_obj, delimiter=",")
         pulsar_name = []
         dm = []
         period = []
@@ -26,17 +29,19 @@ if __name__ == "__main__":
             period.append(row[2])
     current_script = os.path.dirname(os.path.realpath(__file__))
     filter_script_path = f"{current_script}/../utils/filter_similar_bursts.py"
-    create_positive_csv_edit_path = f"{current_script}/../utils/create_positive_csv_edit.py"
+    create_positive_csv_edit_path = (
+        f"{current_script}/../utils/create_positive_csv_edit.py"
+    )
     batch_submit_job_path = f"{current_script}/batch_extract_snr.sh"
     # for each pulsar, check if filtering has been done
     current_directory = os.getcwd()
-    for p,dm,period in zip(pulsar_name,dm,period):
+    for p, dm, period in zip(pulsar_name, dm, period):
         # load the pulsar file
         foldername = f"{current_directory}/{p}/fdp/"
         os.chdir(foldername)
         print(f"Current directory: {os.getcwd()}")
         if force_retry:
-            #if we force retry then remove the tmp.dill file and the pulsar.dill file
+            # if we force retry then remove the tmp.dill file and the pulsar.dill file
             if os.path.exists("tmp.dill"):
                 os.remove("tmp.dill")
             if os.path.exists(f"{p}.dill"):
@@ -48,7 +53,7 @@ if __name__ == "__main__":
         # check if the file filtered.csv exists
         process_filter = True
         process_extract = True
-        #check if filtered_edt.csv exists
+        # check if filtered_edt.csv exists
         if os.path.exists("filtered.csv"):
             process_filter = False
         extracted_path = f"{p}.dill"
@@ -56,19 +61,31 @@ if __name__ == "__main__":
             process_extract = False
 
         if process_filter:
-            #print command
-            print(f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm}")
+            # print command
+            print(
+                f"python {filter_script_path} -csv_path positive_bursts_1.csv -dm {dm}"
+            )
             # print(f"python {create_positive_csv_edit_path} filtered.csv")
             try:
-                subprocess.run(["python", filter_script_path, "-csv_path", "positive_bursts_1.csv", "-dm", dm],check=True)
+                subprocess.run(
+                    [
+                        "python",
+                        filter_script_path,
+                        "-csv_path",
+                        "positive_bursts_1.csv",
+                        "-dm",
+                        dm,
+                    ],
+                    check=True,
+                )
                 # subprocess.run([f"python", f"{filter_script_path}"],check=True)
                 # subprocess.run([f"python {create_positive_csv_edit_path} filtered.csv"],check=True)
             except Exception as e:
                 print(f"Error: {e}")
                 continue
         if process_extract:
-            #print command
+            # print command
             print(f"sbatch {batch_submit_job_path} {dm} {p} filtered.csv {period}")
             os.system(f"sbatch {batch_submit_job_path} {dm} {p} filtered.csv {period}")
-        #go back to the original directory
+        # go back to the original directory
         os.chdir(current_directory)

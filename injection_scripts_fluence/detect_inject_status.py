@@ -4,6 +4,7 @@ import sys
 import glob
 import os
 
+
 def check_injection_status(sample):
     grid = sample["grid"]
     snrs = grid[:, 1]
@@ -15,13 +16,13 @@ def check_injection_status(sample):
     # check file existance
     fil_files = glob.glob("*SNR*.fil")
     # check all the unique snrs are in there
-    all_injected = np.zeros((len(unique_snrs),len(unique_widths)), dtype=bool)
+    all_injected = np.zeros((len(unique_snrs), len(unique_widths)), dtype=bool)
     for f in fil_files:
         for j, s in enumerate(unique_snrs):
             for k, w in enumerate(unique_widths):
                 if f"SNR{s}_width{w}.fil" in f:
-                    all_injected[j,k] = True
-    #flatten all_injected
+                    all_injected[j, k] = True
+    # flatten all_injected
     all_injected = all_injected.flatten()
     if sum(all_injected) == len(all_injected):
         return True
