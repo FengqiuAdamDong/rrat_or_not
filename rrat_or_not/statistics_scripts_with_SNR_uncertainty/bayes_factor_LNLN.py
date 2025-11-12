@@ -245,10 +245,10 @@ def loglikelihood(theta, det_snr, det_width, likelihood_calc, low_width_flag):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Simulate some pulses")
+    parser = argparse.ArgumentParser(description="bayes factor for the ln ln model")
     # add an argument for config file
     parser.add_argument(
-        "-i", default="simulated_dir", help="folder with the simulated pulses"
+        "-i", default="simulated_dir", help="file with detection results"
     )
     args = parser.parse_args()
     real_det = args.i

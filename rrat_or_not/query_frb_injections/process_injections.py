@@ -1,0 +1,205 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from load_injections_data import injectionsData
+from scipy import interpolate as interp
+#inherit from injectionsData to add processed attributes
+class injectionsData_processed(injectionsData):
+    def __init__(self, injection_dict, detection_dict=None):
+        super().__init__(injection_dict, detection_dict)
+
+    #overload with a second method where you can just import an injectionsData object
+    @classmethod
+    def from_injectionsData(cls, inj_data_obj):
+        return cls(inj_data_obj.injection, inj_data_obj.detection)
+
+    def process_injections_data(self):
+        self.injection_dm = self.injection.get('dm', None)
+        self.injection_fluence_jy_ms = self.injection.get('fluence_jy_ms', None)
+        self.injection_pulse_width_ms = self.injection.get('pulse_width_ms', None)
+        self.injection_tau_1_ghz_ms = self.injection.get('extra_injection_parameters', {}).get('tau_1_ghz_ms', None)
+        self.beam_x = self.injection.get('extra_injection_parameters', {}).get('beam_x', None)
+        self.beam_y = self.injection.get('extra_injection_parameters', {}).get('beam_y', None)
+
+        self.detected = False
+
+        if self.detection is not None:
+            self.detection_snr = self.detection.get('combined_snr', None)
+            self.detection_dm = self.detection.get('dm', None)
+            self.detected = True
+        else:
+            self.detection_snr = None
+            self.detection_dm = None
+
+        #delete the injection and detection dicts to save memory and storage
+        del self.injection
+        del self.detection
+
+class selection_fluence_width():
+    def __init__(self, injections_data_arr):
+        self.injections_data_arr = injections_data_arr
+        self.load_tau_width_to_effective_width_map()
+
+    def load_tau_width_to_effective_width_map(self,npz_file='effective_widths.npz'):
+        data = np.load(npz_file)
+        taus = data['taus']
+        sigmas = data['sigmas']
+        #first axis is sigma, second axis is tau
+        self.mtaus = data['mtaus']
+        self.msigmas = data['msigmas']
+        self.effective_widths = data['effective_widths']
+
+    def interpolate_effective_width(self, tau, sigma):
+        interpolator = interp.RegularGridInterpolator((self.mtaus[0,:], self.msigmas[:,0]), self.effective_widths.T, bounds_error=False, fill_value=None)
+        point = np.array([[tau, sigma]])
+        effective_width = interpolator(point)[0]
+        return effective_width
+
+
+    def test_selection(self):
+        injection_dm = np.array([obj.injection_dm for obj in self.injections_data_arr])
+        detection_dm = np.array([obj.detection_dm for obj in self.injections_data_arr])
+        plt.figure()
+        plt.scatter(injection_dm, detection_dm, c='blue', alpha=0.5)
+        plt.xlabel('Injection DM')
+        plt.ylabel('Detection DM')
+        plt.title('Injection DM vs Detection DM')
+        plt.show()
+
+
+    def bin_fluence_dm(self):
+        fluences = np.array([obj.injection_fluence_jy_ms for obj in self.injections_data_arr])
+        pulse_width_ms = np.array([obj.injection_pulse_width_ms for obj in self.injections_data_arr])
+        tau_1_ghz_ms = np.array([obj.injection_tau_1_ghz_ms for obj in self.injections_data_arr])
+        #convert this to scattering timescale at 600mhz
+        tau_600_mhz_ms = tau_1_ghz_ms * (1000/600)**4
+        #calculate the effective width by interpolating the npzfile
+        effective_width = np.array([self.interpolate_effective_width(tau, pw) for tau, pw in zip(tau_600_mhz_ms, pulse_width_ms)])
+        
+
+
+        print("min max tau 600 mhz", np.min(tau_600_mhz_ms), np.max(tau_600_mhz_ms))
+        print("min max width", np.min(pulse_width_ms), np.max(pulse_width_ms))
+        detected = np.array([obj.detected for obj in self.injections_data_arr])
+        #make a 2d histogram of fluence vs pulse width, color coded by detection fraction
+        fluence_bins = np.logspace(np.log10(np.min(fluences[fluences>0])), np.log10(np.max(fluences)), 10)
+        effective_width_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        pulse_width_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        tau_600_mhz_ms_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        #plot a 2d histogram of fluence vs pulse width, color coded by effective width
+        effective_width_av = np.zeros((len(fluence_bins)-1, len(pulse_width_bins)-1))
+        for i in range(len(tau_600_mhz_ms_bins)-1):
+            for j in range(len(pulse_width_bins)-1):
+                in_bin = (tau_600_mhz_ms >= tau_600_mhz_ms_bins[i]) & (tau_600_mhz_ms < tau_600_mhz_ms_bins[i+1]) & \
+                            (pulse_width_ms >= pulse_width_bins[j]) & (pulse_width_ms < pulse_width_bins[j+1])
+                if np.sum(in_bin) > 0:
+                    #average all the in_bin effective widths
+                    effective_width_av[i, j] = np.mean(effective_width[in_bin])
+                else:
+                    effective_width_av[i, j] = np.nan
+        plt.figure()
+        plt.pcolormesh(tau_600_mhz_ms_bins, pulse_width_bins, effective_width_av.T, shading='auto', cmap='viridis')
+        plt.xlabel('Tau 1 GHz (ms)')
+        plt.ylabel('Pulse Width (ms)')
+        plt.colorbar(label='Average Effective Width (ms)')
+        plt.xscale('log')
+        plt.yscale('log')
+
+        # These all load the default best-fit model (see model-selection.ipynb)
+        detection_fraction = np.zeros((len(fluence_bins)-1, len(pulse_width_bins)-1))
+        for i in range(len(fluence_bins)-1):
+            for j in range(len(effective_width_bins)-1):
+                in_bin = (fluences >= fluence_bins[i]) & (fluences < fluence_bins[i+1]) & \
+                            (effective_width >= effective_width_bins[j]) & (effective_width < effective_width_bins[j+1])
+                total_in_bin = np.sum(in_bin)
+                if total_in_bin > 0:
+                    detected_in_bin = np.sum(detected[in_bin])
+                    detection_fraction[i, j] = detected_in_bin / total_in_bin
+                else:
+                    detection_fraction[i, j] = np.nan
+        plt.figure()
+        plt.pcolormesh(fluence_bins, effective_width_bins, detection_fraction.T, shading='auto', cmap='viridis')
+        plt.xlabel('Fluence (Jy ms)')
+        plt.ylabel('Pulse Width (ms)')
+        plt.colorbar(label='Detection Fraction')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.title('Detection Fraction vs Fluence and Pulse Width')
+        #plot some slices of the selection function in fluence at fixed pulse widths
+        plt.figure(figsize=(10, 8))
+        fluence_axis = 0.5 * (fluence_bins[:-1] + fluence_bins[1:])
+        i = 0
+        while i<len(effective_width_bins)-1:
+            #do every 10th pulse width bin
+            mid_pulse_width = 0.5 * (effective_width_bins[i] + effective_width_bins[i+1])
+            plt.plot(fluence_axis, detection_fraction[:, i], label=f'{mid_pulse_width}')
+            i += 1
+            # ax[j].set_xscale('log')
+            # ax[j].set_yscale('log')
+            # set the x axis from 0-50
+        plt.xscale('log')
+        plt.ylabel('Selection Probability')
+        plt.xlabel('Fluence (Jy ms)')
+        plt.legend()
+        plt.show()
+
+
+
+
+
+def get_formed_beam():
+    from beam_model import formed
+    formed_beam_model = formed.FFTFormedActualBeamModel()
+    beam_id_base = np.arange(0,256)
+    freqs = np.array([600])
+    beam_x = []
+    beam_y = []
+    for i in range(4):
+        beam_ids = beam_id_base + (i*1000)
+        beam_positions = formed_beam_model.get_beam_positions(beam_ids, freqs)
+        for pos in beam_positions:
+            beam_x.append(pos[0][0])
+            beam_y.append(pos[0][1])
+
+    # plt.figure()
+    # plt.scatter(beam_x, beam_y, alpha=0.5)
+    # plt.xlabel('Beam X')
+    # plt.ylabel('Beam Y')
+    # plt.title('Formed Beam Positions at 600 MHz')
+    # plt.show()
+
+    # import pdb; pdb.set_trace()
+    return np.min(beam_x), np.max(beam_x), np.min(beam_y), np.max(beam_y)
+
+
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Process injections data.")
+    parser.add_argument('input_file', type=str, help='Path to the input .npy file containing injections data array.')
+    args = parser.parse_args()
+    beam_x_min, beam_x_max, beam_y_min, beam_y_max = get_formed_beam()
+
+    injections_data_arr = np.load(args.input_file, allow_pickle=True)
+    injections_data_obj = [injectionsData_processed.from_injectionsData(inj) for inj in injections_data_arr]
+    for inj_obj in injections_data_obj:
+        inj_obj.process_injections_data()
+    beam_x_arr = np.array([inj.beam_x for inj in injections_data_obj])
+    beam_y_arr = np.array([inj.beam_y for inj in injections_data_obj])
+    #only keep those in the formed beam area
+    in_beam = (beam_x_arr >= beam_x_min) & (beam_x_arr <= beam_x_max) & \
+                (beam_y_arr >= beam_y_min) & (beam_y_arr <= beam_y_max)
+    injections_data_obj = [inj for i, inj in enumerate(injections_data_obj) if in_beam[i]]
+    beam_x_arr = beam_x_arr[in_beam]
+    beam_y_arr = beam_y_arr[in_beam]
+
+    plt.figure()
+    plt.scatter(beam_x_arr, beam_y_arr, alpha=0.5)
+    plt.xlabel('Beam X')
+    plt.ylabel('Beam Y')
+    plt.show()
+
+    selection = selection_fluence_width(injections_data_obj)
+    # selection.test_selection()
+    selection.bin_fluence_dm()
+
