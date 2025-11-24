@@ -119,3 +119,27 @@ def _find_mode_and_max(tau, sigma):
 
     return mode, max_value
 
+def get_formed_beam():
+    from beam_model import formed
+    formed_beam_model = formed.FFTFormedActualBeamModel()
+    beam_id_base = np.arange(0,256)
+    freqs = np.array([600])
+    beam_x = []
+    beam_y = []
+    for i in range(4):
+        beam_ids = beam_id_base + (i*1000)
+        beam_positions = formed_beam_model.get_beam_positions(beam_ids, freqs)
+        for pos in beam_positions:
+            beam_x.append(pos[0][0])
+            beam_y.append(pos[0][1])
+
+    # plt.figure()
+    # plt.scatter(beam_x, beam_y, alpha=0.5)
+    # plt.xlabel('Beam X')
+    # plt.ylabel('Beam Y')
+    # plt.title('Formed Beam Positions at 600 MHz')
+    # plt.show()
+
+    # import pdb; pdb.set_trace()
+    return np.min(beam_x), np.max(beam_x), np.min(beam_y), np.max(beam_y)
+

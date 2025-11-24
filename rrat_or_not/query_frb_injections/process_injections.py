@@ -1,7 +1,38 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from load_injections_data import injectionsData
+from rrat_or_not.query_frb_injections.load_injections_data import injectionsData
+import dill
+from scipy.optimize import basinhopping
+# from rrat_or_not.injection_scripts_fluence.injection_stats import inject_stats
 from scipy import interpolate as interp
+
+def gen_log(x, B, v, K, M,  cutoff):
+    y = K / ((1 + np.exp(-B * (x - M))) ** (1 / v))
+    y[x < cutoff] = 0
+    return y
+
+def forward_model(x, k1, k2, k3, x0, cutoff):
+    # this is just a wrapper function so that I only need to change this one reference to change the function used
+    return gen_log(x, k1, k2, k3, x0, cutoff)
+    # return piecewise_tanh(x, k1, k2, x0, cutoff)
+    # return piecewise_logistic(x, k1, k2, x0, cutoff)
+
+def get_formed_beam():
+    from beam_model import formed
+    formed_beam_model = formed.FFTFormedActualBeamModel()
+    beam_id_base = np.arange(0,256)
+    freqs = np.array([600])
+    beam_x = []
+    beam_y = []
+    for i in range(4):
+        beam_ids = beam_id_base + (i*1000)
+        beam_positions = formed_beam_model.get_beam_positions(beam_ids, freqs)
+        for pos in beam_positions:
+            beam_x.append(pos[0][0])
+            beam_y.append(pos[0][1])
+
+    return np.min(beam_x), np.max(beam_x), np.min(beam_y), np.max(beam_y)
+
 #inherit from injectionsData to add processed attributes
 class injectionsData_processed(injectionsData):
     def __init__(self, injection_dict, detection_dict=None):
@@ -96,16 +127,9 @@ class selection_fluence_width():
                     effective_width_av[i, j] = np.mean(effective_width[in_bin])
                 else:
                     effective_width_av[i, j] = np.nan
-        plt.figure()
-        plt.pcolormesh(tau_600_mhz_ms_bins, pulse_width_bins, effective_width_av.T, shading='auto', cmap='viridis')
-        plt.xlabel('Tau 1 GHz (ms)')
-        plt.ylabel('Pulse Width (ms)')
-        plt.colorbar(label='Average Effective Width (ms)')
-        plt.xscale('log')
-        plt.yscale('log')
-
         # These all load the default best-fit model (see model-selection.ipynb)
         detection_fraction = np.zeros((len(fluence_bins)-1, len(pulse_width_bins)-1))
+
         for i in range(len(fluence_bins)-1):
             for j in range(len(effective_width_bins)-1):
                 in_bin = (fluences >= fluence_bins[i]) & (fluences < fluence_bins[i+1]) & \
@@ -116,6 +140,33 @@ class selection_fluence_width():
                     detection_fraction[i, j] = detected_in_bin / total_in_bin
                 else:
                     detection_fraction[i, j] = np.nan
+
+        self.detection_fraction = detection_fraction
+        self.det_frac_matrix_snr = self.detection_fraction
+
+        self.effective_width_bins = effective_width_bins
+        self.fluence_bins = fluence_bins
+        #set to midpoints of the bin edges
+        self.unique_widths = [0.5 * (effective_width_bins[i] + effective_width_bins[i+1]) for i in range(len(effective_width_bins)-1)]
+        # self.fluence_bin_edges = fluence_bin_edges
+        #set this as unique snrs too
+        self.unique_snrs = [0.5 * (fluence_bins[i] + fluence_bins[i+1]) for i in range(len(fluence_bins)-1)]
+
+        #save self
+        with open("temp.dill", "wb") as of:
+            dill.dump(self, of)
+
+       
+
+        plt.figure()
+        plt.pcolormesh(tau_600_mhz_ms_bins, pulse_width_bins, effective_width_av.T, shading='auto', cmap='viridis')
+        plt.xlabel('Tau 1 GHz (ms)')
+        plt.ylabel('Pulse Width (ms)')
+        plt.colorbar(label='Average Effective Width (ms)')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.savefig('effective_width_vs_tau_width.png')
+
         plt.figure()
         plt.pcolormesh(fluence_bins, effective_width_bins, detection_fraction.T, shading='auto', cmap='viridis')
         plt.xlabel('Fluence (Jy ms)')
@@ -124,6 +175,7 @@ class selection_fluence_width():
         plt.xscale('log')
         plt.yscale('log')
         plt.title('Detection Fraction vs Fluence and Pulse Width')
+        plt.savefig('detection_fraction_vs_fluence_width.png')
         #plot some slices of the selection function in fluence at fixed pulse widths
         plt.figure(figsize=(10, 8))
         fluence_axis = 0.5 * (fluence_bins[:-1] + fluence_bins[1:])
@@ -140,25 +192,124 @@ class selection_fluence_width():
         plt.ylabel('Selection Probability')
         plt.xlabel('Fluence (Jy ms)')
         plt.legend()
-        plt.show()
+        plt.savefig('selection_function_slices_fluence.png')
+
+    def forward_model_det(self):
+        karr = []
+        self.forward_model_cutoffs = []
+        for i in range(len(self.unique_widths)):
+            snrs = self.unique_snrs
+
+            snrs = np.array(snrs)
+            det_fracs = self.det_frac_matrix_snr[:, i]
+            det_fracs = np.array(det_fracs)
+            snr_mask  = snrs<1000
+            det_fracs = det_fracs[snr_mask]
+            snrs = snrs[snr_mask]
+            # determine where x0 is
+            snr_interp_arr = np.linspace(0, max(snrs), 1000)
+
+            interp_det_fracs = np.interp(snr_interp_arr, snrs, det_fracs)
+            # find where it's closest to 0.5
+            x0 = snr_interp_arr[np.argmin(np.abs(interp_det_fracs - 0.5))]
+            from scipy.stats import norm
+
+            def p_det_st(x, k1, k2, k3, x0, det_err, cutoff):
+                sdet = np.linspace(min(x) - 3 * det_err, max(x) + 3 * det_err, 1000)
+                sdet_giv_st = norm.pdf(sdet, loc=x, scale=det_err)
+                # pdet_giv_sdet = peicewise_logistic(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
+                # pdet_giv_sdet = gen_log(sdet,k1,k2,x0,cutoff)[:,np.newaxis]
+                pdet_giv_sdet = forward_model(sdet, k1, k2,k3, x0, cutoff)
+                integral = np.trapz(sdet_giv_st * pdet_giv_sdet, sdet, axis=0)
+                return integral
+
+            def loglike(X, snr_arr, det_fracs, det_err, cutoff):
+                # assume bernoulli errors for 50 trials
+                sigma = X[3]
+                # scale sigma by det_fracs
+                # sigma = sigma*det_fracs+0.001
+                # use a gaussian likelihood
+                loglike = np.sum(
+                    -0.5
+                    * (p_det_st(snr_arr, X[0], X[1], X[2], X[3], det_err, cutoff) - det_fracs)
+                    ** 2
+                    / sigma**2
+                    - np.log(sigma * np.sqrt(2 * np.pi))
+                )
+                return -1 * loglike
+
+            cutoff = np.argwhere(det_fracs < 0.05)
+            cutoff = np.max(cutoff)
+            self.forward_model_cutoffs.append(snrs[cutoff])
+            self.detect_error_snr = np.linspace(0.5, 2.0, len(snrs))
+            bounds = [(0, 50), (0, 50),(0,1), (0, 20), (0.01, 0.1)]
+            args = (snrs, det_fracs, self.detect_error_snr, snrs[cutoff])
+            
+            minimizer_kwargs = dict(method="Nelder-Mead", args=args, bounds=bounds)
+            init = [1, 1, 1, x0, 0.05]
+
+            res = basinhopping(
+                loglike, init, minimizer_kwargs=minimizer_kwargs, niter=50
+            )
+            # fit the model
+            k1, k2, k3, x0, sigma = res.x
+            print(
+                f"fitted sigma {sigma} k1 {k1} k2 {k2} k3 {k3} x0 {x0} cutoff {snrs[cutoff]} width {self.unique_widths[i]}"
+            )
+            karr.append(res.x)
+            plt.figure()
+            # plt.plot(snr_interp_arr,peicewise_logistic(snr_interp_arr,k1,k2,x0,snrs[cutoff]),label="forward model")
+            plt.plot(
+                snr_interp_arr,
+                forward_model(snr_interp_arr, k1, k2, k3, x0, snrs[cutoff]),
+                label="forward model",
+            )
+            plt.plot(
+                snrs,
+                p_det_st(
+                    snrs, k1, k2, k3, x0, self.detect_error_snr, snrs[cutoff]
+                ),
+                label="forward model pdet | st",
+            )
+
+            plt.plot(snrs, det_fracs, "x", label="data inj")
+            plt.legend()
+            plt.savefig(f"width_{self.unique_widths[i]}_foreward_model.png")
+            plt.show()
+            # plt.show()
+            plt.close()
+        self.karr = karr
+        with open("test.dill", "wb") as of:
+            dill.dump(self, of)
+
+    def generate_forward_model_grid(
+        self,
+    ):
+        self.forward_model_snr_arrs = np.linspace(0, 50, 1000)
+        self.det_frac_foreward_model_matrix_snr = np.zeros(
+            (len(self.forward_model_snr_arrs), len(self.unique_widths))
+        )
+        for i in range(len(self.unique_widths)):
+            k1, k2, x0, sigma = self.karr[i]
+            print(
+                k1, k2, x0, sigma, self.unique_widths[i], self.forward_model_cutoffs[i]
+            )
+            self.det_frac_foreward_model_matrix_snr[:, i] = forward_model(
+                self.forward_model_snr_arrs, k1, k2, x0, self.forward_model_cutoffs[i]
+            )
+        plt.figure()
+        plt.title("forward modelled pdet|sdet")
+        plt.pcolormesh(
+            self.unique_widths * 1000,
+            self.forward_model_snr_arrs,
+            self.det_frac_foreward_model_matrix_snr,
+        )
+        plt.xlabel("width (ms)")
+        plt.ylabel("snr")
+        plt.savefig("forward_modelled_pdet_sdet.png")
+        plt.close()
 
 
-
-
-
-def get_formed_beam():
-    from beam_model import formed
-    formed_beam_model = formed.FFTFormedActualBeamModel()
-    beam_id_base = np.arange(0,256)
-    freqs = np.array([600])
-    beam_x = []
-    beam_y = []
-    for i in range(4):
-        beam_ids = beam_id_base + (i*1000)
-        beam_positions = formed_beam_model.get_beam_positions(beam_ids, freqs)
-        for pos in beam_positions:
-            beam_x.append(pos[0][0])
-            beam_y.append(pos[0][1])
 
     # plt.figure()
     # plt.scatter(beam_x, beam_y, alpha=0.5)
@@ -168,7 +319,6 @@ def get_formed_beam():
     # plt.show()
 
     # import pdb; pdb.set_trace()
-    return np.min(beam_x), np.max(beam_x), np.min(beam_y), np.max(beam_y)
 
 
 
@@ -180,26 +330,32 @@ if __name__ == "__main__":
     args = parser.parse_args()
     beam_x_min, beam_x_max, beam_y_min, beam_y_max = get_formed_beam()
 
-    injections_data_arr = np.load(args.input_file, allow_pickle=True)
-    injections_data_obj = [injectionsData_processed.from_injectionsData(inj) for inj in injections_data_arr]
-    for inj_obj in injections_data_obj:
-        inj_obj.process_injections_data()
-    beam_x_arr = np.array([inj.beam_x for inj in injections_data_obj])
-    beam_y_arr = np.array([inj.beam_y for inj in injections_data_obj])
-    #only keep those in the formed beam area
-    in_beam = (beam_x_arr >= beam_x_min) & (beam_x_arr <= beam_x_max) & \
-                (beam_y_arr >= beam_y_min) & (beam_y_arr <= beam_y_max)
-    injections_data_obj = [inj for i, inj in enumerate(injections_data_obj) if in_beam[i]]
-    beam_x_arr = beam_x_arr[in_beam]
-    beam_y_arr = beam_y_arr[in_beam]
+    if args.input_file.endswith('.dill'):
+        with open(args.input_file, 'rb') as f:
+            selection = dill.load(f)
+    else:
+        injections_data_arr = np.load(args.input_file, allow_pickle=True)
 
-    plt.figure()
-    plt.scatter(beam_x_arr, beam_y_arr, alpha=0.5)
-    plt.xlabel('Beam X')
-    plt.ylabel('Beam Y')
-    plt.show()
+        injections_data_obj = [injectionsData_processed.from_injectionsData(inj) for inj in injections_data_arr]
+        for inj_obj in injections_data_obj:
+            inj_obj.process_injections_data()
+        beam_x_arr = np.array([inj.beam_x for inj in injections_data_obj])
+        beam_y_arr = np.array([inj.beam_y for inj in injections_data_obj])
+        #only keep those in the formed beam area
+        in_beam = (beam_x_arr >= beam_x_min) & (beam_x_arr <= beam_x_max) & \
+                    (beam_y_arr >= beam_y_min) & (beam_y_arr <= beam_y_max)
+        injections_data_obj = [inj for i, inj in enumerate(injections_data_obj) if in_beam[i]]
+        beam_x_arr = beam_x_arr[in_beam]
+        beam_y_arr = beam_y_arr[in_beam]
 
-    selection = selection_fluence_width(injections_data_obj)
-    # selection.test_selection()
-    selection.bin_fluence_dm()
+        plt.figure()
+        plt.scatter(beam_x_arr, beam_y_arr, alpha=0.5)
+        plt.xlabel('Beam X')
+        plt.ylabel('Beam Y')
+        plt.show()
+
+        selection = selection_fluence_width(injections_data_obj)
+        # selection.test_selection()
+        selection.bin_fluence_dm()
+    selection.forward_model_det()
 
