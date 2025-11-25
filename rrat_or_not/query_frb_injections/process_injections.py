@@ -3,13 +3,38 @@ import matplotlib.pyplot as plt
 from rrat_or_not.query_frb_injections.load_injections_data import injectionsData
 import dill
 from scipy.optimize import basinhopping
+
+from scipy.stats import norm
 # from rrat_or_not.injection_scripts_fluence.injection_stats import inject_stats
 from scipy import interpolate as interp
 
-def gen_log(x, B, v, K, M,  cutoff):
+def gen_log(x, B, v, K, M, cutoff):
     y = K / ((1 + np.exp(-B * (x - M))) ** (1 / v))
     y[x < cutoff] = 0
     return y
+
+def flipped_gen_log(x, B, v, K, M, cutoff):
+    #invert the gen_log function
+    y = K - gen_log(x, B, v, K, M, 0)
+    y[x > cutoff] = 0
+    return y
+
+def gen_log_2d(mesh_amp, mesh_width, K_amp, K_width, cutoff_amp, cutoff_width):
+    #K_amp are the amplitude parameters, and K_width are the width parameters
+    # y = gen_log(mesh_amp, K_amp[0], K_amp[1], K_amp[2], K_amp[3], cutoff_amp) * \
+        # flipped_gen_log(mesh_width, K_width[0], K_width[1], K_width[2], K_width[3], cutoff_width)
+    #make y a product of gen log and a 4th order polynomial
+    y = gen_log(mesh_amp, K_amp[0], K_amp[1], K_amp[2], K_amp[3], cutoff_amp) * \
+        np.polyval([K_width[0], K_width[1], K_width[2], K_width[3]], mesh_width)
+    y[y<0] = 0
+    y[y>1] = 1
+    return y
+
+    
+
+
+
+
 
 def forward_model(x, k1, k2, k3, x0, cutoff):
     # this is just a wrapper function so that I only need to change this one reference to change the function used
@@ -113,11 +138,12 @@ class selection_fluence_width():
         detected = np.array([obj.detected for obj in self.injections_data_arr])
         #make a 2d histogram of fluence vs pulse width, color coded by detection fraction
         fluence_bins = np.logspace(np.log10(np.min(fluences[fluences>0])), np.log10(np.max(fluences)), 10)
-        effective_width_bins = np.logspace(np.log10(1), np.log10(50), 10)
-        pulse_width_bins = np.logspace(np.log10(1), np.log10(50), 10)
-        tau_600_mhz_ms_bins = np.logspace(np.log10(1), np.log10(50), 10)
+        #make 11 bins in width and 10 in fluence so that it's easier to track
+        effective_width_bins = np.logspace(np.log10(1), np.log10(50), 11)
+        pulse_width_bins = np.logspace(np.log10(1), np.log10(50), 11)
+        tau_600_mhz_ms_bins = np.logspace(np.log10(1), np.log10(50), 11)
         #plot a 2d histogram of fluence vs pulse width, color coded by effective width
-        effective_width_av = np.zeros((len(fluence_bins)-1, len(pulse_width_bins)-1))
+        effective_width_av = np.zeros((len(tau_600_mhz_ms_bins)-1, len(pulse_width_bins)-1))
         for i in range(len(tau_600_mhz_ms_bins)-1):
             for j in range(len(pulse_width_bins)-1):
                 in_bin = (tau_600_mhz_ms >= tau_600_mhz_ms_bins[i]) & (tau_600_mhz_ms < tau_600_mhz_ms_bins[i+1]) & \
@@ -128,8 +154,8 @@ class selection_fluence_width():
                 else:
                     effective_width_av[i, j] = np.nan
         # These all load the default best-fit model (see model-selection.ipynb)
+        # 
         detection_fraction = np.zeros((len(fluence_bins)-1, len(pulse_width_bins)-1))
-
         for i in range(len(fluence_bins)-1):
             for j in range(len(effective_width_bins)-1):
                 in_bin = (fluences >= fluence_bins[i]) & (fluences < fluence_bins[i+1]) & \
@@ -147,10 +173,11 @@ class selection_fluence_width():
         self.effective_width_bins = effective_width_bins
         self.fluence_bins = fluence_bins
         #set to midpoints of the bin edges
-        self.unique_widths = [0.5 * (effective_width_bins[i] + effective_width_bins[i+1]) for i in range(len(effective_width_bins)-1)]
+        self.unique_widths = np.array([0.5 * (effective_width_bins[i] + effective_width_bins[i+1]) for i in range(len(effective_width_bins)-1)])
         # self.fluence_bin_edges = fluence_bin_edges
         #set this as unique snrs too
-        self.unique_snrs = [0.5 * (fluence_bins[i] + fluence_bins[i+1]) for i in range(len(fluence_bins)-1)]
+        self.unique_snrs = np.array([0.5 * (fluence_bins[i] + fluence_bins[i+1]) for i in range(len(fluence_bins)-1)])
+        self.unique_amplitude = self.unique_snrs
 
         #save self
         with open("temp.dill", "wb") as of:
@@ -194,6 +221,103 @@ class selection_fluence_width():
         plt.legend()
         plt.savefig('selection_function_slices_fluence.png')
 
+    def forward_model_wdith_amp(self):
+        #this function will forward model both width and amplitude such that you can get pdet|fluence,width
+        unique_amps = self.unique_amplitude
+        unique_widths = self.unique_widths
+        detection_fraction = self.detection_fraction
+
+        def p_det_st_wt(u_amps, u_widths, K_amp, K_width, width_err, amp_err, cutoff_amp, cutoff_width):
+            # #create a 2d array of w_det and s_det
+            # min_sdet = min(u_amps)-3*amp_err
+            # if min_sdet < 0:
+            #     min_set = 0
+            # sdet = np.linspace(min_sdet, max(u_amps)+3*amp_err, 100)
+            # min_width = min(u_widths)-3*width_err
+            # if min_width < 0:
+            #     min_width = 0
+            
+            # wdet = np.linspace(min_width, max(u_widths)+3*width_err, 101)
+            # sdet_mesh, wdet_mesh = np.meshgrid(sdet, wdet)
+            # pdet_giv_sdet_wdet = gen_log_2d(sdet_mesh, wdet_mesh, K_amp, K_width, cutoff_amp, cutoff_width)
+            # # create a gaussian distribution in the amp and width directions, assume independence, so we can do the two 1d gaussians independently and multiply
+            # amp_gauss = norm.pdf(sdet[:,np.newaxis], loc=u_amps[np.newaxis,:], scale=amp_err)  # shape (len(sdet), len(u_amps), in the future, amp_err can be an array too)
+            # width_gauss = norm.pdf(wdet[:,np.newaxis], loc=u_widths[np.newaxis,:], scale=width_err)  # shape (len(wdet), len(u_widths))
+
+            # pdet_giv_wdet = pdet_giv_sdet_wdet[:,:,np.newaxis]  * amp_gauss[np.newaxis,:,:] 
+            # #integrate over sdet
+            # pdet_giv_wdet = np.trapezoid(pdet_giv_wdet, sdet, axis=1)  # shape (len(wdet), len(u_amps))
+            # pdet = pdet_giv_wdet[:,:, np.newaxis] * width_gauss[:,np.newaxis,:]  # shape (len(u_amps), len(u_widths))
+            # #integrate over wdet
+            # pdet = np.trapezoid(pdet, wdet, axis=0)  # shape (len(u_amps), len(u_widths))
+             
+            sdet_mesh, wdet_mesh = np.meshgrid(u_amps, u_widths)
+            pdet = gen_log_2d(sdet_mesh, wdet_mesh, K_amp, K_width, cutoff_amp, cutoff_width).T
+            # plt.figure()
+            # plt.pcolormesh(np.log10(u_widths), np.log10(u_amps), pdet, shading='auto', cmap='viridis')
+            # plt.xlabel('Width (ms)')
+            # plt.ylabel('Amplitude')
+            # plt.colorbar(label='Detection Fraction before smearing')
+            # plt.figure()
+            # plt.pcolormesh(np.log10(unique_widths), np.log10(unique_amps), detection_fraction, shading='auto', cmap='viridis')
+            # #change to log log
+            # plt.xlabel('Width (ms)')
+            # plt.ylabel('Amplitude')
+            # plt.colorbar(label='Detection Fraction')
+
+            # plt.show()
+            return pdet
+
+        def loglike_2d(X, u_amps, u_widths, det_fracs, amp_err, width_err, cutoff_amp, cutoff_width):
+            sigma = X[-1]
+            loglike = -0.5*np.nansum(p_det_st_wt(u_amps, u_widths, X[0:4], X[4:8], amp_err, width_err, cutoff_amp, cutoff_width) - det_fracs)**2 / sigma**2
+            loglike -= np.log(sigma * np.sqrt(2 * np.pi))
+            return -1 * loglike
+
+        amplitude_cutoff = 0
+        width_cutoff = 100
+        x0 = 15
+        w0 = 60
+        init = [0.1, 10, 1, x0, 1, 10, 1, w0, 1]
+        # bounds = [(0, 50), (0, 50), (0,1), (0, 50),(0, 50), (0, 50), (0,1), (0, 100), (0.01, 1)]
+        bounds = [(0, 50), (0, 50), (0,10), (0, 50),(-np.inf, np.inf), (-np.inf, np.inf), (-np.inf, np.inf), (-np.inf, np.inf), (0.01, 1)]
+        amp_err = 1
+        width_err = 1
+        minimizer_kwargs = dict(method="Nelder-Mead", args=(unique_amps, unique_widths, detection_fraction, amp_err, width_err, amplitude_cutoff, width_cutoff), bounds=bounds)
+        res = basinhopping(
+            loglike_2d, init, minimizer_kwargs=minimizer_kwargs, niter=1000
+        )
+        plot = True
+        #print the loglikes
+        print(loglike_2d(res.x, unique_amps, unique_widths, detection_fraction, amp_err, width_err, amplitude_cutoff, width_cutoff))
+        print(loglike_2d(init, unique_amps, unique_widths, detection_fraction, amp_err, width_err, amplitude_cutoff, width_cutoff))
+        if plot:
+            plt.figure()
+            plt.pcolormesh(np.log10(unique_widths), np.log10(unique_amps), detection_fraction, shading='auto', cmap='viridis')
+            #change to log log
+            plt.xlabel('Width (ms)')
+            plt.ylabel('Amplitude')
+            plt.colorbar(label='Detection Fraction')
+            #set colorbar lim to 0-1
+            plt.clim(0, 1)
+            plt.figure()
+            plt.pcolormesh(np.log10(unique_widths), np.log10(unique_amps), p_det_st_wt(unique_amps, unique_widths, res.x[0:4], res.x[4:8], amp_err, width_err, amplitude_cutoff, width_cutoff), shading='auto', cmap='viridis')
+            plt.xlabel('Width (ms)')
+            plt.ylabel('Amplitude')
+            plt.colorbar(label='Forward Modelled Detection Fraction')
+            plt.clim(0, 1)
+            plt.show()
+
+
+        import pdb; pdb.set_trace()
+
+        
+        
+
+
+
+
+
     def forward_model_det(self):
         karr = []
         self.forward_model_cutoffs = []
@@ -212,7 +336,6 @@ class selection_fluence_width():
             interp_det_fracs = np.interp(snr_interp_arr, snrs, det_fracs)
             # find where it's closest to 0.5
             x0 = snr_interp_arr[np.argmin(np.abs(interp_det_fracs - 0.5))]
-            from scipy.stats import norm
 
             def p_det_st(x, k1, k2, k3, x0, det_err, cutoff):
                 sdet = np.linspace(min(x) - 3 * det_err, max(x) + 3 * det_err, 1000)
@@ -224,12 +347,10 @@ class selection_fluence_width():
                 return integral
 
             def loglike(X, snr_arr, det_fracs, det_err, cutoff):
-                # assume bernoulli errors for 50 trials
-                sigma = X[3]
+                sigma = 1
                 # scale sigma by det_fracs
-                # sigma = sigma*det_fracs+0.001
                 # use a gaussian likelihood
-                loglike = np.sum(
+                loglike = np.nansum(
                     -0.5
                     * (p_det_st(snr_arr, X[0], X[1], X[2], X[3], det_err, cutoff) - det_fracs)
                     ** 2
@@ -357,5 +478,6 @@ if __name__ == "__main__":
         selection = selection_fluence_width(injections_data_obj)
         # selection.test_selection()
         selection.bin_fluence_dm()
+
     selection.forward_model_det()
 
