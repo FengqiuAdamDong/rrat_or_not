@@ -22,6 +22,7 @@ class statistics_basic:
         low_width_flag=False,
         snr_upper=50,
         width_upper=28e-3,
+        reuse_pdet_sdet=False,
     ):
         self.load_detection_fn(
             detection_curve,
@@ -32,6 +33,7 @@ class statistics_basic:
             width_upper=width_upper,
             plot=plot,
             use_interp=low_width_flag,
+            reuse_pdet_sdet=reuse_pdet_sdet,
         )
 
     def p_detect_cpu(self, points, fluence=False):
