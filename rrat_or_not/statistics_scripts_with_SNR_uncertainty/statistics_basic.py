@@ -203,17 +203,12 @@ class statistics_basic:
             detected_snr_bins = inj_stats.forward_model_snr_arrs
             detected_width_bins = inj_stats.unique_widths
             detected_det_frac_snr = inj_stats.det_frac_foreward_model_matrix_snr
-            # plt.imshow(detected_det_frac_snr, aspect='auto')
-            # plt.show()
-
         else:
             detected_snr_bins = inj_stats.detected_bin_midpoints_snr[0]
             detected_width_bins = inj_stats.detected_bin_midpoints_snr[1]
             detected_det_frac_snr = inj_stats.detected_det_frac_snr
-            # detected_snr_bins = inj_stats.unique_snrs
-            # detected_width_bins = inj_stats.unique_widths
-            # detected_det_frac_snr = inj_stats.det_frac_matrix_snr
-            # create a dataframe of the detection fraction
+
+        # create a dataframe of the detection fraction
         detected_det_frac_snr = pd.DataFrame(detected_det_frac_snr)
         detected_det_frac_snr.interpolate(axis=0, inplace=True, limit_direction="both")
         detected_det_frac_snr = detected_det_frac_snr.to_numpy()
@@ -226,6 +221,7 @@ class statistics_basic:
         )
         # do a stage of this interpolation process so that the interpolated cut-off is at the right place
         # this is only needed if the injected grid is not really fine
+        
         detected_snr_bins_stage1 = np.linspace(0, 52, 5000)
         detected_width_bins_stage1 = np.linspace(0, 35e-3, 5000)
         detected_det_frac_snr_stage1 = self.p_detect_cpu(
@@ -345,21 +341,12 @@ class statistics_basic:
         points = (fluence_grid, width_grid)
         interp_res_fluence = self.p_detect_cpu(points, fluence=True)
 
-        # detfn = p_detect(snr_arr,min_snr_cutoff=min_snr_cutoff,flux_cal=flux_cal)
-        # get the snr cutoff by finding when detfn is larger than 0.05
-        # snr_cutoff = inj_stats._snr[np.where(detfn>0)[0][0]]
         if plot:
             fig, ax = plt.subplots(1, 2, figsize=(10, 5))
             mesh = ax[1].pcolormesh(width_grid * 1e3, snr_arr, interp_res_snr)
             ax[0].set_xlabel("Width (ms)")
             ax[0].set_ylabel("S/N")
             ax[1].set_title("Interpolated detected selection effects")
-            # cbar = plt.colorbar(mesh, ax=ax[0])
-            # cbar.set_label("detection fraction")
-            # set log axis
-            ax[0].set_xlim(0, 40)
-            ax[0].set_ylim(0, 20)
-
             mesh = ax[0].pcolormesh(
                 detected_width_bins * 1e3, detected_snr_bins, detected_det_frac_snr
             )
@@ -370,26 +357,8 @@ class statistics_basic:
             plt.tight_layout()
             plt.savefig("selection_effects.pdf")
             plt.savefig("selection_effects.png")
-            # fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-            # mesh = ax[0].pcolormesh(width_grid * 1e3, fluence_arr, interp_res_fluence)
-            # ax[0].set_xlabel("width")
-            # ax[0].set_ylabel("fluence")
-            # cbar = plt.colorbar(mesh, ax=ax[0])
-            # cbar.set_label("detection fraction")
-            # mesh = ax[1].pcolormesh(
-            #     detected_width_f_bins * 1e3,
-            #     detected_fluence_bins,
-            #     inj_stats.detected_det_frac_fluence,
-            # )
-            # ax[1].set_xlabel("width")
-            # ax[1].set_ylabel("fluence")
-            # cbar = plt.colorbar(mesh, ax=ax[1])
-            # cbar.set_label("detection fraction")
             plt.show()
 
-        # if snr_cutoff < 1.3:
-        #     print("WARNING SNR CUTOFF IS LESS THAN 1.3")
-        #     snr_cutoff = 1.3
         # assign the errors in the different directions
         self.detected_error_snr = inj_stats.detect_error_snr
         self.detected_error_width = inj_stats.detect_error_width
@@ -402,35 +371,15 @@ class statistics_basic:
         print(f"loaded detected error width: {self.detected_error_width}")
         return snr_cutoff, width_cutoff
 
-    def logistic(self, x, k, x0):
-        L = 1
-        snr = x
-        detection_fn = np.zeros(len(snr))
-        snr_limit = 1
-        detection_fn[(snr > -snr_limit) & (snr < snr_limit)] = L / (
-            1 + np.exp(-k * (snr[(snr > -snr_limit) & (snr < snr_limit)] - x0))
-        )
-        detection_fn[snr >= snr_limit] = 1
-        detection_fn[snr <= -snr_limit] = 0
-        return detection_fn
-
-    def n_detect(self, snr_emit):
-        # snr emit is the snr that the emitted pulse has
-        p = p_detect(snr_emit)
-        # simulate random numbers between 0 and 1
-        rands = np.random.rand(len(p))
-        # probability the random number is less than p gives you an idea of what will be detected
-        detected = snr_emit[rands < p]
-        return detected
 if __name__ == "__main__":
     import sys
     stat = statistics_basic(
         sys.argv[1],
         flux_cal=1,
-        snr_cutoff=2,
-        width_cutoff=0.005,
+        snr_cutoff=0.001,
+        width_cutoff=1e-3,
         plot=True,
         low_width_flag=False,
-        snr_upper=500,
-        width_upper=50,
+        snr_upper=10000,
+        width_upper=100,
     )
