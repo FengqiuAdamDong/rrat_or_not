@@ -113,7 +113,7 @@ def process_detection_results(
     det_snr = det_snr[mask]
     det_width = det_width[mask]
 
-    low_width_flag = np.mean(det_width) < 5e-3
+    low_width_flag = False
 
     plt.figure()
     #2d histogram of det_width and det_snr
@@ -153,7 +153,6 @@ def load_selection_effects(
         low_width_flag=low_width_flag,
         snr_upper=snr_upper,
         width_upper=width_upper,
-        use_interp=False,
         reuse_pdet_sdet=True,
     )
     # likelihood_calc.convolve_p_detect(low_width=low_width_flag)
