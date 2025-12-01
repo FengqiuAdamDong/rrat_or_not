@@ -156,7 +156,8 @@ def load_selection_effects(
         reuse_pdet_sdet=True,
     )
     # likelihood_calc.convolve_p_detect(low_width=low_width_flag)
-    # likelihood_calc.calculate_pdet(det_snr, det_width)
+    # this precalculates the p_det
+    likelihood_calc.calculate_pdet(det_snr, det_width)
     # # remove the values with p_det = 0
     # mask = likelihood_calc.p_det_unfiltered.get() > 0
     # det_snr = det_snr[mask]
