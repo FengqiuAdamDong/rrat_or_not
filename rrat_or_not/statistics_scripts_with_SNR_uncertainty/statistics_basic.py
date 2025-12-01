@@ -99,15 +99,7 @@ class statistics_basic:
         pdet_st_sd_wd = p_det_snr * amp_error
         # marginalize over the sd
         pdet_st_wd = np.trapz(pdet_st_sd_wd, detected_snr_bins, axis=0)
-        # plt.figure()
-        # plt.pcolormesh(true_snr_bins[0,0,:],detected_width_bins[0,:,0]*1e3,pdet_st_wd)
-        # plt.figure()
-        # plt.pcolormesh(detected_snr_bins[:,0,0],detected_width_bins[0,:,0]*1e3,p_det_snr[:,:,0].T)
-        # plt.figure()
-        # plt.plot(detected_snr_bins[:,0,0],p_det_snr[:,250,0],label='detected')
-        # plt.plot(true_snr_bins[0,0,:],pdet_st_wd[250,:],label='injected')
-        # plt.legend()
-        # plt.show()
+
         detected_width_bins = detected_width_bins[0, :, :, np.newaxis]
         if low_width:
             print("Using the low width width error")
@@ -275,16 +267,6 @@ class statistics_basic:
             fill_value=None,
         )
 
-        injected_snr = inj_stats.unique_snrs
-        injected_width = inj_stats.unique_widths
-        injected_det_frac = inj_stats.det_frac_matrix_snr
-        self.injected_interp_snr = scipy.interpolate.RegularGridInterpolator(
-            (injected_snr, injected_width),
-            injected_det_frac,
-            bounds_error=False,
-            fill_value=None,
-        )
-
         self.detected_snr_bins = detected_snr_bins
         self.detected_width_bins = detected_width_bins
         self.detected_det_frac_snr = detected_det_frac_snr
@@ -293,10 +275,6 @@ class statistics_basic:
         self.detected_width_f_bins = detected_width_f_bins
         self.detected_det_frac_fluence = detected_det_frac_fluence
 
-        self.injected_snr = injected_snr
-        self.injected_width = injected_width
-        self.injected_det_frac = injected_det_frac
-
         self.cupy_detected_det_frac_snr = cp.asarray(detected_det_frac_snr_stage1)
         self.cupy_detected_snr_bins = cp.asarray(detected_snr_bins_stage1)
         self.cupy_detected_width_bins = cp.asarray(detected_width_bins_stage1)
@@ -304,10 +282,6 @@ class statistics_basic:
         self.cupy_detected_det_frac_fluence = cp.asarray(detected_det_frac_fluence)
         self.cupy_detected_fluence_bins = cp.asarray(detected_fluence_bins)
         self.cupy_detected_width_f_bins = cp.asarray(detected_width_f_bins)
-
-        self.cupy_injected_det_frac = cp.asarray(injected_det_frac)
-        self.cupy_injected_snr = cp.asarray(injected_snr)
-        self.cupy_injected_width = cp.asarray(injected_width)
 
         self.cupy_detected_interp_snr = cpinterp.RegularGridInterpolator(
             (self.cupy_detected_snr_bins, self.cupy_detected_width_bins),
@@ -321,12 +295,6 @@ class statistics_basic:
             bounds_error=False,
             fill_value=None,
         )
-        self.cupy_injected_interp_snr = cpinterp.RegularGridInterpolator(
-            (self.cupy_injected_snr, self.cupy_injected_width),
-            self.cupy_injected_det_frac,
-            bounds_error=False,
-            fill_value=None,
-        )
 
         snr_arr = np.linspace(-10, 100, 500)
         width_arr = np.linspace(-10, 60, 500) * 1e-3
@@ -334,6 +302,7 @@ class statistics_basic:
         snr_grid, width_grid = np.meshgrid(snr_arr, width_arr, indexing="ij")
         points = (snr_grid, width_grid)
         interp_res_snr = self.p_detect_cpu(points, fluence=False)
+
         fluence_grid, width_grid = np.meshgrid(fluence_arr, width_arr, indexing="ij")
         points = (fluence_grid, width_grid)
         interp_res_fluence = self.p_detect_cpu(points, fluence=True)
