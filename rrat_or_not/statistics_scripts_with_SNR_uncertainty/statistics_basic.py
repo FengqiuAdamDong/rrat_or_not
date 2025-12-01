@@ -222,8 +222,8 @@ class statistics_basic:
         # do a stage of this interpolation process so that the interpolated cut-off is at the right place
         # this is only needed if the injected grid is not really fine
         
-        detected_snr_bins_stage1 = np.linspace(0, 52, 5000)
-        detected_width_bins_stage1 = np.linspace(0, 35e-3, 5000)
+        detected_snr_bins_stage1 = np.linspace(0, 1000, 5000)
+        detected_width_bins_stage1 = np.linspace(0, 100e-3, 5000)
         detected_det_frac_snr_stage1 = self.p_detect_cpu(
             (
                 detected_snr_bins_stage1[:, np.newaxis],
@@ -236,9 +236,6 @@ class statistics_basic:
         detected_det_frac_snr_stage1[
             :, np.argwhere(detected_width_bins_stage1 < width_cutoff)
         ] = 0
-
-        snr_upper = min(snr_upper, 50)
-        width_upper = min(width_upper, 28e-3)
 
         detected_det_frac_snr_stage1[
             :, np.argwhere(detected_width_bins_stage1 > width_upper)
