@@ -131,6 +131,7 @@ def load_selection_effects(
     width_upper=28e-3,
 ):
     # load the selection effects
+    import pdb; pdb.set_trace()
     likelihood_calc = statistics_ln(
         detection_curve,
         plot=True,
@@ -141,12 +142,12 @@ def load_selection_effects(
         snr_upper=snr_upper,
         width_upper=width_upper,
     )
-    likelihood_calc.convolve_p_detect(low_width=low_width_flag)
-    likelihood_calc.calculate_pdet(det_snr, det_width)
-    # remove the values with p_det = 0
-    mask = likelihood_calc.p_det_unfiltered.get() > 0
-    det_snr = det_snr[mask]
-    det_width = det_width[mask]
+    # likelihood_calc.convolve_p_detect(low_width=low_width_flag)
+    # likelihood_calc.calculate_pdet(det_snr, det_width)
+    # # remove the values with p_det = 0
+    # mask = likelihood_calc.p_det_unfiltered.get() > 0
+    # det_snr = det_snr[mask]
+    # det_width = det_width[mask]
     return likelihood_calc, det_snr, det_width
 
 
