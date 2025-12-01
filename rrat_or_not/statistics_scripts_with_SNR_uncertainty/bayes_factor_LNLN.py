@@ -99,8 +99,8 @@ def process_detection_results(
     logn_lower = len(det_snr) + 1
     print("snr_thresh", snr_thresh)
     print("width_thresh", width_thresh)
-    snr_upper_cutoff = np.min([snr_upper, 50])
-    width_upper_cutoff = np.min([width_upper, 28e-3])
+    snr_upper_cutoff = snr_upper
+    width_upper_cutoff = width_upper
     print("width_wide_thresh", width_upper_cutoff)
     print("snr_upper", snr_upper_cutoff)
     # filter the det_snr
