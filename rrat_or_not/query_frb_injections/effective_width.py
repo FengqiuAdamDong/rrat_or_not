@@ -10,9 +10,9 @@ def effective_width(tau, sigma):
 #create an array of taus with sigma = 1
 import numpy as np
 #logspace from 0.0001 to 130
-taus = np.logspace(np.log10(1), np.log10(50), 100)
+taus = np.logspace(np.log10(1), np.log10(100), 100)
 #logspace width between 0.004 and 5000
-sigmas = np.logspace(np.log10(1), np.log10(50), 101)
+sigmas = np.logspace(np.log10(1), np.log10(100), 101)
 #make a matrix of effective widths for each tau and sigma
 mtau, msigma = np.meshgrid(taus, sigmas)
 

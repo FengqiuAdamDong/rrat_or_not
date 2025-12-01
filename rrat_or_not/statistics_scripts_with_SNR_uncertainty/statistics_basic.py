@@ -422,3 +422,15 @@ class statistics_basic:
         # probability the random number is less than p gives you an idea of what will be detected
         detected = snr_emit[rands < p]
         return detected
+if __name__ == "__main__":
+    import sys
+    stat = statistics_basic(
+        sys.argv[1],
+        flux_cal=1,
+        snr_cutoff=2,
+        width_cutoff=0.005,
+        plot=True,
+        low_width_flag=False,
+        snr_upper=500,
+        width_upper=50,
+    )
