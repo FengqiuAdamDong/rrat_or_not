@@ -104,7 +104,6 @@ def process_detection_results(
     print("width_wide_thresh", width_upper_cutoff)
     print("snr_upper", snr_upper_cutoff)
     # filter the det_snr
-    import pdb; pdb.set_trace()
     mask = (
         (det_snr > snr_thresh)
         & (det_width > width_thresh)
@@ -145,7 +144,6 @@ def load_selection_effects(
     width_upper=28e-3,
 ):
     # load the selection effects
-    import pdb; pdb.set_trace()
     likelihood_calc = statistics_ln(
         detection_curve,
         plot=True,
