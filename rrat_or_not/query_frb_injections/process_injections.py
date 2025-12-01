@@ -226,177 +226,23 @@ class selection_fluence_width:
         )
         self.unique_amplitude = self.unique_snrs
 
+
+        #set the parametes that will be used by LuNfit
+        self.detected_bin_midpoints_snr = [self.unique_snrs, self.unique_widths]
+        self.detected_det_frac_snr = self.detection_fraction
+
+        self.detected_bin_midpoints_fluence = [self.unique_snrs, self.unique_widths]
+        self.detected_det_frac_fluence = self.detection_fraction
+
+        #change this later, this is arbitrary
+        self.detect_error_snr = 1
+        self.detect_error_width = 1
+        self.detect_error_snr_low_width = 1
+        self.detect_error_width_low_width = 1
+        self.detect_error_fluence = 1
         # save self
-        with open("temp.dill", "wb") as of:
+        with open("selection.dill", "wb") as of:
             dill.dump(self, of)
-
-        plt.figure()
-        plt.pcolormesh(
-            tau_600_mhz_ms_bins,
-            pulse_width_bins,
-            effective_width_av.T,
-            shading="auto",
-            cmap="viridis",
-        )
-        plt.xlabel("Tau 1 GHz (ms)")
-        plt.ylabel("Pulse Width (ms)")
-        plt.colorbar(label="Average Effective Width (ms)")
-        plt.xscale("log")
-        plt.yscale("log")
-        plt.savefig("effective_width_vs_tau_width.png")
-
-        plt.figure()
-        plt.pcolormesh(
-            fluence_bins,
-            effective_width_bins,
-            detection_fraction.T,
-            shading="auto",
-            cmap="viridis",
-        )
-        plt.xlabel("Fluence (Jy ms)")
-        plt.ylabel("Pulse Width (ms)")
-        plt.colorbar(label="Detection Fraction")
-        plt.xscale("log")
-        plt.yscale("log")
-        plt.title("Detection Fraction vs Fluence and Pulse Width")
-        plt.savefig("detection_fraction_vs_fluence_width.png")
-        # plot some slices of the selection function in fluence at fixed pulse widths
-        plt.figure(figsize=(10, 8))
-        fluence_axis = 0.5 * (fluence_bins[:-1] + fluence_bins[1:])
-        i = 0
-        while i < len(effective_width_bins) - 1:
-            # do every 10th pulse width bin
-            mid_pulse_width = 0.5 * (
-                effective_width_bins[i] + effective_width_bins[i + 1]
-            )
-            plt.plot(fluence_axis, detection_fraction[:, i], label=f"{mid_pulse_width}")
-            i += 1
-            # ax[j].set_xscale('log')
-            # ax[j].set_yscale('log')
-            # set the x axis from 0-50
-        plt.xscale("log")
-        plt.ylabel("Selection Probability")
-        plt.xlabel("Fluence (Jy ms)")
-        plt.legend()
-        plt.savefig("selection_function_slices_fluence.png")
-
-    def forward_model_amp_det(self):
-        karr = []
-        self.forward_model_cutoffs = []
-        for i in range(len(self.unique_widths)):
-            snrs = self.unique_snrs
-            snrs = np.array(snrs)
-            det_fracs = self.det_frac_matrix_snr[:, i]
-            det_fracs = np.array(det_fracs)
-            # determine where x0 is
-            snr_interp_arr = np.logspace(np.log10(min(snrs)), np.log10(max(snrs)), 1000)
-            interp_det_fracs = np.interp(snr_interp_arr, snrs, det_fracs)
-            # find where it's closest to 0.5
-            x0 = snr_interp_arr[np.argmin(np.abs(interp_det_fracs - 0.5))]
-
-            def p_det_st(x, k1, k2, k3, x0, det_err, cutoff):
-                sdet = np.linspace(min(x) - 3 * det_err, max(x) + 3 * det_err, 1000)
-                sdet_giv_st = norm.pdf(
-                    sdet, loc=x[np.newaxis, :], scale=det_err[np.newaxis, :]
-                )
-                pdet_giv_sdet = forward_model(sdet, k1, k2, k3, x0, cutoff)
-                integral = np.trapezoid(sdet_giv_st * pdet_giv_sdet, sdet, axis=0)
-                return integral
-
-            def loglike(X, snr_arr, det_fracs, det_err, cutoff):
-                sigma = X[4]
-                # use a gaussian likelihood
-                loglike = np.nansum(
-                    -0.5
-                    * (
-                        p_det_st(snr_arr, X[0], X[1], X[2], X[3], det_err, cutoff)
-                        - det_fracs
-                    )
-                    ** 2
-                    / sigma**2
-                    - np.log(sigma * np.sqrt(2 * np.pi))
-                )
-                return -1 * loglike
-
-            cutoff = np.argwhere(det_fracs < 0.1)
-            cutoff = np.max(cutoff)
-            self.forward_model_cutoffs.append(snrs[cutoff])
-            # this is temporarily set to be from 0.5 to 2.0 linearly spaced
-            self.detect_error_snr = np.linspace(0.5, 2.0, len(snrs))
-            bounds = [(-50, 50), (-50, 50), (-10, 10), (-1000, 1000), (0.01, 1)]
-            args = (snrs, det_fracs, self.detect_error_snr, snrs[cutoff])
-            minimizer_kwargs = dict(method="Nelder-Mead", args=args, bounds=bounds)
-            init = [1, 1, 1, x0, 0.05]
-            res = basinhopping(
-                loglike, init, minimizer_kwargs=minimizer_kwargs, niter=50
-            )
-            # fit the model
-            k1, k2, k3, x0, sigma = res.x
-            print(
-                f"fitted sigma {sigma} k1 {k1} k2 {k2} k3 {k3} x0 {x0} cutoff {snrs[cutoff]} width {self.unique_widths[i]}"
-            )
-            karr.append(res.x)
-            plt.figure()
-            plt.plot(snrs, det_fracs, "o", label="Data Detection Fraction|True")
-            plt.plot(
-                snrs,
-                p_det_st(snrs, k1, k2, k3, x0, self.detect_error_snr, snrs[cutoff]),
-                label="Fitted Model",
-            )
-            # if I use interped array, I also need an interped error
-            interp_err = np.interp(snr_interp_arr, snrs, self.detect_error_snr)
-            plt.plot(
-                snr_interp_arr,
-                p_det_st(snr_interp_arr, k1, k2, k3, x0, interp_err, snrs[cutoff]),
-                label="Fitted Model Smooth",
-            )
-            plt.plot(
-                snr_interp_arr,
-                forward_model(snr_interp_arr, k1, k2, k3, x0, snrs[cutoff]),
-                label="det|sdet",
-            )
-            # set x axis to log
-            plt.xscale("log")
-            plt.legend()
-            plt.savefig(f"forward_model_fit_width_{self.unique_widths[i]:.2f}.png")
-            plt.close()
-
-        self.karr_amp = karr
-        with open("temp_amp_fitted.dill", "wb") as of:
-            dill.dump(self, of)
-    
-    def plot_modelled_selection_effects(self):
-        modelled_selection = np.zeros((1000, len(self.unique_widths)))
-        amps = np.linspace(np.min(self.unique_snrs), np.max(self.unique_snrs), 1000)
-        widths = self.unique_widths
-        for i in range(len(self.unique_widths)):
-            p_det_sdet = forward_model(
-                amps,
-                self.karr_amp[i][0],
-                self.karr_amp[i][1],
-                self.karr_amp[i][2],
-                self.karr_amp[i][3],
-                self.forward_model_cutoffs[i],
-            )
-            modelled_selection[:, i] = p_det_sdet
-        plt.figure()
-        plt.pcolormesh(
-            np.log10(amps),
-            np.log10(widths),
-            modelled_selection.T,
-        )
-        plt.xlabel("amps")
-        plt.ylabel("Pulse Width (ms)")
-        plt.colorbar(label="Modeled Selection Probability")
-        # plt.xscale("log")
-        # plt.yscale("log")
-        plt.title("Modeled Selection Probability vs Amplitude and Pulse Width")
-        plt.show()
-
-
-
-
-
 
 if __name__ == "__main__":
     import argparse

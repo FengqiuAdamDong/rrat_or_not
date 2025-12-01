@@ -17,7 +17,10 @@ from scipy.interpolate import RegularGridInterpolator
 from dynesty import utils as dyfunc
 import glob
 import yaml
-import cupy as cp
+try:
+    import cupy as cp
+except:
+    print("cupy not found, running on cpu")
 import scipy.stats as stats
 from statistics import statistics_ln
 

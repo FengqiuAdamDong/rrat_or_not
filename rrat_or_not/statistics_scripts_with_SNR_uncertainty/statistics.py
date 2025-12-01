@@ -8,8 +8,12 @@ from multiprocessing import Pool
 import os
 import dill
 import scipy
-from cupyx.scipy.special import gammaln as cupy_gammaln
-from cupyx.scipy.special import erf as cupy_erf
+try:
+    from cupyx.scipy.special import gammaln as cupy_gammaln
+    from cupyx.scipy.special import erf as cupy_erf
+    import cupy as cp
+except:
+    print("CUPY not found, please install cupy for GPU support")
 from statistics_basic import statistics_basic as sb
 
 # from statistics_basic import load_detection_fn, p_detect_cupy, p_detect_cpu
@@ -19,7 +23,6 @@ global det_error
 import time
 
 ###############################CUPY FUNCTIONS##################################
-import cupy as cp
 
 
 def lognorm_dist_cupy(x, mu, sigma, lower_c=0, upper_c=cp.inf):

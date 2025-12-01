@@ -1,7 +1,10 @@
 import dill
 import matplotlib.pyplot as plt
-import cupy as cp
-from cupyx.scipy import interpolate as cpinterp
+try:
+    import cupy as cp
+    from cupyx.scipy import interpolate as cpinterp
+except:
+    print("cupy not found, running on cpu")
 import numpy as np
 import scipy
 import pandas as pd
