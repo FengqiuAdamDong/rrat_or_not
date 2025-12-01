@@ -104,6 +104,7 @@ def process_detection_results(
     print("width_wide_thresh", width_upper_cutoff)
     print("snr_upper", snr_upper_cutoff)
     # filter the det_snr
+    import pdb; pdb.set_trace()
     mask = (
         (det_snr > snr_thresh)
         & (det_width > width_thresh)
@@ -115,6 +116,19 @@ def process_detection_results(
 
     low_width_flag = np.mean(det_width) < 5e-3
 
+    plt.figure()
+    #2d histogram of det_width and det_snr
+    plt.hist2d(
+        det_width * 1e3,
+        det_snr,
+        bins=[50, 50],
+        range=[[0, width_upper_cutoff * 1e3], [snr_thresh, snr_upper_cutoff]],
+        cmap="viridis",
+    )
+    plt.colorbar(label="Counts")
+    plt.xlabel("Detected Width (ms)")
+    plt.ylabel("Detected S/N")
+    plt.show()
     # which
     return det_fluence, det_width, det_snr, noise_std, low_width_flag, logn_lower
 
