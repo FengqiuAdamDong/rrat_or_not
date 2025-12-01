@@ -153,6 +153,7 @@ def load_selection_effects(
         low_width_flag=low_width_flag,
         snr_upper=snr_upper,
         width_upper=width_upper,
+        use_interp=False,
         reuse_pdet_sdet=True,
     )
     # likelihood_calc.convolve_p_detect(low_width=low_width_flag)
