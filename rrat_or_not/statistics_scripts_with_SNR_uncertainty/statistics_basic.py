@@ -186,6 +186,7 @@ class statistics_basic:
         width_upper=28e-3,
         flux_cal=1,
         use_interp=False,
+        reuse_pdet_sdet=False,
     ):
         print(f"using interp: {use_interp}")
         with open(detection_curve, "rb") as inf:
@@ -295,6 +296,14 @@ class statistics_basic:
             bounds_error=False,
             fill_value=None,
         )
+
+        if reuse_pdet_sdet:
+            #this is kind of a fudge, but with low errors, this provides results pretty close to the truth
+            self.true_snr_bins = self.detected_snr_bins
+            self.true_width_bins = self.detected_width_bins
+            self.pdet_st_wt_interp = self.detected_interp_snr
+            self.cupy_pdet_st_wt_interp = self.cupy_detected_interp_snr
+
 
         snr_arr = np.linspace(-10, 500, 500)
         width_arr = np.linspace(-10, 50, 500) * 1e-3
