@@ -125,16 +125,6 @@ class selection_fluence_width:
         effective_width = interpolator(point)[0]
         return effective_width
 
-    def test_selection(self):
-        injection_dm = np.array([obj.injection_dm for obj in self.injections_data_arr])
-        detection_dm = np.array([obj.detection_dm for obj in self.injections_data_arr])
-        plt.figure()
-        plt.scatter(injection_dm, detection_dm, c="blue", alpha=0.5)
-        plt.xlabel("Injection DM")
-        plt.ylabel("Detection DM")
-        plt.title("Injection DM vs Detection DM")
-        plt.show()
-
     def bin_fluence_dm(self):
         fluences = np.array(
             [obj.injection_fluence_jy_ms for obj in self.injections_data_arr]
@@ -154,40 +144,26 @@ class selection_fluence_width:
                 for tau, pw in zip(tau_600_mhz_ms, pulse_width_ms)
             ]
         )
+        peak_fluxes = fluences / effective_width
+            
 
-        print("min max tau 600 mhz", np.min(tau_600_mhz_ms), np.max(tau_600_mhz_ms))
-        print("min max width", np.min(pulse_width_ms), np.max(pulse_width_ms))
+        print("min max tau 600 mhz ms", np.min(tau_600_mhz_ms), np.max(tau_600_mhz_ms))
+        print("min max width ms", np.min(pulse_width_ms), np.max(pulse_width_ms))
         detected = np.array([obj.detected for obj in self.injections_data_arr])
         # make a 2d histogram of fluence vs pulse width, color coded by detection fraction
         # just go out to 1000 for fluences
         fluence_bins = np.logspace(
             np.log10(np.min(fluences[fluences > 0])), np.log10(1000), 10
         )
+        peak_flux_bins = np.logspace(
+            np.log10(np.min(peak_fluxes[peak_fluxes > 0])), np.log10(1000), 10
+        )
+
         # make 11 bins in width and 10 in fluence so that it's easier to track
         effective_width_bins = np.logspace(np.log10(1), np.log10(50), 11)
-        pulse_width_bins = np.logspace(np.log10(1), np.log10(50), 11)
-        tau_600_mhz_ms_bins = np.logspace(np.log10(1), np.log10(50), 11)
-        # plot a 2d histogram of fluence vs pulse width, color coded by effective width
-        effective_width_av = np.zeros(
-            (len(tau_600_mhz_ms_bins) - 1, len(pulse_width_bins) - 1)
-        )
-        for i in range(len(tau_600_mhz_ms_bins) - 1):
-            for j in range(len(pulse_width_bins) - 1):
-                in_bin = (
-                    (tau_600_mhz_ms >= tau_600_mhz_ms_bins[i])
-                    & (tau_600_mhz_ms < tau_600_mhz_ms_bins[i + 1])
-                    & (pulse_width_ms >= pulse_width_bins[j])
-                    & (pulse_width_ms < pulse_width_bins[j + 1])
-                )
-                if np.sum(in_bin) > 0:
-                    # average all the in_bin effective widths
-                    effective_width_av[i, j] = np.mean(effective_width[in_bin])
-                else:
-                    effective_width_av[i, j] = np.nan
-        # These all load the default best-fit model (see model-selection.ipynb)
-        #
-        detection_fraction = np.zeros(
-            (len(fluence_bins) - 1, len(pulse_width_bins) - 1)
+
+        detection_fraction_fluence = np.zeros(
+            (len(fluence_bins) - 1, len(effective_width_bins) - 1)
         )
         for i in range(len(fluence_bins) - 1):
             for j in range(len(effective_width_bins) - 1):
@@ -200,39 +176,97 @@ class selection_fluence_width:
                 total_in_bin = np.sum(in_bin)
                 if total_in_bin > 0:
                     detected_in_bin = np.sum(detected[in_bin])
-                    detection_fraction[i, j] = detected_in_bin / total_in_bin
+                    detection_fraction_fluence[i, j] = detected_in_bin / total_in_bin
                 else:
-                    detection_fraction[i, j] = np.nan
+                    detection_fraction_fluence[i, j] = np.nan
 
-        self.detection_fraction = detection_fraction
-        self.det_frac_matrix_snr = self.detection_fraction
+        detection_fraction_peak_flux = np.zeros(
+            (len(peak_flux_bins) - 1, len(effective_width_bins) - 1)
+        )
+        for i in range(len(peak_flux_bins) - 1):
+            for j in range(len(effective_width_bins) - 1):
+                in_bin = (
+                    (peak_fluxes >= peak_flux_bins[i])
+                    & (peak_fluxes < peak_flux_bins[i + 1])
+                    & (effective_width >= effective_width_bins[j])
+                    & (effective_width < effective_width_bins[j + 1])
+                )
+                total_in_bin = np.sum(in_bin)
+                if total_in_bin > 0:
+                    detected_in_bin = np.sum(detected[in_bin])
+                    detection_fraction_peak_flux[i, j] = detected_in_bin / total_in_bin
+                else:
+                    detection_fraction_peak_flux[i, j] = np.nan
 
-        self.effective_width_bins = effective_width_bins
+        self.detection_fraction_fluence = detection_fraction_fluence
+        self.detection_fraction_peak_flux = detection_fraction_peak_flux
+
+        self.effective_width_bins_ms = effective_width_bins
+        self.effective_width_bins = effective_width_bins / 1000
+
         self.fluence_bins = fluence_bins
-        # set to midpoints of the bin edges
-        self.unique_widths = np.array(
+        self.peak_flux_bins = peak_flux_bins
+
+        #find the bin midpoints
+        self.unique_widths_ms = np.array(
             [
                 0.5 * (effective_width_bins[i] + effective_width_bins[i + 1])
                 for i in range(len(effective_width_bins) - 1)
             ]
         )
-        # self.fluence_bin_edges = fluence_bin_edges
-        # set this as unique snrs too
-        self.unique_snrs = np.array(
+        self.unique_widths = self.unique_widths_ms/1000
+        
+        self.unique_fluences = np.array(
             [
                 0.5 * (fluence_bins[i] + fluence_bins[i + 1])
                 for i in range(len(fluence_bins) - 1)
             ]
         )
-        self.unique_amplitude = self.unique_snrs
+        self.unique_peak_fluxes = np.array(
+            [
+                0.5 * (peak_flux_bins[i] + peak_flux_bins[i + 1])
+                for i in range(len(peak_flux_bins) - 1)
+            ]
+        )
 
+    def package_for_lunfit(self):
+
+        self.det_frac_matrix_snr = self.detection_fraction_peak_flux
 
         #set the parametes that will be used by LuNfit
-        self.detected_bin_midpoints_snr = [self.unique_snrs, self.unique_widths]
-        self.detected_det_frac_snr = self.detection_fraction
+        self.detected_bin_midpoints_snr = [self.unique_peak_fluxes, self.unique_widths]
+        self.detected_det_frac_snr = self.detection_fraction_peak_flux
 
-        self.detected_bin_midpoints_fluence = [self.unique_snrs, self.unique_widths]
-        self.detected_det_frac_fluence = self.detection_fraction
+        self.detected_bin_midpoints_fluence = [self.unique_fluences, self.unique_widths]
+        self.detected_det_frac_fluence = self.detection_fraction_fluence
+        #plot the detection fraction as a function of fluence and effective width
+        plt.figure()
+        plt.pcolormesh(
+            np.log10(self.detected_bin_midpoints_fluence[0]),
+            np.log10(self.detected_bin_midpoints_fluence[1]),
+            self.detected_det_frac_fluence.T,
+            shading="auto",
+        )
+        plt.colorbar(label="Detection Fraction")
+        plt.xlabel("log Fluence (Jy ms)")
+        plt.ylabel("log Effective Width (s)")
+        plt.title("Detection Fraction in Fluence vs Effective Width Bins")
+        plt.savefig("detection_fraction_fluence_width.png")
+        plt.close()
+
+        plt.figure()
+        plt.pcolormesh(
+            np.log10(self.detected_bin_midpoints_snr[0]),
+            np.log10(self.detected_bin_midpoints_snr[1]),
+            self.detected_det_frac_snr.T,
+            shading="auto",
+        )
+        plt.colorbar(label="Detection Fraction")
+        plt.xlabel("log Peak Flux (Jy)")
+        plt.ylabel("log Effective Width (s)")
+        plt.title("Detection Fraction in Peak Flux vs Effective Width Bins")
+        plt.savefig("detection_fraction_peakflux_width.png")
+        plt.close()
 
         #change this later, this is arbitrary
         self.detect_error_snr = 1
@@ -243,6 +277,10 @@ class selection_fluence_width:
         # save self
         with open("selection.dill", "wb") as of:
             dill.dump(self, of)
+
+
+
+
 
 if __name__ == "__main__":
     import argparse
@@ -256,42 +294,41 @@ if __name__ == "__main__":
     args = parser.parse_args()
     beam_x_min, beam_x_max, beam_y_min, beam_y_max = get_formed_beam()
 
-    if args.input_file.endswith(".dill"):
-        with open(args.input_file, "rb") as f:
-            selection = dill.load(f)
-    else:
-        injections_data_arr = np.load(args.input_file, allow_pickle=True)
 
-        injections_data_obj = [
-            injectionsData_processed.from_injectionsData(inj)
-            for inj in injections_data_arr
-        ]
-        for inj_obj in injections_data_obj:
-            inj_obj.process_injections_data()
-        beam_x_arr = np.array([inj.beam_x for inj in injections_data_obj])
-        beam_y_arr = np.array([inj.beam_y for inj in injections_data_obj])
-        # only keep those in the formed beam area
-        in_beam = (
-            (beam_x_arr >= beam_x_min)
-            & (beam_x_arr <= beam_x_max)
-            & (beam_y_arr >= beam_y_min)
-            & (beam_y_arr <= beam_y_max)
-        )
-        injections_data_obj = [
-            inj for i, inj in enumerate(injections_data_obj) if in_beam[i]
-        ]
-        beam_x_arr = beam_x_arr[in_beam]
-        beam_y_arr = beam_y_arr[in_beam]
+    injections_data_arr = np.load(args.input_file, allow_pickle=True)
 
-        plt.figure()
-        plt.scatter(beam_x_arr, beam_y_arr, alpha=0.5)
-        plt.xlabel("Beam X")
-        plt.ylabel("Beam Y")
-        plt.show()
+    injections_data_obj = [
+        injectionsData_processed.from_injectionsData(inj)
+        for inj in injections_data_arr
+    ]
+    for inj_obj in injections_data_obj:
+        inj_obj.process_injections_data()
+    beam_x_arr = np.array([inj.beam_x for inj in injections_data_obj])
+    beam_y_arr = np.array([inj.beam_y for inj in injections_data_obj])
+    # only keep those in the formed beam area
+    in_beam = (
+        (beam_x_arr >= beam_x_min)
+        & (beam_x_arr <= beam_x_max)
+        & (beam_y_arr >= beam_y_min)
+        & (beam_y_arr <= beam_y_max)
+    )
+    injections_data_obj = [
+        inj for i, inj in enumerate(injections_data_obj) if in_beam[i]
+    ]
+    beam_x_arr = beam_x_arr[in_beam]
+    beam_y_arr = beam_y_arr[in_beam]
 
-        selection = selection_fluence_width(injections_data_obj)
-        # selection.test_selection()
-        selection.bin_fluence_dm()
+    plt.figure()
+    plt.scatter(beam_x_arr, beam_y_arr, alpha=0.5)
+    plt.xlabel("Beam X")
+    plt.ylabel("Beam Y")
+    plt.savefig("beam_xy_distribution.png")
+    plt.close()
+
+    selection = selection_fluence_width(injections_data_obj)
+    # selection.test_selection()
+    selection.bin_fluence_dm()
+    selection.package_for_lunfit()
 
     # selection.forward_model_amp_det()
     # selection.plot_modelled_selection_effects()
