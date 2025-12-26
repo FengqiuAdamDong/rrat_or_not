@@ -334,7 +334,7 @@ if __name__ == "__main__":
     dm = 1778
     epoch = 50000 # MJD
     pulse_width = 10e-3  # seconds
-    pulse_snr = 100
+    pulse_snr = 1
     downsamp = 1
     orbit_sampling_rate = 45 #days
 
