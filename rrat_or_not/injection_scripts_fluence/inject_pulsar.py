@@ -400,5 +400,5 @@ if __name__ == "__main__":
             write_pulsar(X)
     if multi:
         from multiprocessing import Pool
-        with Pool(5) as p:
+        with Pool(24) as p:
             p.map(write_pulsar, X_arr)
