@@ -299,9 +299,7 @@ def write_pulsar(X):
             list((ptoa, pulse_snr, dm, pulse_width) for ptoa in pulse_times)
         )
         data = fbb(data, header=hdr)
-        print(data)
         data = inject_pulsar(data, pulse_attributes, freqs, tsamp)
-        import pdb; pdb.set_trace()
         filewriter = write_data(data, outfn+'.fil', my_filewriter=filewriter)
         filewriter = None
         #create a sigpyproc3 object
@@ -332,7 +330,7 @@ def write_pulsar(X):
     filewriter = None
 
 if __name__ == "__main__":
-    period = 2.123
+    period = 0.123
     dm = 1778
     epoch = 50000 # MJD
     pulse_width = 10e-3  # seconds
