@@ -366,6 +366,9 @@ if __name__ == "__main__":
     args.add_argument(
         "--pulse_snr", default=pulse_snr, type=float, help="Pulse SNR of the pulsar", required=False
     )
+    args.add_argument(
+        "--multiprocess", default=False, action="store_true", help="Use multiprocessing to speed up the injection"
+    )
 
     parser = args.parse_args()
     real = parser.real
@@ -376,6 +379,7 @@ if __name__ == "__main__":
     epoch = parser.epoch
     pulse_width = parser.pulse_width
     pulse_snr = parser.pulse_snr
+    multi = parser.multiprocess
 
     X_arr = []
     for i in range(samples):
@@ -391,8 +395,10 @@ if __name__ == "__main__":
             "downsamp": downsamp,
             "orbit_sampling_rate": orbit_sampling_rate,
         }
-    #     X_arr.append(X)
-    #     write_pulsar(X)
-    from multiprocessing import Pool
-    with Pool(5) as p:
-        p.map(write_pulsar, X_arr)
+        if not multi:
+            X_arr.append(X)
+            write_pulsar(X)
+    if multi:
+        from multiprocessing import Pool
+        with Pool(5) as p:
+            p.map(write_pulsar, X_arr)
