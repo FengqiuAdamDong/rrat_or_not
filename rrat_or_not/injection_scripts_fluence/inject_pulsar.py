@@ -274,7 +274,7 @@ def write_pulsar(X):
     mjd_to_add = i * orbit_sampling_rate
     outfn = f"injected_pulsar_{i}"
     #observation epoch is the start time of the data plus the mjd to add plus half the duration of the data
-    observation_epoch = hdr.tstart + mjd_to_add + (total_time / 2) / 86400.0
+    observation_epoch = filf_header.tstart + mjd_to_add + (total_time / 2) / 86400.0
     p_shifted = simulate_orbit(epoch,observation_epoch,period,outfn)
     print(p_shifted)
     pulse_times = np.array(calculate_pulse_times(p_shifted, filf_header, epoch))
