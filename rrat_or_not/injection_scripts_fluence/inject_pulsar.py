@@ -194,7 +194,7 @@ def simulate_orbit(mjd_epoch, observation_epoch, period, outfn):
     pulsar_mass = 1.4 #solarmasses
     T = 1*86400*365 #orbital period
     e = 0 #eccentricity
-    w = np.pi/4 #longitude of periastron
+    w = 0 #longitude of periastron
     i = np.pi/4 # inclination angle, assuming 45 degrees for simplicity
     # i = 0
     # T = 1 * 86400*365 #1 year in seconds
@@ -244,6 +244,7 @@ def write_pulsar(X):
     i = X["i"]
     dm = X["dm"]
     period = X["period"]
+    #reference epoch
     epoch = X["epoch"]
     pulse_width = X["pulse_width"]
     pulse_snr = X["pulse_snr"]
@@ -266,15 +267,16 @@ def write_pulsar(X):
     foff = filf_header.foff
     nchan = filf_header.nchans
     freqs = np.linspace(fch1, fch1 + foff * nchan, nchan)
-    gulp_size = 100  # seconds
+    gulp_size = 240  # seconds
     gulp_size_bins = int(gulp_size / tsamp)
     current_nsamp = 0
 
     mjd_to_add = i * orbit_sampling_rate
-    injections_start_time = filf_header.tstart + mjd_to_add
     import pdb; pdb.set_trace()
     outfn = f"injected_pulsar_{i}"
-    p_shifted = simulate_orbit(epoch,injections_start_time,period,outfn)
+    #observation epoch is the start time of the data plus the mjd to add plus half the duration of the data
+    observation_epoch = hdr.tstart + mjd_to_add + (total_time / 2) / 86400.0
+    p_shifted = simulate_orbit(epoch,observation_epoch,period,outfn)
     print(p_shifted)
     pulse_times = np.array(calculate_pulse_times(p_shifted, filf_header, epoch))
 
@@ -328,13 +330,13 @@ def write_pulsar(X):
     filewriter = None
 
 if __name__ == "__main__":
-    period = 2
+    period = 2.123
     dm = 1778
     epoch = 50000 # MJD
     pulse_width = 10e-3  # seconds
     pulse_snr = 0.3
     downsamp = 1
-    orbit_sampling_rate = 30 #days
+    orbit_sampling_rate = 45 #days
 
     import argparse
 
@@ -346,7 +348,7 @@ if __name__ == "__main__":
         "--gaus_noise", default=False, action="store_true", help="Add gaussian noise to the data"
     )
     args.add_argument(
-        "--samples", default=12, type=int, help="Number of samples of the orbit", required=True
+        "--samples", default=12, type=int, help="Number of samples of the orbit", required=False
     )
     args.add_argument(
         "--dm", default=dm, type=float, help="DM of the pulsar", required=False
