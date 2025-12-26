@@ -324,7 +324,7 @@ def write_pulsar(X):
             # check to see how many samples are left
             if nsamples - current_nsamp < gulp_size_bins:
                 gulp_size_bins = nsamples - current_nsamp
-            filewriter = write_data(data, outfn+'.fil', filewriter=filewriter)
+            filewriter = write_data(data, outfn+'.fil', my_filewriter=filewriter)
     print("done")
     current_nsamp = 0
     gulp_size_bins = int(gulp_size / tsamp)
