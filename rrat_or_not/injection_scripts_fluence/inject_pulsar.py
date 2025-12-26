@@ -150,6 +150,7 @@ def inject_pulsar(data, pulse_attributes, freqs,tsamp):
         # pulse peak time at each frequency
         dm_delays = dm_delay(dm, freqs[0], freqs)
         per_chan_toa_bins = toa_bin_top + time_to_bin(dm_delays, tsamp)
+        import pdb; pdb.set_trace()
         # calculate required injection amplitude
         # grab 1 second of data
         stats_window = int(1 / data.header.tsamp)
@@ -192,7 +193,7 @@ def simulate_orbit(mjd_epoch, observation_epoch, period, outfn):
     solar_mass = 1.989e30
     sagA_mass = 4.3e6 #solar masses
     pulsar_mass = 1.4 #solarmasses
-    T = 1*86400*365 #orbital period
+    T = 4.25*86400*365 #orbital period
     e = 0 #eccentricity
     w = 0 #longitude of periastron
     i = np.pi/4 # inclination angle, assuming 45 degrees for simplicity
