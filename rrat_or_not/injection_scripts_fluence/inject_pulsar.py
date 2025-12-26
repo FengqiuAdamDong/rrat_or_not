@@ -378,19 +378,19 @@ if __name__ == "__main__":
     pulse_snr = parser.pulse_snr
 
     X_arr = []
-    # for i in range(samples):
-    #     X = {
-    #         "real": real,
-    #         "gaus_noise": gaus_noise,
-    #         "i": i,
-    #         "pulse_width": pulse_width,
-    #         "pulse_snr": pulse_snr,
-    #         "dm": dm,
-    #         "period": period,
-    #         "epoch": epoch,
-    #         "downsamp": downsamp,
-    #         "orbit_sampling_rate": orbit_sampling_rate,
-    #     }
+    for i in range(samples):
+        X = {
+            "real": real,
+            "gaus_noise": gaus_noise,
+            "i": i,
+            "pulse_width": pulse_width,
+            "pulse_snr": pulse_snr,
+            "dm": dm,
+            "period": period,
+            "epoch": epoch,
+            "downsamp": downsamp,
+            "orbit_sampling_rate": orbit_sampling_rate,
+        }
     #     X_arr.append(X)
     #     write_pulsar(X)
     from multiprocessing import Pool
