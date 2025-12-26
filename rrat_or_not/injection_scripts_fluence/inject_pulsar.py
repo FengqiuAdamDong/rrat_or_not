@@ -395,6 +395,7 @@ if __name__ == "__main__":
             "downsamp": downsamp,
             "orbit_sampling_rate": orbit_sampling_rate,
         }
+        X_arr.append(X)
         if not multi:
             X_arr.append(X)
             write_pulsar(X)
