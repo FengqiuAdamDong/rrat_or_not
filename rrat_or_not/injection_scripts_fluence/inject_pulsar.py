@@ -136,6 +136,7 @@ def inject_pulsar(data, pulse_attributes, freqs,tsamp):
         combined_data = data
 
     for pulse in pulse_attributes:
+        import pdb; pdb.set_trace()
         ptoa, pulse_snr, dm, pulse_width = pulse
         width_bins = int(pulse_width / data.header.tsamp)
         # get the delay
