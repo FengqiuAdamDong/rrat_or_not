@@ -136,7 +136,6 @@ def inject_pulsar(data, pulse_attributes, freqs,tsamp):
         combined_data = data
 
     for pulse in pulse_attributes:
-        import pdb; pdb.set_trace()
         ptoa, pulse_snr, dm, pulse_width = pulse
         width_bins = int(pulse_width / data.header.tsamp)
         # get the delay
@@ -302,6 +301,7 @@ def write_pulsar(X):
         data = fbb(data, header=hdr)
         print(data)
         data = inject_pulsar(data, pulse_attributes, freqs, tsamp)
+        import pdb; pdb.set_trace()
         filewriter = write_data(data, outfn+'.fil', my_filewriter=filewriter)
         filewriter = None
         #create a sigpyproc3 object
