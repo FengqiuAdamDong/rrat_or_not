@@ -272,7 +272,6 @@ def write_pulsar(X):
     current_nsamp = 0
 
     mjd_to_add = i * orbit_sampling_rate
-    import pdb; pdb.set_trace()
     outfn = f"injected_pulsar_{i}"
     #observation epoch is the start time of the data plus the mjd to add plus half the duration of the data
     observation_epoch = hdr.tstart + mjd_to_add + (total_time / 2) / 86400.0
