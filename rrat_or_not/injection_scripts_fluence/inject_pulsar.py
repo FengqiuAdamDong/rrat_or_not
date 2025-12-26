@@ -269,6 +269,8 @@ def write_pulsar(X):
     freqs = np.linspace(fch1, fch1 + foff * nchan, nchan)
     gulp_size = 240  # seconds
     gulp_size_bins = int(gulp_size / tsamp)
+    if gulp_size_bins > nsamples:
+        gulp_size_bins = nsamples
     current_nsamp = 0
 
     mjd_to_add = i * orbit_sampling_rate
