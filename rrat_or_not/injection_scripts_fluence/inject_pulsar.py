@@ -191,7 +191,7 @@ def simulate_orbit(mjd_epoch, observation_epoch, period, outfn):
     c = 299792458
     solar_mass = 1.989e30
     sagA_mass = 4.3e6 #solar masses
-    pulsar_mass = 1.3 #solarmasses
+    pulsar_mass = 1.4 #solarmasses
     T = 1*86400*365 #orbital period
     e = 0 #eccentricity
     w = np.pi/4 #longitude of periastron
@@ -272,6 +272,7 @@ def write_pulsar(X):
 
     mjd_to_add = i * orbit_sampling_rate
     injections_start_time = filf_header.tstart + mjd_to_add
+    import pdb; pdb.set_trace()
     outfn = f"injected_pulsar_{i}"
     p_shifted = simulate_orbit(epoch,injections_start_time,period,outfn)
     print(p_shifted)
