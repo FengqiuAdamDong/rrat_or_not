@@ -150,7 +150,6 @@ def inject_pulsar(data, pulse_attributes, freqs,tsamp):
         # pulse peak time at each frequency
         dm_delays = dm_delay(dm, freqs[0], freqs)
         per_chan_toa_bins = toa_bin_top + time_to_bin(dm_delays, tsamp)
-        import pdb; pdb.set_trace()
         # calculate required injection amplitude
         # grab 1 second of data
         stats_window = int(1 / data.header.tsamp)
