@@ -366,7 +366,7 @@ if __name__ == "__main__":
         "--pulse_snr", default=pulse_snr, type=float, help="Pulse SNR of the pulsar", required=False
     )
     args.add_argument(
-        "--multiprocess", default=False, action="store_true", help="Use multiprocessing to speed up the injection"
+        "--multiprocess", default=1, type=int, help="Use multiprocessing to speed up the injection"
     )
 
     parser = args.parse_args()
@@ -395,10 +395,10 @@ if __name__ == "__main__":
             "orbit_sampling_rate": orbit_sampling_rate,
         }
         X_arr.append(X)
-        if not multi:
+        if multi == 1:
             X_arr.append(X)
             write_pulsar(X)
-    if multi:
+    if multi > 1:
         from multiprocessing import Pool
-        with Pool(24) as p:
+        with Pool(multi) as p:
             p.map(write_pulsar, X_arr)
